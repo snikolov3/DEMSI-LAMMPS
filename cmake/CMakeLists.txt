@@ -258,8 +258,8 @@ endif()
 
 if(ENABLE_VORONOI)
   find_package(VORO REQUIRED) #some distros
-  include_directories(${VORO_INCLUDE_DIRS})
-  list(APPEND LAMMPS_LINK_LIBS ${VORO_LIBRARIES})
+  target_include_directories(pkg_VORONOI PRIVATE ${VORO_INCLUDE_DIRS})
+  target_link_libraries(pkg_VORONOI ${VORO_LIBRARIES})
 endif()
 
 if(ENABLE_USER-MOLFILE)
@@ -268,25 +268,26 @@ endif()
 
 if(ENABLE_USER-NETCDF)
   find_package(NetCDF REQUIRED)
-  include_directories(NETCDF_INCLUDE_DIR)
-  list(APPEND LAMMPS_LINK_LIBS ${NETCDF_LIBRARY})
-  add_definitions(-DLMP_HAS_NETCDF -DNC_64BIT_DATA=0x0020)
+  target_include_directories(pkg_USER-NETCDF PRIVATE ${NETCDF_INCLUDE_DIR})
+  target_link_libraries(pkg_USER-NETCDF PRIVATE ${NETCDF_LIBRARY})
+  target_compile_options(pkg_USER-NETCDF PRIVATE -DLMP_HAS_NETCDF -DNC_64BIT_DATA=0x0020)
 endif()
 
 if(ENABLE_USER-SMD)
   find_package(Eigen3 REQUIRED)
-  include_directories(${EIGEN3_INCLUDE_DIR})
+  target_include_directories(pkg_USER-SMD PRIVATE ${EIGEN3_INCLUDE_DIR})
+  include_directories(${EIGEN3_INCLUDE_DIR}) # for liblammps
 endif()
 
 if(ENABLE_USER-QUIP)
   find_package(QUIP REQUIRED)
-  list(APPEND LAMMPS_LINK_LIBS ${QUIP_LIBRARIES} ${LAPACK_LIBRARIES} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
+  target_link_libraries(pkg_USER-QUIP ${QUIP_LIBRARIES} ${LAPACK_LIBRARIES} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
 endif()
 
 if(ENABLE_USER-QMMM)
   find_package(QE REQUIRED)
-  include_directories(${QE_INCLUDE_DIRS})
-  list(APPEND LAMMPS_LINK_LIBS ${QE_LIBRARIES} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
+  target_include_directories(pkg_USER-QMMM PRIVATE ${QE_INCLUDE_DIRS})
+  target_link_libraries(pkg_USER-QMMM ${QE_LIBRARIES} ${CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES})
 endif()
 
 if(ENABLE_USER-VTK)
@@ -298,8 +299,8 @@ endif()
 
 if(ENABLE_KIM)
   find_package(KIM REQUIRED)
-  list(APPEND LAMMPS_LINK_LIBS ${KIM_LIBRARIES})
-  include_directories(${KIM_INCLUDE_DIRS})
+  target_include_directories(pkg_KIM PRIVATE ${KIM_INCLUDE_DIRS})
+  target_link_libraries(pkg_KIM ${KIM_LIBRARIES})
 endif()
 
 if(ENABLE_MSCG)
