@@ -121,6 +121,32 @@ if(ENABLE_BODY AND ENABLE_POEMS)
   message(FATAL_ERROR "BODY and POEMS cannot be enabled at the same time")
 endif()
 
+######################################
+# Generate Basic Style files 
+######################################
+include(StyleHeaderUtils)
+RegisterStyles(${LAMMPS_SOURCE_DIR})
+
+##############################################
+# add sources of enabled packages
+############################################
+foreach(PKG ${DEFAULT_PACKAGES} ${OTHER_PACKAGES})
+  if(ENABLE_${PKG})
+    set(${PKG}_SOURCES_DIR ${LAMMPS_SOURCE_DIR}/${PKG})
+
+    # detects styles in package and adds them to global list
+    RegisterStyles(${${PKG}_SOURCES_DIR})
+
+    file(GLOB ${PKG}_SOURCES ${${PKG}_SOURCES_DIR}/*.cpp)
+    #always static never installed
+    add_library(pkg_${PKG} STATIC ${${PKG}_SOURCES})
+    #hide them from user
+    set_target_properties(pkg_${PKG} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
+    list(APPEND LAMMPS_LINK_LIBS pkg_${PKG})
+    target_include_directories(pkg_${PKG} PUBLIC ${${PKG}_SOURCES_DIR})
+  endif()
+endforeach()
+
 ######################################################
 # packages with special compiler needs or external libs
 ######################################################
@@ -146,14 +172,14 @@ if(ENABLE_KSPACE)
   set_property(CACHE FFT PROPERTY STRINGS KISSFFT FFTW3 MKL FFTW2)
   if(NOT FFT STREQUAL "KISSFFT")
     find_package(${FFT} REQUIRED)
-    add_definitions(-DFFT_${FFT})
-    include_directories(${${FFT}_INCLUDE_DIRS})
-    list(APPEND LAMMPS_LINK_LIBS ${${FFT}_LIBRARIES})
+    target_compile_options(pkg_KSPACE PRIVATE -DFFT_${FFT})
+    target_include_directories(pkg_KSPACE PRIVATE ${${FFT}_INCLUDE_DIRS})
+    target_link_libraries(pkg_KSPACE ${${FFT}_LIBRARIES})
   endif()
   set(PACK_OPTIMIZATION "PACK_ARRAY" CACHE STRING "Optimization for FFT")
   set_property(CACHE PACK_OPTIMIZATION PROPERTY STRINGS PACK_ARRAY PACK_POINTER PACK_MEMCPY)
   if(NOT PACK_OPTIMIZATION STREQUAL "PACK_ARRAY")
-    add_definitions(-D${PACK_OPTIMIZATION})
+    target_compile_options(pkg_KSPACE PRIVATE -D${PACK_OPTIMIZATION})
   endif()
 endif()
 
@@ -292,7 +318,7 @@ if(ENABLE_MSCG)
   endif()
   file(GLOB MSCG_SOURCES ${LAMMPS_LIB_MSCG_BIN_DIR}/*.cpp)
   add_library(mscg ${MSCG_SOURCES})
-  list(APPEND LAMMPS_LINK_LIBS mscg)
+  target_link_libraries(pkg_MSCG mscg)
   target_compile_options(mscg PRIVATE -DDIMENSION=3 -D_exclude_gromacs=1)
   target_include_directories(mscg PUBLIC ${LAMMPS_LIB_MSCG_BIN_DIR})
   target_link_libraries(mscg ${GSL_LIBRARIES} ${LAPACK_LIBRARIES})
@@ -320,28 +346,6 @@ foreach(FUNC sin cos)
 endforeach(FUNC)
 list(APPEND LAMMPS_LINK_LIBS ${MATH_LIBRARIES})
 
-######################################
-# Generate Basic Style files 
-######################################
-include(StyleHeaderUtils)
-RegisterStyles(${LAMMPS_SOURCE_DIR})
-
-##############################################
-# add sources of enabled packages
-############################################
-foreach(PKG ${DEFAULT_PACKAGES} ${OTHER_PACKAGES})
-  if(ENABLE_${PKG})
-    set(${PKG}_SOURCES_DIR ${LAMMPS_SOURCE_DIR}/${PKG})
-
-    # detects styles in package and adds them to global list
-    RegisterStyles(${${PKG}_SOURCES_DIR})
-
-    file(GLOB ${PKG}_SOURCES ${${PKG}_SOURCES_DIR}/*.cpp)
-    list(APPEND LIB_SOURCES ${${PKG}_SOURCES})
-    include_directories(${${PKG}_SOURCES_DIR})
-  endif()
-endforeach()
-
 ##############################################
 # add lib sources of (simple) enabled packages
 ############################################
@@ -362,7 +366,7 @@ foreach(SIMPLE_LIB REAX MEAM POEMS USER-ATC USER-AWPMD USER-COLVARS USER-H5MD
       else()
         add_library(${PKG_LIB} STATIC ${${PKG_LIB}_SOURCES})
       endif()
-      list(APPEND LAMMPS_LINK_LIBS ${PKG_LIB})
+      target_link_libraries(pkg_${SIMPLE_LIB} ${PKG_LIB})
       if(PKG_LIB STREQUAL awpmd)
         target_include_directories(awpmd PUBLIC ${LAMMPS_LIB_SOURCE_DIR}/awpmd/systems/interact ${LAMMPS_LIB_SOURCE_DIR}/awpmd/ivutils/include)
       elseif(PKG_LIB STREQUAL h5md)
