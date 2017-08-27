@@ -282,7 +282,7 @@ if(ENABLE_USER-MOLFILE)
   add_library(molfile INTERFACE)
   target_include_directories(molfile INTERFACE ${LAMMPS_LIB_SOURCE_DIR}/molfile)
   target_link_libraries(molfile INTERFACE ${CMAKE_DL_LIBS})
-  list(APPEND LAMMPS_LINK_LIBS molfile)
+  target_link_libraries(pkg_USER-MOLFILE molfile)
 endif()
 
 if(ENABLE_USER-NETCDF)
