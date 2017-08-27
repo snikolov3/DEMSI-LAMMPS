@@ -197,8 +197,7 @@ endif()
 if(ENABLE_MISC)
   option(LAMMPS_XDR "include XDR compatibility files for doing particle dumps in XTC format" OFF)
   if(LAMMPS_XDR)
-    target_compile_options(pkg_MISC PRIVATE -DLAMMPS_XDR)
-    add_definitions(-DLAMMPS_XDR) # for liblammps
+    target_compile_options(pkg_MISC PUBLIC -DLAMMPS_XDR)
   endif()
 endif()
 
@@ -229,8 +228,7 @@ endif()
 if(ENABLE_PYTHON)
   find_package(PythonInterp REQUIRED)
   find_package(PythonLibs REQUIRED)
-  add_definitions(-DLMP_PYTHON) # for liblammps
-  target_compile_options(pkg_PYTHON PRIVATE -DLMP_PYTHON)
+  target_compile_options(pkg_PYTHON PUBLIC -DLMP_PYTHON)
   target_include_directories(pkg_PYTHON PRIVATE ${PYTHON_INCLUDE_DIR})
   target_link_libraries(pkg_PYTHON ${PYTHON_LIBRARY})
   set_target_properties(pkg_PYTHON PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -294,8 +292,7 @@ endif()
 
 if(ENABLE_USER-SMD)
   find_package(Eigen3 REQUIRED)
-  target_include_directories(pkg_USER-SMD PRIVATE ${EIGEN3_INCLUDE_DIR})
-  include_directories(${EIGEN3_INCLUDE_DIR}) # for liblammps
+  target_include_directories(pkg_USER-SMD PUBLIC ${EIGEN3_INCLUDE_DIR})
 endif()
 
 if(ENABLE_USER-QUIP)
