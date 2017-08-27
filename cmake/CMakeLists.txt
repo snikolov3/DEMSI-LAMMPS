@@ -213,9 +213,11 @@ endif()
 if(ENABLE_PYTHON)
   find_package(PythonInterp REQUIRED)
   find_package(PythonLibs REQUIRED)
-  add_definitions(-DLMP_PYTHON)
-  include_directories(${PYTHON_INCLUDE_DIR})
-  list(APPEND LAMMPS_LINK_LIBS ${PYTHON_LIBRARY})
+  add_definitions(-DLMP_PYTHON) # for liblammps
+  target_compile_options(pkg_PYTHON PRIVATE -DLMP_PYTHON)
+  target_include_directories(pkg_PYTHON PRIVATE ${PYTHON_INCLUDE_DIR})
+  target_link_libraries(pkg_PYTHON ${PYTHON_LIBRARY})
+  set_target_properties(pkg_PYTHON PROPERTIES POSITION_INDEPENDENT_CODE ON)
   if(NOT PYTHON_INSTDIR)
     execute_process(COMMAND ${PYTHON_EXECUTABLE}
 	  -c "import distutils.sysconfig as cg; print(cg.get_python_lib(1,0,prefix='${CMAKE_INSTALL_PREFIX}'))"
