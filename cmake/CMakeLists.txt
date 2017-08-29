@@ -14,6 +14,7 @@ set(LAMMPS_LIB_BINARY_DIR ${CMAKE_BINARY_DIR}/lib)
 file(GLOB LIB_SOURCES ${LAMMPS_SOURCE_DIR}/*.cpp)
 file(GLOB LMP_SOURCES ${LAMMPS_SOURCE_DIR}/main.cpp)
 list(REMOVE_ITEM LIB_SOURCES ${LMP_SOURCES})
+add_library(lammps ${LIB_SOURCES})
 
 # Cmake modules/macros are in a subdirectory to keep this file cleaner
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/Modules)
@@ -48,13 +49,12 @@ if(BUILD_SHARED_LIBS) # for all pkg libs, mpi_stubs and linalg
 endif()
 include(GNUInstallDirs)
 
-set(LAMMPS_LINK_LIBS)
 set(LAMMPS_API_DEFINES)
 option(ENABLE_MPI "Build MPI version" OFF)
 if(ENABLE_MPI)
   find_package(MPI REQUIRED)
   include_directories(${MPI_C_INCLUDE_PATH})
-  list(APPEND LAMMPS_LINK_LIBS ${MPI_CXX_LIBRARIES})
+  target_link_libraries(lammps ${MPI_CXX_LIBRARIES})
   option(LAMMPS_LONGLONG_TO_LONG "Workaround if your system or MPI version does not recognize 'long long' data types" OFF)
   if(LAMMPS_LONGLONG_TO_LONG)
     add_definitions(-DLAMMPS_LONGLONG_TO_LONG)
@@ -63,7 +63,7 @@ else()
   file(GLOB MPI_SOURCES ${LAMMPS_SOURCE_DIR}/STUBS/mpi.c)
   add_library(mpi_stubs STATIC ${MPI_SOURCES})
   include_directories(${LAMMPS_SOURCE_DIR}/STUBS)
-  list(APPEND LAMMPS_LINK_LIBS mpi_stubs)
+  target_link_libraries(lammps mpi_stubs)
 endif()
 
 set(LAMMPS_SIZE_LIMIT "LAMMPS_SMALLBIG" CACHE STRING "Lammps size limit")
@@ -144,7 +144,7 @@ foreach(PKG ${DEFAULT_PACKAGES} ${OTHER_PACKAGES})
     add_library(pkg_${PKG} STATIC ${${PKG}_SOURCES})
     #hide them from user
     set_target_properties(pkg_${PKG} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
-    list(APPEND LAMMPS_LINK_LIBS pkg_${PKG})
+    target_link_libraries(lammps pkg_${PKG})
     target_include_directories(pkg_${PKG} PUBLIC ${${PKG}_SOURCES_DIR})
   endif()
 endforeach()
@@ -231,14 +231,14 @@ find_package(JPEG)
 if(JPEG_FOUND)
   add_definitions(-DLAMMPS_JPEG)
   include_directories(${JPEG_INCLUDE_DIR})
-  list(APPEND LAMMPS_LINK_LIBS ${JPEG_LIBRARIES})
+  target_link_libraries(lammps ${JPEG_LIBRARIES})
 endif()
 
 find_package(PNG)
 find_package(ZLIB)
 if(PNG_FOUND AND ZLIB_FOUND)
   include_directories(${PNG_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
-  list(APPEND LAMMPS_LINK_LIBS ${PNG_LIBRARIES} ${ZLIB_LIBRARIES})
+  target_link_libraries(lammps ${PNG_LIBRARIES} ${ZLIB_LIBRARIES})
   add_definitions(-DLAMMPS_PNG)
 endif()
 
@@ -346,7 +346,7 @@ foreach(FUNC sin cos)
     message(FATAL_ERROR "Could not find needed math function - ${FUNC}")
   endif(NOT FOUND_${FUNC}_${MATH_LIBRARIES})
 endforeach(FUNC)
-list(APPEND LAMMPS_LINK_LIBS ${MATH_LIBRARIES})
+target_link_libraries(lammps ${MATH_LIBRARIES})
 
 ##############################################
 # add lib sources of (simple) enabled packages
@@ -418,7 +418,7 @@ if(ENABLE_USER-OMP)
 
     add_library(pkg_USER-OMP STATIC ${USER-OMP_SOURCES})
     set_target_properties(pkg_USER-OMP PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
-    list(APPEND LAMMPS_LINK_LIBS pkg_USER-OMP)
+    target_link_libraries(lammps pkg_USER-OMP)
     target_include_directories(pkg_USER-OMP PUBLIC ${USER-OMP_SOURCES_DIR})
 endif()
 
@@ -456,7 +456,7 @@ if(ENABLE_KOKKOS)
   add_library(pkg_KOKKOS STATIC ${KOKKOS_PKG_SOURCES})
   set_target_properties(pkg_KOKKOS PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
   target_link_libraries(pkg_KOKKOS kokkos)
-  list(APPEND LAMMPS_LINK_LIBS pkg_KOKKOS)
+  target_link_libraries(lammps pkg_KOKKOS)
   target_include_directories(pkg_KOKKOS PUBLIC ${KOKKOS_PKG_SOURCES_DIR})
 endif()
 
@@ -472,7 +472,7 @@ if(ENABLE_OPT)
 
     add_library(pkg_OPT STATIC ${OPT_SOURCES})
     set_target_properties(pkg_OPT PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
-    list(APPEND LAMMPS_LINK_LIBS pkg_OPT)
+    target_link_libraries(lammps pkg_OPT)
     target_include_directories(pkg_OPT PUBLIC ${OPT_SOURCES_DIR})
 endif()
 
@@ -498,7 +498,7 @@ if(ENABLE_USER-INTEL)
 
     add_library(pkg_USER-INTEL STATIC ${USER-INTEL_SOURCES})
     set_target_properties(pkg_USER-INTEL PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
-    list(APPEND LAMMPS_LINK_LIBS pkg_USER-INTEL)
+    target_link_libraries(lammps pkg_USER-INTEL)
     target_include_directories(pkg_USER-INTEL PUBLIC ${USER-INTEL_SOURCES_DIR})
 endif()
 
@@ -561,7 +561,7 @@ if(ENABLE_GPU)
 
 
     # GPU package
-    list(APPEND LAMMPS_LINK_LIBS ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY})
+    target_link_libraries(gpu ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY})
 
     set(GPU_SOURCES_DIR ${LAMMPS_SOURCE_DIR}/GPU)
     set(GPU_SOURCES ${GPU_SOURCES_DIR}/gpu_extra.h
@@ -580,7 +580,7 @@ if(ENABLE_GPU)
     add_library(pkg_GPU STATIC ${GPU_SOURCES})
     set_target_properties(pkg_GPU PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
     target_link_libraries(pkg_GPU kokkos)
-    list(APPEND LAMMPS_LINK_LIBS pkg_GPU)
+    target_link_libraries(lammps pkg_GPU)
     target_include_directories(pkg_GPU PUBLIC ${GPU_SOURCES_DIR})
 endif()
 
@@ -598,8 +598,6 @@ include_directories(${LAMMPS_STYLE_HEADERS_DIR})
 ###########################################
 # Actually add executable and lib to build
 ############################################
-add_library(lammps ${LIB_SOURCES})
-target_link_libraries(lammps ${LAMMPS_LINK_LIBS})
 if(BUILD_SHARED_LIBS)
   set_target_properties(lammps PROPERTIES SOVERSION ${SOVERSION})
   install(TARGETS lammps LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
