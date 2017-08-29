@@ -230,14 +230,14 @@ endif()
 find_package(JPEG)
 if(JPEG_FOUND)
   add_definitions(-DLAMMPS_JPEG)
-  include_directories(${JPEG_INCLUDE_DIR})
+  target_include_directories(lammps PRIVATE ${JPEG_INCLUDE_DIR})
   target_link_libraries(lammps ${JPEG_LIBRARIES})
 endif()
 
 find_package(PNG)
 find_package(ZLIB)
 if(PNG_FOUND AND ZLIB_FOUND)
-  include_directories(${PNG_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
+  target_include_directories(lammps PRIVATE ${PNG_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
   target_link_libraries(lammps ${PNG_LIBRARIES} ${ZLIB_LIBRARIES})
   add_definitions(-DLAMMPS_PNG)
 endif()
@@ -432,7 +432,7 @@ if(ENABLE_KOKKOS)
                           ${LAMMPS_LIB_KOKKOS_SRC_DIR}/containers/src
                           ${LAMMPS_LIB_KOKKOS_SRC_DIR}/algorithms/src
                           ${LAMMPS_LIB_KOKKOS_BIN_DIR})
-  include_directories(${Kokkos_INCLUDE_DIRS})
+  target_include_directories(pkg_KOKKOS PRIVATE ${Kokkos_INCLUDE_DIRS})
 
   set(KOKKOS_PKG_SOURCES_DIR ${LAMMPS_SOURCE_DIR}/KOKKOS)
   set(KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/kokkos.cpp
@@ -568,7 +568,7 @@ if(ENABLE_GPU)
                     ${GPU_SOURCES_DIR}/fix_gpu.h
                     ${GPU_SOURCES_DIR}/fix_gpu.cpp)
     FindStyleHeaders(${GPU_SOURCES_DIR} FIX_CLASS fix_ FIX)
-    include_directories(${GPU_SOURCES_DIR})
+    target_include_directories(pkg_GPU PRIVATE ${GPU_SOURCES_DIR})
 
     set_property(GLOBAL PROPERTY "GPU_SOURCES" "${GPU_SOURCES}")
 
@@ -592,8 +592,7 @@ set(LAMMPS_STYLE_HEADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/styles)
 
 GenerateStyleHeaders(${LAMMPS_STYLE_HEADERS_DIR})
 
-include_directories(${LAMMPS_SOURCE_DIR})
-include_directories(${LAMMPS_STYLE_HEADERS_DIR})
+target_include_directories(lammps PRIVATE ${LAMMPS_SOURCE_DIR} ${LAMMPS_STYLE_HEADERS_DIR})
 
 ###########################################
 # Actually add executable and lib to build
