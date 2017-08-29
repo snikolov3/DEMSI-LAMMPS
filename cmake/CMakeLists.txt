@@ -416,8 +416,10 @@ if(ENABLE_USER-OMP)
 
     get_property(USER-OMP_SOURCES GLOBAL PROPERTY OMP_SOURCES)
 
-    list(APPEND LIB_SOURCES ${USER-OMP_SOURCES})
-    include_directories(${USER-OMP_SOURCES_DIR})
+    add_library(pkg_USER-OMP STATIC ${USER-OMP_SOURCES})
+    set_target_properties(pkg_USER-OMP PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
+    list(APPEND LAMMPS_LINK_LIBS pkg_USER-OMP)
+    target_include_directories(pkg_USER-OMP PUBLIC ${USER-OMP_SOURCES_DIR})
 endif()
 
 if(ENABLE_KOKKOS)
@@ -431,7 +433,6 @@ if(ENABLE_KOKKOS)
                           ${LAMMPS_LIB_KOKKOS_SRC_DIR}/algorithms/src
                           ${LAMMPS_LIB_KOKKOS_BIN_DIR})
   include_directories(${Kokkos_INCLUDE_DIRS})
-  list(APPEND LAMMPS_LINK_LIBS kokkos)
 
   set(KOKKOS_PKG_SOURCES_DIR ${LAMMPS_SOURCE_DIR}/KOKKOS)
   set(KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/kokkos.cpp
@@ -452,8 +453,11 @@ if(ENABLE_KOKKOS)
 
   get_property(KOKKOS_PKG_SOURCES GLOBAL PROPERTY KOKKOS_PKG_SOURCES)
 
-  list(APPEND LIB_SOURCES ${KOKKOS_PKG_SOURCES})
-  include_directories(${KOKKOS_PKG_SOURCES_DIR})
+  add_library(pkg_KOKKOS STATIC ${KOKKOS_PKG_SOURCES})
+  set_target_properties(pkg_KOKKOS PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
+  target_link_libraries(pkg_KOKKOS kokkos)
+  list(APPEND LAMMPS_LINK_LIBS pkg_KOKKOS)
+  target_include_directories(pkg_KOKKOS PUBLIC ${KOKKOS_PKG_SOURCES_DIR})
 endif()
 
 if(ENABLE_OPT)
@@ -466,8 +470,10 @@ if(ENABLE_OPT)
 
     get_property(OPT_SOURCES GLOBAL PROPERTY OPT_SOURCES)
 
-    list(APPEND LIB_SOURCES ${OPT_SOURCES})
-    include_directories(${OPT_SOURCES_DIR})
+    add_library(pkg_OPT STATIC ${OPT_SOURCES})
+    set_target_properties(pkg_OPT PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
+    list(APPEND LAMMPS_LINK_LIBS pkg_OPT)
+    target_include_directories(pkg_OPT PUBLIC ${OPT_SOURCES_DIR})
 endif()
 
 if(ENABLE_USER-INTEL)
@@ -490,8 +496,10 @@ if(ENABLE_USER-INTEL)
 
     get_property(USER-INTEL_SOURCES GLOBAL PROPERTY USER-INTEL_SOURCES)
 
-    list(APPEND LIB_SOURCES ${USER-INTEL_SOURCES})
-    include_directories(${USER-INTEL_SOURCES_DIR})
+    add_library(pkg_USER-INTEL STATIC ${USER-INTEL_SOURCES})
+    set_target_properties(pkg_USER-INTEL PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
+    list(APPEND LAMMPS_LINK_LIBS pkg_USER-INTEL)
+    target_include_directories(pkg_USER-INTEL PUBLIC ${USER-INTEL_SOURCES_DIR})
 endif()
 
 if(ENABLE_GPU)
@@ -546,8 +554,6 @@ if(ENABLE_GPU)
       target_compile_definitions(gpu PRIVATE -DUSE_CUDPP)
     endif()
 
-    list(APPEND LAMMPS_LINK_LIBS gpu)
-
     add_executable(nvc_get_devices ${LAMMPS_LIB_SOURCE_DIR}/gpu/geryon/ucl_get_devices.cpp)
     target_compile_definitions(nvc_get_devices PRIVATE -DUCL_CUDADR)
     target_link_libraries(nvc_get_devices PRIVATE ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY})
@@ -571,8 +577,11 @@ if(ENABLE_GPU)
 
     get_property(GPU_SOURCES GLOBAL PROPERTY GPU_SOURCES)
 
-    list(APPEND LIB_SOURCES ${GPU_SOURCES})
-    include_directories(${GPU_SOURCES_DIR})
+    add_library(pkg_GPU STATIC ${GPU_SOURCES})
+    set_target_properties(pkg_GPU PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${LAMMPS_LIB_BINARY_DIR})
+    target_link_libraries(pkg_GPU kokkos)
+    list(APPEND LAMMPS_LINK_LIBS pkg_GPU)
+    target_include_directories(pkg_GPU PUBLIC ${GPU_SOURCES_DIR})
 endif()
 
 ######################################################
