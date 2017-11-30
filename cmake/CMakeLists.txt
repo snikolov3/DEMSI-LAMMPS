@@ -15,6 +15,8 @@ file(GLOB LIB_SOURCES ${LAMMPS_SOURCE_DIR}/*.cpp)
 file(GLOB LMP_SOURCES ${LAMMPS_SOURCE_DIR}/main.cpp)
 list(REMOVE_ITEM LIB_SOURCES ${LMP_SOURCES})
 
+file(GLOB LIB_HEADERS ${LAMMPS_SOURCE_DIR}/*.h)
+
 # Cmake modules/macros are in a subdirectory to keep this file cleaner
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Modules)
 
@@ -45,6 +47,8 @@ endif()
 # User input options                                                   #
 ########################################################################
 option(BUILD_SHARED_LIBS "Build shared libs" OFF)
+option(INSTALL_LIB "Install lammps library and header" ON)
+option(INSTALL_HEADERS "Install all other lammps headers" OFF)
 if(BUILD_SHARED_LIBS) # for all pkg libs, mpi_stubs and linalg
   set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
@@ -679,6 +683,11 @@ if(BUILD_SHARED_LIBS)
   install(FILES ${LAMMPS_SOURCE_DIR}/library.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
   configure_file(pkgconfig/liblammps.pc.in ${CMAKE_CURRENT_BINARY_DIR}/liblammps${LAMMPS_MACHINE}.pc @ONLY)
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liblammps${LAMMPS_MACHINE}.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+  if (INSTALL_HEADERS)
+    install(FILES ${LIB_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
+  endif()
+elseif(BUILD_SHARED_LIBS)
+  message(FATAL_ERROR "Shared library has to be installed, use -DINSTALL_LIB=ON to install lammps with a library")
 endif()
 
 add_executable(lmp ${LMP_SOURCES})
