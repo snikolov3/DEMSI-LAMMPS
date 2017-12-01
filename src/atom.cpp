@@ -2152,7 +2152,7 @@ void Atom::remove_custom(int flag, int index)
    customize by adding names
 ------------------------------------------------------------------------- */
 
-void *Atom::extract(char *name)
+void *Atom::extract(const char *name)
 {
   if (strcmp(name,"mass") == 0) return (void *) mass;
 

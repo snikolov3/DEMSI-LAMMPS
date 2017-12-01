@@ -26,10 +26,10 @@ class Variable : protected Pointers {
   ~Variable();
   void set(int, char **);
   void set(char *, int, char **);
-  int set_string(char *, char *);
+  int set_string(const char *, const char *);
   int next(int, char **);
 
-  int find(char *);
+  int find(const char *);
   void set_arrays(int);
   void python_command(int, char **);
 
@@ -97,6 +97,7 @@ class Variable : protected Pointers {
   void remove(int);
   void grow();
   void copy(int, char **, char **);
+  void copy(int, const char **, char **);
   double evaluate(char *, Tree **);
   double collapse_tree(Tree *);
   double eval_tree(Tree *, int);

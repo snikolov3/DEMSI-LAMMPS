@@ -28,28 +28,28 @@ void lammps_open(int, char **, MPI_Comm, void **);
 void lammps_open_no_mpi(int, char **, void **);
 void lammps_close(void *);
 int  lammps_version(void *);
-void lammps_file(void *, char *);
-char *lammps_command(void *, char *);
+void lammps_file(void *, const char *);
+char *lammps_command(void *, const char *);
 void lammps_commands_list(void *, int, char **);
-void lammps_commands_string(void *, char *);
+void lammps_commands_string(void *, const char *);
 void lammps_free(void *);
 
-int lammps_extract_setting(void *, char *);
-void *lammps_extract_global(void *, char *);
+int lammps_extract_setting(void *, const char *);
+void *lammps_extract_global(void *, const char *);
 void lammps_extract_box(void *, double *, double *, 
                         double *, double *, double *, int *, int *);
-void *lammps_extract_atom(void *, char *);
-void *lammps_extract_compute(void *, char *, int, int);
-void *lammps_extract_fix(void *, char *, int, int, int, int);
-void *lammps_extract_variable(void *, char *, char *);
+void *lammps_extract_atom(void *, const char *);
+void *lammps_extract_compute(void *, const char *, int, int);
+void *lammps_extract_fix(void *, const char *, int, int, int, int);
+void *lammps_extract_variable(void *, const char *, const char *);
 
 void lammps_reset_box(void *, double *, double *, double, double, double);
-int lammps_set_variable(void *, char *, char *);
-double lammps_get_thermo(void *, char *);
+int lammps_set_variable(void *, const char *, const char *);
+double lammps_get_thermo(void *, const char *);
 
 int lammps_get_natoms(void *);
-void lammps_gather_atoms(void *, char *, int, int, void *);
-void lammps_scatter_atoms(void *, char *, int, int, void *);
+void lammps_gather_atoms(void *, const char *, int, int, void *);
+void lammps_scatter_atoms(void *, const char *, int, int, void *);
 
 // lammps_create_atoms() takes tagint and imageint as args
 // ifdef insures they are compatible with rest of LAMMPS

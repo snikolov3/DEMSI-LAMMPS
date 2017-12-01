@@ -544,7 +544,7 @@ void Variable::set(char *name, int narg, char **arg)
    called via library interface, so external programs can set variables
 ------------------------------------------------------------------------- */
 
-int Variable::set_string(char *name, char *str)
+int Variable::set_string(const char *name, const char *str)
 {
   int ivar = find(name);
   if (ivar < 0) return -1;
@@ -703,7 +703,7 @@ int Variable::next(int narg, char **arg)
    return index or -1 if not found
 ------------------------------------------------------------------------- */
 
-int Variable::find(char *name)
+int Variable::find(const char *name)
 {
   if(name==NULL) return -1;
   for (int i = 0; i < nvar; i++)
@@ -1113,7 +1113,7 @@ void Variable::grow()
    copy narg strings from **from to **to, and allocate space for them
 ------------------------------------------------------------------------- */
 
-void Variable::copy(int narg, char **from, char **to)
+void Variable::copy(int narg, const char **from, char **to)
 {
   int n;
   for (int i = 0; i < narg; i++) {
@@ -1121,6 +1121,11 @@ void Variable::copy(int narg, char **from, char **to)
     to[i] = new char[n];
     strcpy(to[i],from[i]);
   }
+}
+
+void Variable::copy(int narg, char **from, char **to)
+{
+  copy(narg, const_cast<const char**>(from), to);
 }
 
 /* ----------------------------------------------------------------------
