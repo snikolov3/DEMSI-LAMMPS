@@ -381,6 +381,10 @@ foreach(PKG ${DEFAULT_PACKAGES} ${OTHER_PACKAGES})
       DetectAndRemovePackageHeader(${LAMMPS_SOURCE_DIR}/${FNAME})
   endforeach()
 
+  if (INSTALL_HEADERS)
+    install(FILES ${${PKG}_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
+  endif()
+
   if(ENABLE_${PKG})
     # detects styles in package and adds them to global list
     RegisterStyles(${${PKG}_SOURCES_DIR})
