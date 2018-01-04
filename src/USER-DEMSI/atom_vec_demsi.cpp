@@ -45,6 +45,7 @@ AtomVecDemsi::AtomVecDemsi(LAMMPS *lmp) : AtomVec(lmp)
   size_data_vel = 7;
   xcol_data = 5;
 
+  atom->sphere_flag = 1;
   atom->demsi_flag = 1;
   atom->radius_flag = atom->rmass_flag = atom->omega_flag =
     atom->torque_flag = 1;
