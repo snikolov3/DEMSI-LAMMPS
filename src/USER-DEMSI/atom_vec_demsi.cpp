@@ -33,7 +33,7 @@ using namespace MathConst;
 
 AtomVecDemsi::AtomVecDemsi(LAMMPS *lmp) : AtomVec(lmp)
 {
-  molecular = 0;
+  molecular = 1;
 
   comm_x_only = 1;
   comm_f_only = 0;
@@ -49,6 +49,7 @@ AtomVecDemsi::AtomVecDemsi(LAMMPS *lmp) : AtomVec(lmp)
   atom->demsi_flag = 1;
   atom->radius_flag = atom->rmass_flag = atom->omega_flag =
     atom->torque_flag = 1;
+  bonds_allow = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -105,6 +106,15 @@ void AtomVecDemsi::grow(int n)
   mean_thickness = memory->grow(atom->mean_thickness,nmax,"atom:forcing");
   min_thickness = memory->grow(atom->min_thickness,nmax,"atom:forcing");
 
+  nspecial = memory->grow(atom->nspecial,nmax,3,"atom:nspecial");
+    special = memory->grow(atom->special,nmax,atom->maxspecial,"atom:special");
+
+  num_bond = memory->grow(atom->num_bond,nmax,"atom:num_bond");
+  bond_type = memory->grow(atom->bond_type,nmax,atom->bond_per_atom,
+      "atom:bond_type");
+  bond_atom = memory->grow(atom->bond_atom,nmax,atom->bond_per_atom,
+      "atom:bond_atom");
+
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
       modify->fix[atom->extra_grow[iextra]]->grow_arrays(nmax);
@@ -122,6 +132,9 @@ void AtomVecDemsi::grow_reset()
   radius = atom->radius; rmass = atom->rmass;
   omega = atom->omega; torque = atom->torque;
   forcing = atom->forcing; mean_thickness = atom->mean_thickness; min_thickness = atom->min_thickness;
+  nspecial = atom->nspecial; special = atom->special;
+  num_bond = atom->num_bond; bond_type = atom->bond_type;
+  bond_atom = atom->bond_atom;
 }
 
 /* ----------------------------------------------------------------------
@@ -151,6 +164,18 @@ void AtomVecDemsi::copy(int i, int j, int delflag)
   forcing[j][1] = forcing[i][1];
   mean_thickness[j] = mean_thickness[i];
   min_thickness[j] = min_thickness[i];
+
+
+  nspecial[j][0] = nspecial[i][0];
+  nspecial[j][1] = nspecial[i][1];
+  nspecial[j][2] = nspecial[i][2];
+  for (int k = 0; k < nspecial[j][2]; k++) special[j][k] = special[i][k];
+
+  num_bond[j] = num_bond[i];
+  for (int k = 0; k < num_bond[j]; k++) {
+    bond_type[j][k] = bond_type[i][k];
+    bond_atom[j][k] = bond_atom[i][k];
+  }
 
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
@@ -850,6 +875,17 @@ int AtomVecDemsi::pack_exchange(int i, double *buf)
   buf[m++] = mean_thickness[i];
   buf[m++] = min_thickness[i];
 
+  buf[m++] = ubuf(num_bond[i]).d;
+  for (int k = 0; k < num_bond[i]; k++) {
+    buf[m++] = ubuf(bond_type[i][k]).d;
+    buf[m++] = ubuf(bond_atom[i][k]).d;
+  }
+
+  buf[m++] = ubuf(nspecial[i][0]).d;
+  buf[m++] = ubuf(nspecial[i][1]).d;
+  buf[m++] = ubuf(nspecial[i][2]).d;
+  for (int k = 0; k < nspecial[i][2]; k++) buf[m++] = ubuf(special[i][k]).d;
+
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
       m += modify->fix[atom->extra_grow[iextra]]->pack_exchange(i,&buf[m]);
@@ -888,6 +924,18 @@ int AtomVecDemsi::unpack_exchange(double *buf)
   mean_thickness[nlocal] = buf[m++];
   min_thickness[nlocal] = buf[m++];
 
+  num_bond[nlocal] = (int) ubuf(buf[m++]).i;
+  for (int k = 0; k < num_bond[nlocal]; k++) {
+    bond_type[nlocal][k] = (int) ubuf(buf[m++]).i;
+    bond_atom[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+  }
+
+  nspecial[nlocal][0] = (int) ubuf(buf[m++]).i;
+  nspecial[nlocal][1] = (int) ubuf(buf[m++]).i;
+  nspecial[nlocal][2] = (int) ubuf(buf[m++]).i;
+  for (int k = 0; k < nspecial[nlocal][2]; k++)
+    special[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
       m += modify->fix[atom->extra_grow[iextra]]->
@@ -907,7 +955,9 @@ int AtomVecDemsi::size_restart()
   int i;
 
   int nlocal = atom->nlocal;
-  int n = 20 * nlocal;
+  int n = 0;
+  for (int i = 0; i < nlocal; i++)
+    n += 20 + 2*num_bond[i];
 
   if (atom->nextra_restart)
     for (int iextra = 0; iextra < atom->nextra_restart; iextra++)
@@ -947,6 +997,12 @@ int AtomVecDemsi::pack_restart(int i, double *buf)
   buf[m++] = forcing[i][1];
   buf[m++] = mean_thickness[i];
   buf[m++] = min_thickness[i];
+
+  buf[m++] = ubuf(num_bond[i]).d;
+  for (int k = 0; k < num_bond[i]; k++) {
+    buf[m++] = ubuf(MAX(bond_type[i][k],-bond_type[i][k])).d;
+    buf[m++] = ubuf(bond_atom[i][k]).d;
+  }
 
   if (atom->nextra_restart)
     for (int iextra = 0; iextra < atom->nextra_restart; iextra++)
@@ -992,6 +1048,14 @@ int AtomVecDemsi::unpack_restart(double *buf)
   mean_thickness[nlocal] = buf[m++];
   min_thickness[nlocal] = buf[m++];
 
+  num_bond[nlocal] = (int) ubuf(buf[m++]).i;
+  for (int k = 0; k < num_bond[nlocal]; k++) {
+    bond_type[nlocal][k] = (int) ubuf(buf[m++]).i;
+    bond_atom[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+  }
+
+  nspecial[nlocal][0] = nspecial[nlocal][1] = nspecial[nlocal][2] = 0;
+
   double **extra = atom->extra;
   if (atom->nextra_store) {
     int size = static_cast<int> (buf[0]) - m;
@@ -1034,6 +1098,9 @@ void AtomVecDemsi::create_atom(int itype, double *coord)
   forcing[nlocal][1] = 0.0;
   mean_thickness[nlocal] = 0.0;
   min_thickness[nlocal] = 0.0;
+
+  num_bond[nlocal] = 0;
+  nspecial[nlocal][0] = nspecial[nlocal][1] = nspecial[nlocal][2] = 0;
 
   atom->nlocal++;
 }
@@ -1084,6 +1151,8 @@ void AtomVecDemsi::data_atom(double *coord, imageint imagetmp, char **values)
   mean_thickness[nlocal] = 0.0;
   min_thickness[nlocal] = 0.0;
 
+  num_bond[nlocal] = 0.0;
+
   atom->nlocal++;
 }
 
@@ -1105,6 +1174,8 @@ int AtomVecDemsi::data_atom_hybrid(int nlocal, char **values)
   if (radius[nlocal] == 0.0) rmass[nlocal] = density;
   else
     rmass[nlocal] = MY_PI * radius[nlocal]*radius[nlocal] * density;
+
+  num_bond[nlocal] = 0;
 
   return 2;
 }
@@ -1273,6 +1344,16 @@ bigint AtomVecDemsi::memory_usage()
   if (atom->memcheck("forcing")) bytes += memory->usage(forcing,nmax,2);
   if (atom->memcheck("mean_thickness")) bytes += memory->usage(mean_thickness,nmax);
   if (atom->memcheck("min_thickness")) bytes += memory->usage(min_thickness,nmax);
+
+  if (atom->memcheck("num_bond")) bytes += memory->usage(num_bond,nmax);
+  if (atom->memcheck("bond_type"))
+    bytes += memory->usage(bond_type,nmax,atom->bond_per_atom);
+  if (atom->memcheck("bond_atom"))
+    bytes += memory->usage(bond_atom,nmax,atom->bond_per_atom);
+
+  if (atom->memcheck("nspecial")) bytes += memory->usage(nspecial,nmax,3);
+  if (atom->memcheck("special"))
+     bytes += memory->usage(special,nmax,atom->maxspecial);
 
   return bytes;
 }

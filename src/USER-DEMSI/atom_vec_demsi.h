@@ -79,6 +79,12 @@ class AtomVecDemsi : public AtomVec {
   double *mean_thickness;
   double *min_thickness;
   int radvary;
+
+  int **nspecial;
+  tagint **special;
+  int *num_bond;
+  int **bond_type;
+  tagint **bond_atom;
 };
 
 }
