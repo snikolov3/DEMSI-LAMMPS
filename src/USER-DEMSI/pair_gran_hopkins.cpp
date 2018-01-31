@@ -42,6 +42,7 @@ PairGranHopkins::PairGranHopkins(LAMMPS *lmp) :
           PairGranHookeHistory(lmp, 12)
 {
   history_ndim = 12;
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -117,6 +118,7 @@ void PairGranHopkins::compute(int eflag, int vflag)
       // history[0,1]: normal force at previous time step, x and y components
       // history[2,3]: accumulated tangential displacement at contact, x and y
       // history[4] : contact thickness h
+      // history[5] : delta_0
 
       if (history[8] >= history[9]){ // Un-bonded, chi1 >= chi2
         compute_nonbonded(history, &firsttouch[i][j], i, j);
@@ -151,6 +153,8 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
   double sig_c, hmin;
   double hprime, kp, kr, ke, L, hstar;
   double num, denom, fnmag_plastic, fnmag_elastic, fnmag;
+  double fx, fy;
+  double ncrossF;
 
   double ndisp, dispmag, scalefac;
   double ftx, fty, ftmag, ftcrit;
@@ -161,6 +165,8 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
   //Hard-coded, ask Adrian what this should actually be??
   hstar = 0.3;
 
+  //This is different than in LammpsInstance::initialize_bonded_contacts,
+  // to conform to the sign convention in comparable granular pair styles
   delx = x[i][0] - x[j][0];
   dely = x[i][1] - x[j][1];
   rsq = delx*delx + dely*dely;
@@ -168,15 +174,18 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
 
   if (rsq >= radsum*radsum){
     *touch = 0;
-    for (int k = 0; k < 12; k++)
+    for (int k = 0; k < history_ndim; k++){
       history[k] = 0;
+    }
+    //history[0] = history[4] = 1234; //for debugging
   }
   else{
-    if (!touch){ //If this is first contact
+    if (!*touch){ //If this is first contact
       *touch = 1;
       history[0] = history[1] = history[2] = history[3] = history[5] = 0;
       history[4] = hprime_0;
     }
+    if (history[4] == 0) history[4] = hprime_0;
     r = sqrt(rsq);
     rinv = 1.0/r;
     nx = delx/r;
@@ -189,8 +198,28 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
     vrx = v[i][0] - v[j][0];
     vry = v[i][1] - v[j][1];
 
+
     delta = radsum - r - history[5];
     if (delta < 0) delta = 0;
+
+    // Compute tangential force
+    // normal component of relative translational velocity
+    vnnr = vrx*nx + vry*ny;
+    vnx = nx*vnnr;
+    vny = ny*vnnr;
+
+    // subtract to compute tangential component of relative translational velocity
+    vtrx = vrx - vnx;
+    vtry = vry - vny;
+
+    // total relative tangential velocities at contact
+    wrz = radius[i]*omega[i][2] + radius[j]*omega[j][2];
+    vtx = vtrx + ny*wrz;
+    vty = vtry - nx*wrz;
+
+    vrel = vtx*vtx + vty*vty;
+    vrel = sqrt(vrel);
+
     delta_dot = -vnnr;
 
     // Compute plastic normal force
@@ -212,34 +241,18 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
     // Elastic normal force
     fnmag_elastic = ke*delta*L + damp_normal*delta_dot*L;
 
-    fnmag = MIN(fnmag_elastic, fnmag_plastic);
+    if (fabs(fnmag_elastic) < fabs(fnmag_plastic))
+      fnmag = fnmag_elastic;
+    else
+      fnmag = fnmag_plastic;
 
     fnx = fnmag*nx;
     fny = fnmag*ny;
-    f[i][0] += fnx;
-    f[i][1] += fny;
-    history[0] = fnx;
-    history[1] = fny;
-
-    // Compute tangential force
-    // normal component of relative translational velocity
-    vnnr = vrx*nx + vry*ny;
-    vnx = nx*vnnr;
-    vny = ny*vnnr;
-
-    // subtract to compute tangential component of relative translational velocity
-    vtrx = vrx - vnx;
-    vtry = vry - vny;
-
-    // total relative tangential velocities at contact
-    wrz = radius[i]*omega[i][2] + radius[j]*omega[j][2];
-    vtx = vtx + ny*wrz;
-    vty = vty - nx*wrz;
-    vrel = vtx*vtx + vty*vty;
-    vrel = sqrt(vrel);
 
     // update tangential displacement, rotate if needed
     if (historyupdate){
+      history[0] = fnx;
+      history[1] = fny;
       ndisp = nx*history[2] + ny*history[3];
       dispmag =sqrt( history[2]*history[2] + history[3]*history[3]);
       denom = dispmag - ndisp;
@@ -254,7 +267,10 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
       history[3] += vty*update->dt;
     }
 
+    dispmag = sqrt( history[2]*history[2] + history[3]*history[3]);
+
     // total tangential force
+    kt = Gmod/L*(1/(1/atom->mean_thickness[i] + 1/atom->mean_thickness[j]));
     ftx = - (kt*history[2] + damp_tangential*vtx);
     fty = - (kt*history[3] + damp_tangential*vty);
 
@@ -270,21 +286,32 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
       else ftx = fty = 0;
     }
 
-    //Apply tangential forces
-    f[i][0] += ftx;
-    f[i][1] += fty;
+    //Apply forces
+    fx = fnx + ftx;
+    fy = fny + fty;
 
-    // torque induced by tangential force (don't apply to particle j, since we require newton_off for now)
-    torque[i][0] += -radius[i]*(nx*fty - ny*ftx);
+    f[i][0] += fx;
+    f[i][1] += fy;
+
+    // torque induced by tangential force
+    ncrossF = nx*fty - ny*ftx;
+    torque[i][2] += -radius[i]*ncrossF;
+
+    if (force->newton_pair || j < atom->nlocal){
+        f[j][0] -= fx;
+        f[j][1] -= fy;
+        torque[j][2] += -radius[j]*ncrossF;
+      }
 
   }
 
 }
 
 void PairGranHopkins::compute_bonded(double *history, int i, int j){
-  double s1x, s1y, s2x, s2y, mx, my, mmag, mex, mey, bex, bey, rx, ry;
-  double An, Bn, Cn, Dn, Bt, Ct, Dt;
-  double Fnmag, Ftmag, Nn, Nt;
+  //See design document for definitions of these variables
+  double s1x, s1y, s2x, s2y, mx, my, mmag, mex, mey, bex, bey, rx, ry, rxj, ryj;
+  double An, Bn, Cn, Dn, Bt, Ct, Dt, Bnj, Btj;
+  double Fnmag, Ftmag, Nn, Nt, Nnj, Ntj;
 
   double **x = atom->x;
   double **v = atom->v;
@@ -300,6 +327,7 @@ void PairGranHopkins::compute_bonded(double *history, int i, int j){
   double chi_c, chi_t, chi_s1, chi_s2;
   double nprefac, sprefac;
   double damp_prefac, area_bond, fdampx, fdampy, torquedamp;
+  double fx, fy;
   double hmin;
 
   int historyupdate = 1;
@@ -341,8 +369,8 @@ void PairGranHopkins::compute_bonded(double *history, int i, int j){
   mex = mx/mmag;
   mey = my/mmag;
 
-  bex = -mey;
-  bey = mex;
+  bex = mey;
+  bey = -mex;
 
   rx = history[0] + 0.5*s1x - x[i][0];
   ry = history[1] + 0.5*s1y - x[i][1];
@@ -360,10 +388,10 @@ void PairGranHopkins::compute_bonded(double *history, int i, int j){
   chidiff = chi2-chi1;
   chidiff2 = 0.5*(chi2*chi2 - chi1*chi1);
   chidiff3 = MathConst::THIRD*(chi2*chi2*chi2 - chi1*chi1*chi1);
-  kn = Emod/history[10];
-  kt = Gmod/history[10];
-  nprefac = history[11]*history[10]*kn;
-  sprefac = history[11]*history[10]*kt;
+  kn = history[11]*Emod/history[10];
+  kt = history[11]*Gmod/history[10];
+  nprefac = history[10]*kn;
+  sprefac = history[10]*kt;
 
   Fnmag = nprefac*(Dn*chidiff + Cn*chidiff2);
   Ftmag = sprefac*(Dt*chidiff + Ct*chidiff2);
@@ -380,10 +408,27 @@ void PairGranHopkins::compute_bonded(double *history, int i, int j){
   torquedamp = -damp_bonded*area_bond*area_bond*(omega[i][2]-omega[j][2]);
 
   //Update forces and torque
-  f[i][0] += Fnmag*bex + Ftmag*mex + fdampx;
-  f[i][1] += Fnmag*bey + Ftmag*mey + fdampy;
+  fx = Fnmag*bex + Ftmag*mex + fdampx;
+  fy = Fnmag*bey + Ftmag*mey + fdampy;
+  f[i][0] += fx;
+  f[i][1] += fy;
 
-  torque[i][2] += Nn + Nt + torquedamp;
+ // torque[i][2] += Nn + Nt + torquedamp;
+
+  if (force->newton_pair || j < atom->nlocal){
+    f[j][0] -= fx;
+    f[j][1] -= fy;
+
+    rxj = history[4] - 0.5*s1x - x[j][0];
+    ryj = history[5] - 0.5*s1y - x[j][1];
+    Bnj = rxj*bey - ryj*bex;
+    Btj = rxj*mey - ryj*mex;
+
+    Nnj = nprefac*(An*Dn*chidiff3 + (Bnj*Cn+An*Dn)*chidiff2 + Bnj*Dn*chidiff);
+    Ntj = sprefac*(Btj*Ct*chidiff2 + Btj*Dt*chidiff);
+
+    //torque[j][2] += -(Nnj + Ntj + torquedamp);
+  }
 
   //Update chi1, chi2
   hmin = MIN(atom->min_thickness[i], atom->min_thickness[j]);
@@ -417,38 +462,40 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
   //Check for purely tensile/compressive failure
   if (sig_n1 > sig_t || sig_n2 > sig_t || sig_n1 < sig_c || sig_n2 < sig_c){
     if (sig_n1 > sig_t){
-      if (Cn != 0) chi1 = (sig_t - Dn)/Cn;
+      if (Cn != 0) chi1 = (sig_t/kn - Dn)/Cn;
       else {
         chi1 = chi2;
         return;
       }
     }
-    if (sig_n2 > sig_t) chi2 = (sig_t - Dn)/Cn; //if Cn==0, function would've returned above
+    if (sig_n2 > sig_t) chi2 = (sig_t/kn - Dn)/Cn;
+    //if Cn==0, then sig_n1 = sig_n2, and function would've returned above
 
     if (sig_n1 < sig_c){
-      if (Cn != 0) chi1 = (sig_c - Dn)/Cn;
+      if (Cn != 0) chi1 = (sig_c/kn - Dn)/Cn;
       else{
         chi1 = chi2;
         return;
       }
     }
-    if (sig_n2 < sig_c) chi2 = (sig_c - Dn)/Cn; //if Cn==0, function would've returned above
+    if (sig_n2 < sig_c) chi2 = (sig_c/kn - Dn)/Cn;
+    //if Cn==0, function would've returned above
   }
 
   //Check for 'cohesion' shear failure at chi1
   if (sig_s1 > -tanphi*sig_n1 + tanphi*sig_t){
-    if (Ct + tanphi*Cn != 0) chi1 = (tanphi*(sig_t-Dn)-Dt)/(Ct + tanphi*Cn);
+    if (kt*Ct + kn*tanphi*Cn != 0) chi1 = (tanphi*(sig_t-kn*Dn)-kt*Dt)/(kt*Ct + tanphi*kn*Cn);
     else if (Cn != 0 && Ct != 0){
       //No need to treat case where Cn = Ct = 0, since sig_s = 0 for that case,
       // and it would've been picked up above
-      //For the rare case of Ct = -tanphi*Cn, yield criterion is independent of chi,
+      //For the rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
       // therefore bond breaks.
       chi1 = chi2;
       return;
     }
   }
   if (sig_s1 < tanphi*sig_n1 - tanphi*sig_t){
-    if (tanphi*Cn - Ct != 0) chi1 = (Dt-tanphi*(Dn-sig_t))/(tanphi*Cn - Ct);
+    if (kn*tanphi*Cn - kt*Ct != 0) chi1 = (kt*Dt-tanphi*(kn*Dn-sig_t))/(tanphi*kn*Cn - kt*Ct);
     else if (Cn != 0 && Ct != 0){
       chi1 = chi2;
       return;
@@ -457,23 +504,26 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
 
   //Check for 'cohesion' shear failure at chi2
   if (sig_s2 > -tanphi*sig_n2 + tanphi*sig_t){
-    if (Ct + tanphi*Cn != 0) chi2 = (tanphi*(sig_t-Dn)-Dt)/(Ct + tanphi*Cn);
+    if (kt*Ct + kn*tanphi*Cn != 0) chi2 = (tanphi*(sig_t-kn*Dn)-kt*Dt)/(kt*Ct + kn*tanphi*Cn);
     else if (Cn != 0 && Ct != 0){
       //No need to treat case where Cn = Ct = 0, since sig_s = 0 for that case,
       // and it would've been picked up above
-      //For the rare case of Ct = -tanphi*Cn, yield criterion is independent of chi,
+      //For the rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
       // therefore bond breaks.
       chi2 = chi1;
       return;
     }
   }
   if (sig_s2 < tanphi*sig_n2 - tanphi*sig_t){
-    if (tanphi*Cn - Ct != 0) chi1 = (Dt-tanphi*(Dn-sig_t))/(tanphi*Cn - Ct);
+    if (kn*tanphi*Cn - kt*Ct != 0) chi1 = (kt*Dt-tanphi*(kn*Dn-sig_t))/(kn*tanphi*Cn - kt*Ct);
     else if (Cn != 0 && Ct != 0){
       chi2 = chi1;
       return;
     }
   }  
+  if (chi1 < 0 || chi1 > 1 || chi2 < 0 || chi2 > 1)
+    chi1 = chi2 = 0;
+
 }
 
 /* ----------------------------------------------------------------------
@@ -486,7 +536,7 @@ void PairGranHopkins::settings(int narg, char **arg)
 
   Emod = force->numeric(FLERR, arg[0]);
   poiss = force->numeric(FLERR, arg[1]);
-  sig_c0 = force->numeric(FLERR, arg[2]);
+  sig_c0 = force->numeric(FLERR, arg[2])*1000;
   sig_t0 = force->numeric(FLERR, arg[3]);
   phi = force->numeric(FLERR, arg[4]);
   damp_bonded = force->numeric(FLERR, arg[5]);
