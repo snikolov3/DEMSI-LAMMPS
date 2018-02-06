@@ -34,11 +34,11 @@ public:
 private:
   void compute_bonded(double*, int, int);
   void compute_nonbonded(double*, int*, int, int);
-  void update_chi(double, double, double, double, double, double&, double&);
+  void update_chi(double, double, double, double, double, double, double, double&, double&);
 
   int history_ndim;
-  double Emod, poiss, sig_c0, sig_t0, phi, damp_bonded, damp_tangential, damp_normal, tanphi, friction_tangential;
-
+  double Emod, poiss, sig_c0, sig_t0, phi, damp_bonded, damp_tangential, damp_normal, tanphi, friction_tangential, hprime_0;
+  double Gmod;
 };
 
 }
