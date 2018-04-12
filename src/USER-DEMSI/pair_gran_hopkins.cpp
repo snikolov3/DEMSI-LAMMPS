@@ -36,6 +36,9 @@ using namespace MathConst;
 
 #define EPSILON 1e-10
 
+#define DEBUGID_1 35
+#define DEBUGID_2 55
+#define DEBUG_TIMESTEP 32696
 /* ---------------------------------------------------------------------- */
 
 PairGranHopkins::PairGranHopkins(LAMMPS *lmp) :
@@ -107,6 +110,9 @@ void PairGranHopkins::compute(int eflag, int vflag)
       j &= NEIGHMASK;
 
       history = &allhistory[history_ndim*jj];
+      if (i==DEBUGID_1 && j == DEBUGID_2 && update->ntimestep >= DEBUG_TIMESTEP){
+        //printf("History 8 and 9 are %g %g\n",history[8], history[9]);
+      }
       //'history' now points to the ii-jj array that stores
       //all the history associated with pair ii-jj
       //For bonded pairs:
@@ -121,10 +127,10 @@ void PairGranHopkins::compute(int eflag, int vflag)
       // history[5] : delta_0
 
       if (history[8] >= history[9]){ // Un-bonded, chi1 >= chi2
-        compute_nonbonded(history, &firsttouch[i][j], i, j);
+        compute_nonbonded(history, &firsttouch[i][jj], i, j);
       }
       else { //Bonded
-        compute_bonded(history, i, j);
+        compute_bonded(history, &firsttouch[i][jj], i, j);
       }
     }
   }
@@ -298,19 +304,19 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
     torque[i][2] += -radius[i]*ncrossF;
 
     if (force->newton_pair || j < atom->nlocal){
-        f[j][0] -= fx;
-        f[j][1] -= fy;
-        torque[j][2] += -radius[j]*ncrossF;
-      }
+      f[j][0] -= fx;
+      f[j][1] -= fy;
+      torque[j][2] += -radius[j]*ncrossF;
+    }
 
   }
 
 }
 
-void PairGranHopkins::compute_bonded(double *history, int i, int j){
+void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
   //See design document for definitions of these variables
   double s1x, s1y, s2x, s2y, mx, my, mmag, mex, mey, bex, bey, rx, ry, rxj, ryj;
-  double An, Bn, Cn, Dn, Bt, Ct, Dt, Bnj, Btj;
+  double An, Bn, Cn, Dn, Bt, Ct, Dt, Bnj, Cnj, Dnj, Btj;
   double Fnmag, Ftmag, Nn, Nt, Nnj, Ntj;
 
   double **x = atom->x;
@@ -329,6 +335,8 @@ void PairGranHopkins::compute_bonded(double *history, int i, int j){
   double damp_prefac, area_bond, fdampx, fdampy, torquedamp;
   double fx, fy;
   double hmin;
+
+  double dvx, dvy;
 
   int historyupdate = 1;
   if (update->setupflag) historyupdate = 0;
@@ -395,45 +403,77 @@ void PairGranHopkins::compute_bonded(double *history, int i, int j){
 
   Fnmag = nprefac*(Dn*chidiff + Cn*chidiff2);
   Ftmag = sprefac*(Dt*chidiff + Ct*chidiff2);
-  Nn = nprefac*(An*Dn*chidiff3 + (Bn*Cn+An*Dn)*chidiff2 + Bn*Dn*chidiff);
-  Nt = sprefac*(Bt*Ct*chidiff2 + Bt*Dt*chidiff);
+  Nn = nprefac*(An*Cn*chidiff3 + (Bn*Cn+An*Dn)*chidiff2 + Bn*Dn*chidiff);
+  Nt = Bt*Ftmag; //sprefac*(Bt*Ct*chidiff2 + Bt*Dt*chidiff);
 
+  if (i==DEBUGID_1 && j == DEBUGID_2 && update->ntimestep >= DEBUG_TIMESTEP){
+  //  printf("Distance is %f, radsum is %g\n",sqrt((x[i][0]-x[j][0])*(x[i][0]-x[j][0])+(x[i][1]-x[j][1])*(x[i][1]-x[j][1])), atom->radius[i]+atom->radius[j]);
+  }
   //Damping force
   area_bond = history[10]*history[11]*chidiff;
   damp_prefac = damp_bonded*area_bond;
-  fdampx = -damp_prefac*(v[i][0] - v[j][0]);
-  fdampy = -damp_prefac*(v[i][1] - v[j][1]);
+
+  dvx = v[j][0] - v[i][0];
+  dvy = v[j][1] - v[i][1];
+  fdampx = damp_prefac*dvx;
+  fdampy = damp_prefac*dvy;
 
   //Damping torque
   torquedamp = -damp_bonded*area_bond*area_bond*(omega[i][2]-omega[j][2]);
 
   //Update forces and torque
-  fx = Fnmag*bex + Ftmag*mex + fdampx;
-  fy = Fnmag*bey + Ftmag*mey + fdampy;
+  fx = Fnmag*bex + Ftmag*mex;
+  fy = Fnmag*bey + Ftmag*mey;
+
+//  if (update->ntimestep > 10){
+//    printf("%d %d %g %g %g %g\n",i,j,fx,fy,fdampx,fdampy);
+//  }
+//  //Damping must not cause force to flip sign
+ // printf("%d %d %g %g %g %g \n",i,j,fx,fy,fdampx,fdampy);
+  if (fx < 0 && fdampx > 0){
+    fx = MIN(fx+fdampx, 0);
+  }
+  else if (fx > 0 && fdampx < 0){
+    fx = MAX(fx+fdampx, 0);
+  }
+  else fx = fx+fdampx;
+
+  if (fy < 0 && fdampy > 0){
+    fy = MIN(fy+fdampy, 0);
+  }
+  else if (fy > 0 && fdampy < 0){
+    fy = MAX(fy+fdampy, 0);
+  }
+  else fy = fy+fdampy;
+
   f[i][0] += fx;
   f[i][1] += fy;
 
- // torque[i][2] += Nn + Nt + torquedamp;
+  torque[i][2] += Nn + Nt + torquedamp;
 
+  //printf("%d %d %g %g %g %g\n",i,j,Nn,Nt,Nn+Nt,torquedamp);
   if (force->newton_pair || j < atom->nlocal){
     f[j][0] -= fx;
     f[j][1] -= fy;
 
-    rxj = history[4] - 0.5*s1x - x[j][0];
-    ryj = history[5] - 0.5*s1y - x[j][1];
+    rxj = history[0] + 0.5*s1x - x[j][0];
+    ryj = history[1] + 0.5*s1y - x[j][1];
     Bnj = rxj*bey - ryj*bex;
+    Cnj = -Cn;
+    Dnj = -Dn;
     Btj = rxj*mey - ryj*mex;
 
-    Nnj = nprefac*(An*Dn*chidiff3 + (Bnj*Cn+An*Dn)*chidiff2 + Bnj*Dn*chidiff);
-    Ntj = sprefac*(Btj*Ct*chidiff2 + Btj*Dt*chidiff);
-
-    //torque[j][2] += -(Nnj + Ntj + torquedamp);
+    Nnj = nprefac*(An*Cnj*chidiff3 + (Bnj*Cnj+An*Dnj)*chidiff2 + Bnj*Dnj*chidiff);
+    Ntj = -Btj*Ftmag;
+    //printf("%d %d %g %g %g %g\n",i,j,Nnj,Ntj,Nnj+Ntj,torquedamp);
+    torque[j][2] += Nnj + Ntj - torquedamp;
   }
 
   //Update chi1, chi2
   hmin = MIN(atom->min_thickness[i], atom->min_thickness[j]);
   if (historyupdate){
-    update_chi(kn, kt, Dn, Cn, Dt, Ct, hmin, history[8], history[9]);
+    //update_chi(kn, kt, Dn, Cn, Dt, Ct, hmin, history[8], history[9]);
+    *touch = 1;
     if (history[8] >= history[9]){ //Bond just broke
         double dx = x[i][0] - x[j][0];
         double dy = x[i][1] - x[j][1];
@@ -444,6 +484,7 @@ void PairGranHopkins::compute_bonded(double *history, int i, int j){
           history[k] = 0;
         history[4] = hprime_0;
         history[5] = delta_0;
+        *touch = 0;
     }
   }
 }

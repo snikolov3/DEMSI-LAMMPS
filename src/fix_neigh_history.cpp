@@ -602,7 +602,8 @@ void FixNeighHistory::post_neighbor()
 
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
-      rflag = sbmask(j);
+      //rflag = sbmask(j);
+      rflag = 1;
       j &= NEIGHMASK;
       jlist[jj] = j;
 
@@ -610,10 +611,10 @@ void FixNeighHistory::post_neighbor()
       // preserve neigh history info if tag[j] is in old-neigh partner list
       // this test could be more geometrically precise for two sphere/line/tri
 
-      if (rflag) {
+      if (rflag){
         jtag = tag[j];
         for (m = 0; m < np; m++)
-          if (partner[i][m] == jtag) break;
+          if (partner[i][m] == jtag) break;       
         if (m < np) {
           allflags[jj] = 1;
           memcpy(&allvalues[nn],&valuepartner[i][dnum*m],dnumbytes);

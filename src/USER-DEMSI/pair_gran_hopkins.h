@@ -32,7 +32,7 @@ public:
   void settings(int, char **);
   double single(int, int, int, int, double, double, double, double &);
 private:
-  void compute_bonded(double*, int, int);
+  void compute_bonded(double*, int*, int, int);
   void compute_nonbonded(double*, int*, int, int);
   void update_chi(double, double, double, double, double, double, double, double&, double&);
 
