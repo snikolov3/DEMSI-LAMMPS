@@ -404,11 +404,8 @@ void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
   Fnmag = nprefac*(Dn*chidiff + Cn*chidiff2);
   Ftmag = sprefac*(Dt*chidiff + Ct*chidiff2);
   Nn = nprefac*(An*Cn*chidiff3 + (Bn*Cn+An*Dn)*chidiff2 + Bn*Dn*chidiff);
-  Nt = Bt*Ftmag; //sprefac*(Bt*Ct*chidiff2 + Bt*Dt*chidiff);
+  Nt = Bt*Ftmag;
 
-  if (i==DEBUGID_1 && j == DEBUGID_2 && update->ntimestep >= DEBUG_TIMESTEP){
-  //  printf("Distance is %f, radsum is %g\n",sqrt((x[i][0]-x[j][0])*(x[i][0]-x[j][0])+(x[i][1]-x[j][1])*(x[i][1]-x[j][1])), atom->radius[i]+atom->radius[j]);
-  }
   //Damping force
   area_bond = history[10]*history[11]*chidiff;
   damp_prefac = damp_bonded*area_bond;
@@ -425,11 +422,6 @@ void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
   fx = Fnmag*bex + Ftmag*mex;
   fy = Fnmag*bey + Ftmag*mey;
 
-//  if (update->ntimestep > 10){
-//    printf("%d %d %g %g %g %g\n",i,j,fx,fy,fdampx,fdampy);
-//  }
-//  //Damping must not cause force to flip sign
- // printf("%d %d %g %g %g %g \n",i,j,fx,fy,fdampx,fdampy);
   if (fx < 0 && fdampx > 0){
     fx = MIN(fx+fdampx, 0);
   }
@@ -451,7 +443,6 @@ void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
 
   torque[i][2] += Nn + Nt + torquedamp;
 
-  //printf("%d %d %g %g %g %g\n",i,j,Nn,Nt,Nn+Nt,torquedamp);
   if (force->newton_pair || j < atom->nlocal){
     f[j][0] -= fx;
     f[j][1] -= fy;
@@ -465,14 +456,13 @@ void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
 
     Nnj = nprefac*(An*Cnj*chidiff3 + (Bnj*Cnj+An*Dnj)*chidiff2 + Bnj*Dnj*chidiff);
     Ntj = -Btj*Ftmag;
-    //printf("%d %d %g %g %g %g\n",i,j,Nnj,Ntj,Nnj+Ntj,torquedamp);
     torque[j][2] += Nnj + Ntj - torquedamp;
   }
 
   //Update chi1, chi2
   hmin = MIN(atom->min_thickness[i], atom->min_thickness[j]);
   if (historyupdate){
-    //update_chi(kn, kt, Dn, Cn, Dt, Ct, hmin, history[8], history[9]);
+    update_chi(kn, kt, Dn, Cn, Dt, Ct, hmin, history[8], history[9]);
     *touch = 1;
     if (history[8] >= history[9]){ //Bond just broke
         double dx = x[i][0] - x[j][0];
