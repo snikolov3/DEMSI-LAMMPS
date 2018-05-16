@@ -39,8 +39,8 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp, int _size_history, int _fullflag) : Pair(lmp),
-  size_history(_size_history), fullflag(_fullflag)
+PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp, int _size_history) : Pair(lmp),
+  size_history(_size_history)
 {
   single_enable = 1;
   no_virial_fdotr_compute = 1;
@@ -58,6 +58,9 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp, int _size_history, int _
   // set comm size needed by this Pair if used with fix rigid
 
   comm_forward = 1;
+
+  nondefault_history_transfer = 0;
+  beyond_contact = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -78,6 +81,8 @@ PairGranHookeHistory::~PairGranHookeHistory()
   }
 
   memory->destroy(mass_rigid);
+
+  int nondefault_history_transfer = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -406,10 +411,6 @@ void PairGranHookeHistory::init_style()
 
   int irequest = neighbor->request(this,instance_me);
   neighbor->requests[irequest]->size = 1;
-  if (fullflag){
-    neighbor->requests[irequest]->half = 0;
-    neighbor->requests[irequest]->full = 1;
-  }
   if (history) neighbor->requests[irequest]->history = 1;
 
   dt = update->dt;
