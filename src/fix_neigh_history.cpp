@@ -415,7 +415,7 @@ void FixNeighHistory::pre_exchange_newton()
   // perform reverse comm to augment
   // owned atom partner/valuepartner with ghost info
   // use variable variant b/c size of packed data can be arbitrarily large
-  //   if many touching neighbors for large particle
+  //  if many touching neighbors for large particle
 
   commflag = PERPARTNER;
   comm->reverse_comm_fix_variable(this);
