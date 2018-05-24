@@ -406,7 +406,8 @@ void FixNeighHistory::pre_exchange_newton()
         m = npartner[j]++;
         partner[j][m] = tag[i];
         jvalues = &valuepartner[j][dnum*m];
-        for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
+        if (pair->nondefault_history_transfer) pair->transfer_history(onevalues, jvalues);
+        else for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
       }
     }
   }
@@ -414,7 +415,7 @@ void FixNeighHistory::pre_exchange_newton()
   // perform reverse comm to augment
   // owned atom partner/valuepartner with ghost info
   // use variable variant b/c size of packed data can be arbitrarily large
-  //   if many touching neighbors for large particle
+  //  if many touching neighbors for large particle
 
   commflag = PERPARTNER;
   comm->reverse_comm_fix_variable(this);
@@ -518,7 +519,8 @@ void FixNeighHistory::pre_exchange_no_newton()
           m = npartner[j]++;
           partner[j][m] = tag[i];
           jvalues = &valuepartner[j][dnum*m];
-          for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
+          if (pair->nondefault_history_transfer) pair->transfer_history(onevalues, jvalues);
+          else for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
         }
       }
     }
@@ -603,6 +605,7 @@ void FixNeighHistory::post_neighbor()
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
       rflag = sbmask(j);
+      if (pair->beyond_contact) rflag = 1;
       j &= NEIGHMASK;
       jlist[jj] = j;
 
@@ -610,10 +613,10 @@ void FixNeighHistory::post_neighbor()
       // preserve neigh history info if tag[j] is in old-neigh partner list
       // this test could be more geometrically precise for two sphere/line/tri
 
-      if (rflag) {
+      if (rflag){
         jtag = tag[j];
         for (m = 0; m < np; m++)
-          if (partner[i][m] == jtag) break;
+          if (partner[i][m] == jtag) break;       
         if (m < np) {
           allflags[jj] = 1;
           memcpy(&allvalues[nn],&valuepartner[i][dnum*m],dnumbytes);
@@ -720,7 +723,7 @@ int FixNeighHistory::pack_reverse_comm_size(int n, int first)
   last = first + n;
 
   for (i = first; i < last; i++)
-    m += 1 + 4*npartner[i];
+    m += 1 + (dnum+1)*npartner[i];
 
   return m;
 }

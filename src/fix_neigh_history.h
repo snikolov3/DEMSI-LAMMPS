@@ -22,6 +22,7 @@ FixStyle(NEIGH_HISTORY,FixNeighHistory)
 
 #include "fix.h"
 #include "my_page.h"
+#include "pair_gran_hooke_history.h"
 
 namespace LAMMPS_NS {
 
@@ -31,7 +32,7 @@ class FixNeighHistory : public Fix {
   int nall_neigh;               // ditto for nlocal+nghost
   int **firstflag;              // ptr to each atom's neighbor flsg
   double **firstvalue;          // ptr to each atom's values
-  class Pair *pair;             // ptr to pair style that uses neighbor history
+  class PairGranHookeHistory *pair;             // ptr to pair style that uses neighbor history
 
   FixNeighHistory(class LAMMPS *, int, char **);
   ~FixNeighHistory();

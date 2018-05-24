@@ -36,13 +36,16 @@ using namespace MathConst;
 
 #define EPSILON 1e-10
 
+#define DEBUGID_1 35
+#define DEBUGID_2 55
+#define DEBUG_TIMESTEP 32696
 /* ---------------------------------------------------------------------- */
 
 PairGranHopkins::PairGranHopkins(LAMMPS *lmp) :
-          PairGranHookeHistory(lmp, 12)
+              PairGranHookeHistory(lmp, 12)
 {
-  history_ndim = 12;
-
+  nondefault_history_transfer = 1;
+  beyond_contact = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -106,7 +109,7 @@ void PairGranHopkins::compute(int eflag, int vflag)
       jtype = atom->type[j];
       j &= NEIGHMASK;
 
-      history = &allhistory[history_ndim*jj];
+      history = &allhistory[size_history*jj];
       //'history' now points to the ii-jj array that stores
       //all the history associated with pair ii-jj
       //For bonded pairs:
@@ -121,10 +124,10 @@ void PairGranHopkins::compute(int eflag, int vflag)
       // history[5] : delta_0
 
       if (history[8] >= history[9]){ // Un-bonded, chi1 >= chi2
-        compute_nonbonded(history, &firsttouch[i][j], i, j);
+        compute_nonbonded(history, &firsttouch[i][jj], i, j);
       }
       else { //Bonded
-        compute_bonded(history, i, j);
+        compute_bonded(history, &firsttouch[i][jj], i, j);
       }
     }
   }
@@ -174,7 +177,7 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
 
   if (rsq >= radsum*radsum){
     *touch = 0;
-    for (int k = 0; k < history_ndim; k++){
+    for (int k = 0; k < size_history; k++){
       history[k] = 0;
     }
     //history[0] = history[4] = 1234; //for debugging
@@ -185,7 +188,6 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
       history[0] = history[1] = history[2] = history[3] = history[5] = 0;
       history[4] = hprime_0;
     }
-    if (history[4] == 0) history[4] = hprime_0;
     r = sqrt(rsq);
     rinv = 1.0/r;
     nx = delx/r;
@@ -200,7 +202,7 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
 
 
     delta = radsum - r - history[5];
-    if (delta < 0) delta = 0;
+    if (delta < 0) return ; //delta = 0;
 
     // Compute tangential force
     // normal component of relative translational velocity
@@ -245,6 +247,7 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
       fnmag = fnmag_elastic;
     else
       fnmag = fnmag_plastic;
+    fnmag = fnmag_elastic;
 
     fnx = fnmag*nx;
     fny = fnmag*ny;
@@ -298,19 +301,17 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
     torque[i][2] += -radius[i]*ncrossF;
 
     if (force->newton_pair || j < atom->nlocal){
-        f[j][0] -= fx;
-        f[j][1] -= fy;
-        torque[j][2] += -radius[j]*ncrossF;
-      }
-
+      f[j][0] -= fx;
+      f[j][1] -= fy;
+      torque[j][2] += -radius[j]*ncrossF;
+    }
   }
-
 }
 
-void PairGranHopkins::compute_bonded(double *history, int i, int j){
+void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
   //See design document for definitions of these variables
   double s1x, s1y, s2x, s2y, mx, my, mmag, mex, mey, bex, bey, rx, ry, rxj, ryj;
-  double An, Bn, Cn, Dn, Bt, Ct, Dt, Bnj, Btj;
+  double An, Bn, Cn, Dn, Bt, Ct, Dt, Bnj, Cnj, Dnj, Btj;
   double Fnmag, Ftmag, Nn, Nt, Nnj, Ntj;
 
   double **x = atom->x;
@@ -329,6 +330,8 @@ void PairGranHopkins::compute_bonded(double *history, int i, int j){
   double damp_prefac, area_bond, fdampx, fdampy, torquedamp;
   double fx, fy;
   double hmin;
+
+  double dvx, dvy;
 
   int historyupdate = 1;
   if (update->setupflag) historyupdate = 0;
@@ -395,52 +398,80 @@ void PairGranHopkins::compute_bonded(double *history, int i, int j){
 
   Fnmag = nprefac*(Dn*chidiff + Cn*chidiff2);
   Ftmag = sprefac*(Dt*chidiff + Ct*chidiff2);
-  Nn = nprefac*(An*Dn*chidiff3 + (Bn*Cn+An*Dn)*chidiff2 + Bn*Dn*chidiff);
-  Nt = sprefac*(Bt*Ct*chidiff2 + Bt*Dt*chidiff);
+  Nn = nprefac*(An*Cn*chidiff3 + (Bn*Cn+An*Dn)*chidiff2 + Bn*Dn*chidiff);
+  Nt = Bt*Ftmag;
 
   //Damping force
   area_bond = history[10]*history[11]*chidiff;
   damp_prefac = damp_bonded*area_bond;
-  fdampx = -damp_prefac*(v[i][0] - v[j][0]);
-  fdampy = -damp_prefac*(v[i][1] - v[j][1]);
+
+  dvx = v[j][0] - v[i][0];
+  dvy = v[j][1] - v[i][1];
+  fdampx = damp_prefac*dvx;
+  fdampy = damp_prefac*dvy;
 
   //Damping torque
   torquedamp = -damp_bonded*area_bond*area_bond*(omega[i][2]-omega[j][2]);
 
   //Update forces and torque
-  fx = Fnmag*bex + Ftmag*mex + fdampx;
-  fy = Fnmag*bey + Ftmag*mey + fdampy;
+  fx = Fnmag*bex + Ftmag*mex;
+  fy = Fnmag*bey + Ftmag*mey;
+
+  //Ensure that damping does not cause force to change sign
+ /* if (fx < 0 && fdampx > 0){
+    fx = MIN(fx+fdampx, 0);
+  }
+  else if (fx > 0 && fdampx < 0){
+    fx = MAX(fx+fdampx, 0);
+  }
+  else */
+  fx = fx+fdampx;
+
+  /*if (fy < 0 && fdampy > 0){
+    fy = MIN(fy+fdampy, 0);
+  }
+  else if (fy > 0 && fdampy < 0){
+    fy = MAX(fy+fdampy, 0);
+  }
+  else*/
+  fy = fy+fdampy;
+
   f[i][0] += fx;
   f[i][1] += fy;
 
- // torque[i][2] += Nn + Nt + torquedamp;
+  torque[i][2] += Nn + Nt + torquedamp;
 
   if (force->newton_pair || j < atom->nlocal){
     f[j][0] -= fx;
     f[j][1] -= fy;
 
-    rxj = history[4] - 0.5*s1x - x[j][0];
-    ryj = history[5] - 0.5*s1y - x[j][1];
+    rxj = history[0] + 0.5*s1x - x[j][0];
+    ryj = history[1] + 0.5*s1y - x[j][1];
     Bnj = rxj*bey - ryj*bex;
+    Cnj = -Cn;
+    Dnj = -Dn;
     Btj = rxj*mey - ryj*mex;
 
-    Nnj = nprefac*(An*Dn*chidiff3 + (Bnj*Cn+An*Dn)*chidiff2 + Bnj*Dn*chidiff);
-    Ntj = sprefac*(Btj*Ct*chidiff2 + Btj*Dt*chidiff);
-
-    //torque[j][2] += -(Nnj + Ntj + torquedamp);
+    Nnj = nprefac*(An*Cnj*chidiff3 + (Bnj*Cnj+An*Dnj)*chidiff2 + Bnj*Dnj*chidiff);
+    Ntj = -Btj*Ftmag;
+    torque[j][2] += Nnj + Ntj - torquedamp;
   }
 
   //Update chi1, chi2
   hmin = MIN(atom->min_thickness[i], atom->min_thickness[j]);
   if (historyupdate){
+    double c1, c2;
+    c1 = history[8];
+    c2 = history[9];
     update_chi(kn, kt, Dn, Cn, Dt, Ct, hmin, history[8], history[9]);
+    *touch = 1;
     if (history[8] >= history[9]){ //Bond just broke
         double dx = x[i][0] - x[j][0];
         double dy = x[i][1] - x[j][1];
         double rij = sqrt(dx*dx + dy*dy);
         double delta_0 = atom->radius[i] + atom->radius[j] - rij;
         if (delta_0 < 0) delta_0 = 0;
-        for (int k = 0; k < history_ndim; ++k)
+        for (int k = 0; k < size_history; ++k)
           history[k] = 0;
         history[4] = hprime_0;
         history[5] = delta_0;
@@ -457,34 +488,40 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
 
   double sig_c = sig_c0*pow(hmin,(2.0/3.0));
   double sig_t = sig_t0*sig_c;
-  sig_c = -sig_c;
 
+  double denom;
+  sig_t = -sig_t;
+
+  double c1, c2;
+  c1 = chi1;
+  c2 = chi2;
   //Check for purely tensile/compressive failure
-  if (sig_n1 > sig_t || sig_n2 > sig_t || sig_n1 < sig_c || sig_n2 < sig_c){
-    if (sig_n1 > sig_t){
+  if (sig_n1 < sig_t || sig_n2 < sig_t || sig_n1 > sig_c || sig_n2 > sig_c){
+    if (sig_n1 < sig_t){
       if (Cn != 0) chi1 = (sig_t/kn - Dn)/Cn;
       else {
         chi1 = chi2;
         return;
       }
     }
-    if (sig_n2 > sig_t) chi2 = (sig_t/kn - Dn)/Cn;
+    if (sig_n2 < sig_t) chi2 = (sig_t/kn - Dn)/Cn;
     //if Cn==0, then sig_n1 = sig_n2, and function would've returned above
 
-    if (sig_n1 < sig_c){
+    if (sig_n1 > sig_c){
       if (Cn != 0) chi1 = (sig_c/kn - Dn)/Cn;
       else{
         chi1 = chi2;
         return;
       }
     }
-    if (sig_n2 < sig_c) chi2 = (sig_c/kn - Dn)/Cn;
+    if (sig_n2 > sig_c) chi2 = (sig_c/kn - Dn)/Cn;
     //if Cn==0, function would've returned above
   }
 
   //Check for 'cohesion' shear failure at chi1
-  if (sig_s1 > -tanphi*sig_n1 + tanphi*sig_t){
-    if (kt*Ct + kn*tanphi*Cn != 0) chi1 = (tanphi*(sig_t-kn*Dn)-kt*Dt)/(kt*Ct + tanphi*kn*Cn);
+  if (sig_s1 > tanphi*sig_n1 - tanphi*sig_t){
+    denom = tanphi*kn*Cn - kt*Ct;
+    if (denom != 0) chi1 = (tanphi*(sig_t-kn*Dn)+kt*Dt)/denom;
     else if (Cn != 0 && Ct != 0){
       //No need to treat case where Cn = Ct = 0, since sig_s = 0 for that case,
       // and it would've been picked up above
@@ -494,8 +531,9 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
       return;
     }
   }
-  if (sig_s1 < tanphi*sig_n1 - tanphi*sig_t){
-    if (kn*tanphi*Cn - kt*Ct != 0) chi1 = (kt*Dt-tanphi*(kn*Dn-sig_t))/(tanphi*kn*Cn - kt*Ct);
+  if (sig_s1 < -tanphi*sig_n1 + tanphi*sig_t){
+    denom = -kn*tanphi*Cn - kt*Ct;
+    if (denom != 0) chi1 = (kt*Dt+tanphi*(kn*Dn-sig_t))/denom;
     else if (Cn != 0 && Ct != 0){
       chi1 = chi2;
       return;
@@ -503,8 +541,9 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
   }
 
   //Check for 'cohesion' shear failure at chi2
-  if (sig_s2 > -tanphi*sig_n2 + tanphi*sig_t){
-    if (kt*Ct + kn*tanphi*Cn != 0) chi2 = (tanphi*(sig_t-kn*Dn)-kt*Dt)/(kt*Ct + kn*tanphi*Cn);
+  if (sig_s2 > tanphi*sig_n2 - tanphi*sig_t){
+    denom = tanphi*kn*Cn - kt*Ct;
+    if (denom != 0) chi2 = (tanphi*(sig_t-kn*Dn)+kt*Dt)/denom;
     else if (Cn != 0 && Ct != 0){
       //No need to treat case where Cn = Ct = 0, since sig_s = 0 for that case,
       // and it would've been picked up above
@@ -514,8 +553,9 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
       return;
     }
   }
-  if (sig_s2 < tanphi*sig_n2 - tanphi*sig_t){
-    if (kn*tanphi*Cn - kt*Ct != 0) chi1 = (kt*Dt-tanphi*(kn*Dn-sig_t))/(kn*tanphi*Cn - kt*Ct);
+  if (sig_s2 < -tanphi*sig_n2 + tanphi*sig_t){
+    denom = -kn*tanphi*Cn - kt*Ct;
+    if (denom != 0) chi2 = (kt*Dt+tanphi*(kn*Dn-sig_t))/denom;
     else if (Cn != 0 && Ct != 0){
       chi2 = chi1;
       return;
@@ -523,7 +563,6 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
   }  
   if (chi1 < 0 || chi1 > 1 || chi2 < 0 || chi2 > 1)
     chi1 = chi2 = 0;
-
 }
 
 /* ----------------------------------------------------------------------
@@ -550,6 +589,15 @@ void PairGranHopkins::settings(int narg, char **arg)
 }
 
 /* ---------------------------------------------------------------------- */
+double PairGranHopkins::init_one(int i, int j)
+{
+  double cutoff;
+  cutoff = PairGranHookeHistory::init_one(i, j);
+  cutoff += maxrad_dynamic[i]*0.1; //This could be an input parameter?
+  return cutoff;
+}
+
+/* ---------------------------------------------------------------------- */
 
 double PairGranHopkins::single(int i, int j, int itype, int jtype,
     double rsq,
@@ -558,3 +606,32 @@ double PairGranHopkins::single(int i, int j, int itype, int jtype,
 {
   return 0.0;
 }
+
+/* ---------------------------------------------------------------------- */
+void PairGranHopkins::transfer_history(double* sourcevalues, double* targetvalues){
+  if (sourcevalues[8] < sourcevalues[9]){
+    targetvalues[0] = sourcevalues[4];
+    targetvalues[1] = sourcevalues[5];
+    targetvalues[2] = sourcevalues[6];
+    targetvalues[3] = sourcevalues[7];
+
+    targetvalues[4] = sourcevalues[0];
+    targetvalues[5] = sourcevalues[1];
+    targetvalues[6] = sourcevalues[2];
+    targetvalues[7] = sourcevalues[3];
+
+    targetvalues[8] = sourcevalues[8];
+    targetvalues[9] = sourcevalues[9];
+    targetvalues[10] = sourcevalues[10];
+    targetvalues[11] = sourcevalues[11];
+  }
+  else{
+    for (int i = 0; i < 4; i++){
+      targetvalues[i] = -sourcevalues[i];
+    }
+    targetvalues[4] = sourcevalues[4];
+    targetvalues[5] = sourcevalues[5];
+    targetvalues[8] = sourcevalues[8];
+    targetvalues[9] = sourcevalues[9];
+  }
+};

@@ -26,7 +26,7 @@ namespace LAMMPS_NS {
 
 class PairGranHookeHistory : public Pair {
  public:
-  PairGranHookeHistory(class LAMMPS *, int _size_history=3, int fullflag = 0);
+  PairGranHookeHistory(class LAMMPS *, int _size_history=3);
   virtual ~PairGranHookeHistory();
   virtual void compute(int, int);
   virtual void settings(int, char **);
@@ -43,6 +43,12 @@ class PairGranHookeHistory : public Pair {
   void unpack_forward_comm(int, int, double *);
   double memory_usage();
 
+  int nondefault_history_transfer; //By default set to 0, meaning history[i][j] = -history[j][i].
+    // Otherwise set to 1, and provide a transfer_history function.
+  virtual void transfer_history(double*, double*) {};
+
+  int beyond_contact; //0 is interactions are only when particles are in contact, 1 otherwise
+
  protected:
   double kn,kt,gamman,gammat,xmu;
   int dampflag;
@@ -50,7 +56,6 @@ class PairGranHookeHistory : public Pair {
   int freeze_group_bit;
   int history;
   int size_history;
-  int fullflag;
 
   int neighprev;
   double *onerad_dynamic,*onerad_frozen;

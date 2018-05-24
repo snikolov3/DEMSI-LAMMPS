@@ -37,7 +37,7 @@ AtomVecDemsi::AtomVecDemsi(LAMMPS *lmp) : AtomVec(lmp)
 
   comm_x_only = 1;
   comm_f_only = 0;
-  size_forward = 3;
+  size_forward = 5;
   size_reverse = 6;
   size_border = 12;
   size_velocity = 6;
@@ -61,8 +61,8 @@ void AtomVecDemsi::init()
   // set radvary if particle diameters are time-varying due to fix adapt
 
   radvary = 0;
-  comm_x_only = 1;
-  size_forward = 3;
+  comm_x_only = 0;
+  size_forward = 5;
 
   for (int i = 0; i < modify->nfix; i++)
     if (strcmp(modify->fix[i]->style,"adapt") == 0) {
@@ -70,7 +70,7 @@ void AtomVecDemsi::init()
       if (fix->diamflag) {
         radvary = 1;
         comm_x_only = 0;
-        size_forward = 5;
+        size_forward = 7;
       }
     }
 }
@@ -198,6 +198,8 @@ int AtomVecDemsi::pack_comm(int n, int *list, double *buf,
         buf[m++] = x[j][0];
         buf[m++] = x[j][1];
         buf[m++] = x[j][2];
+        buf[m++] = mean_thickness[j];
+        buf[m++] = min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -214,6 +216,8 @@ int AtomVecDemsi::pack_comm(int n, int *list, double *buf,
         buf[m++] = x[j][0] + dx;
         buf[m++] = x[j][1] + dy;
         buf[m++] = x[j][2] + dz;
+        buf[m++] = mean_thickness[j];
+        buf[m++] = min_thickness[j];
       }
     }
 
@@ -227,6 +231,8 @@ int AtomVecDemsi::pack_comm(int n, int *list, double *buf,
         buf[m++] = x[j][2];
         buf[m++] = radius[j];
         buf[m++] = rmass[j];
+        buf[m++] = mean_thickness[j];
+        buf[m++] = min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -245,6 +251,8 @@ int AtomVecDemsi::pack_comm(int n, int *list, double *buf,
         buf[m++] = x[j][2] + dz;
         buf[m++] = radius[j];
         buf[m++] = rmass[j];
+        buf[m++] = mean_thickness[j];
+        buf[m++] = min_thickness[j];
       }
     }
   }
@@ -274,6 +282,8 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
         buf[m++] = omega[j][0];
         buf[m++] = omega[j][1];
         buf[m++] = omega[j][2];
+        buf[m++] = mean_thickness[j];
+        buf[m++] = min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -297,6 +307,8 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = omega[j][0];
           buf[m++] = omega[j][1];
           buf[m++] = omega[j][2];
+          buf[m++] = mean_thickness[j];
+          buf[m++] = min_thickness[j];
         }
       } else {
         dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -319,6 +331,8 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = omega[j][0];
           buf[m++] = omega[j][1];
           buf[m++] = omega[j][2];
+          buf[m++] = mean_thickness[j];
+          buf[m++] = min_thickness[j];
         }
       }
     }
@@ -339,6 +353,8 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
         buf[m++] = omega[j][0];
         buf[m++] = omega[j][1];
         buf[m++] = omega[j][2];
+        buf[m++] = mean_thickness[j];
+        buf[m++] = min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -364,6 +380,8 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = omega[j][0];
           buf[m++] = omega[j][1];
           buf[m++] = omega[j][2];
+          buf[m++] = mean_thickness[j];
+          buf[m++] = min_thickness[j];
         }
       } else {
         dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -388,6 +406,8 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = omega[j][0];
           buf[m++] = omega[j][1];
           buf[m++] = omega[j][2];
+          buf[m++] = mean_thickness[j];
+          buf[m++] = min_thickness[j];
         }
       }
     }
@@ -402,15 +422,20 @@ int AtomVecDemsi::pack_comm_hybrid(int n, int *list, double *buf)
 {
   int i,j,m;
 
-  if (radvary == 0) return 0;
-
   m = 0;
+  if (radvary == 0){
+    for (i = 0; i < n; i++) {
+      j = list[i];
+      buf[m++] = mean_thickness[j];
+      buf[m++] = min_thickness[j];
+    }
+    return m;
+  }
+
   for (i = 0; i < n; i++) {
     j = list[i];
     buf[m++] = radius[j];
     buf[m++] = rmass[j];
-    buf[m++] = forcing[j][0];
-    buf[m++] = forcing[j][1];
     buf[m++] = mean_thickness[j];
     buf[m++] = min_thickness[j];
   }
@@ -430,6 +455,8 @@ void AtomVecDemsi::unpack_comm(int n, int first, double *buf)
       x[i][0] = buf[m++];
       x[i][1] = buf[m++];
       x[i][2] = buf[m++];
+      mean_thickness[i] = buf[m++];
+      min_thickness[i] = buf[m++];
     }
   } else {
     m = 0;
@@ -440,8 +467,6 @@ void AtomVecDemsi::unpack_comm(int n, int first, double *buf)
       x[i][2] = buf[m++];
       radius[i] = buf[m++];
       rmass[i] = buf[m++];
-      forcing[i][0] = buf[m++];
-      forcing[i][1] = buf[m++];
       mean_thickness[i] = buf[m++];
       min_thickness[i] = buf[m++];
     }
@@ -467,6 +492,8 @@ void AtomVecDemsi::unpack_comm_vel(int n, int first, double *buf)
       omega[i][0] = buf[m++];
       omega[i][1] = buf[m++];
       omega[i][2] = buf[m++];
+      mean_thickness[i] = buf[m++];
+      min_thickness[i] = buf[m++];
     }
   } else {
     m = 0;
@@ -483,6 +510,8 @@ void AtomVecDemsi::unpack_comm_vel(int n, int first, double *buf)
       omega[i][0] = buf[m++];
       omega[i][1] = buf[m++];
       omega[i][2] = buf[m++];
+      mean_thickness[i] = buf[m++];
+      min_thickness[i] = buf[m++];
     }
   }
 }
@@ -493,15 +522,19 @@ int AtomVecDemsi::unpack_comm_hybrid(int n, int first, double *buf)
 {
   int i,m,last;
 
-  if (radvary == 0) return 0;
-
   m = 0;
   last = first + n;
+  if (radvary == 0){
+    for (i = first; i < last; i++) {
+      mean_thickness[i] = buf[m++];
+      min_thickness[i] = buf[m++];
+    }
+    return m;
+  }
+
   for (i = first; i < last; i++) {
     radius[i] = buf[m++];
     rmass[i] = buf[m++];
-    forcing[i][0] = buf[m++];
-    forcing[i][1] = buf[m++];
     mean_thickness[i] = buf[m++];
     min_thickness[i] = buf[m++];
   }
