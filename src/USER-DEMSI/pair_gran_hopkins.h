@@ -41,6 +41,8 @@ private:
   int history_ndim;
   double Emod, poiss, sig_c0, sig_t0, phi, damp_bonded, damp_tangential, damp_normal, tanphi, friction_tangential, hprime_0;
   double Gmod;
+  char sig_c0_type[256];
+  char sig_t0_type[256];
 };
 
 }

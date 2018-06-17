@@ -486,8 +486,23 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
   double sig_n2 = kn*(Dn + Cn*chi2);
   double sig_s2 = kt*(Dt + Ct*chi2);
 
-  double sig_c = sig_c0*pow(hmin,(2.0/3.0));
-  double sig_t = sig_t0*sig_c;
+  // function pointers for greater efficiency?
+  double sig_c;
+  if (strcmp(sig_c0_type,"constant") == 0) {
+    sig_c = sig_c0;
+  } else if (strcmp(sig_c0_type,"KovacsSodhi") == 0) {
+    sig_c = sig_c0*pow(hmin,(2.0/3.0)) * 1000.0;
+  } else {
+    error->all(FLERR,"Unknown sig_c0_type");
+  }
+  double sig_t;
+  if (strcmp(sig_t0_type,"constant") == 0) {
+    sig_t = sig_t0;
+  } else if (strcmp(sig_t0_type,"multiply_sig_c0") == 0) {
+    sig_t = sig_t0 * sig_c;
+  } else {
+    error->all(FLERR,"Unknown sig_t0_type");
+  }
 
   double denom;
   sig_t = -sig_t;
@@ -531,6 +546,7 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
       return;
     }
   }
+
   if (sig_s1 < -tanphi*sig_n1 + tanphi*sig_t){
     denom = -kn*tanphi*Cn - kt*Ct;
     if (denom != 0) chi1 = (kt*Dt+tanphi*(kn*Dn-sig_t))/denom;
@@ -571,18 +587,20 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
 
 void PairGranHopkins::settings(int narg, char **arg)
 {
-  if (narg != 10) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 12) error->all(FLERR,"Illegal pair_style command");
 
   Emod = force->numeric(FLERR, arg[0]);
   poiss = force->numeric(FLERR, arg[1]);
-  sig_c0 = force->numeric(FLERR, arg[2])*1000;
-  sig_t0 = force->numeric(FLERR, arg[3]);
-  phi = force->numeric(FLERR, arg[4]);
-  damp_bonded = force->numeric(FLERR, arg[5]);
-  friction_tangential = force->numeric(FLERR, arg[6]);
-  damp_normal = force->numeric(FLERR, arg[7]);
-  damp_tangential = force->numeric(FLERR, arg[8]);
-  hprime_0 = force->numeric(FLERR, arg[9]);
+  strcpy(sig_c0_type,arg[2]);
+  sig_c0 = force->numeric(FLERR, arg[3]);
+  strcpy(sig_t0_type,arg[4]);
+  sig_t0 = force->numeric(FLERR, arg[5]);
+  phi = force->numeric(FLERR, arg[6]);
+  damp_bonded = force->numeric(FLERR, arg[7]);
+  friction_tangential = force->numeric(FLERR, arg[8]);
+  damp_normal = force->numeric(FLERR, arg[9]);
+  damp_tangential = force->numeric(FLERR, arg[10]);
+  hprime_0 = force->numeric(FLERR, arg[11]);
 
   tanphi = tan(phi*MathConst::MY_PI/180.0);
   Gmod = Emod/(2*(1+poiss));
