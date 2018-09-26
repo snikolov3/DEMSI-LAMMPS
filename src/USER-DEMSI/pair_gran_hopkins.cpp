@@ -131,6 +131,7 @@ void PairGranHopkins::compute(int eflag, int vflag)
       }
     }
   }
+  if (vflag_fdotr) virial_fdotr_compute();
 }
 
 void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int j){
@@ -306,6 +307,8 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
       torque[j][2] += -radius[j]*ncrossF;
     }
   }
+  if (evflag) ev_tally_xyz(i,j,atom->nlocal, force->newton_pair,
+                                   0.0,0.0,fx,fy,0,delx,dely,0);
 }
 
 void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
@@ -477,6 +480,8 @@ void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
         history[5] = delta_0;
     }
   }
+  if (evflag) ev_tally_xyz(i,j,atom->nlocal, force->newton_pair,
+                                     0.0,0.0,fx,fy,0,x[i][0]-x[j][0],x[i][1]-x[j][1],0);
 }
 
 
