@@ -35,9 +35,9 @@ class FixNVE : public Fix {
   virtual void initial_integrate_respa(int, int, int);
   virtual void final_integrate_respa(int, int);
   virtual void reset_dt();
+  double dtv,dtf;
 
  protected:
-  double dtv,dtf;
   double *step_respa;
   int mass_require;
 };
