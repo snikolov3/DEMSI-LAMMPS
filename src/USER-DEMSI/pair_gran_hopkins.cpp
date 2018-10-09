@@ -131,6 +131,7 @@ void PairGranHopkins::compute(int eflag, int vflag)
       }
     }
   }
+  if (vflag_fdotr) virial_fdotr_compute();
 }
 
 void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int j){
@@ -247,7 +248,7 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
       fnmag = fnmag_elastic;
     else
       fnmag = fnmag_plastic;
-    fnmag = fnmag_elastic;
+    //fnmag = fnmag_elastic;
 
     fnx = fnmag*nx;
     fny = fnmag*ny;
@@ -306,6 +307,8 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
       torque[j][2] += -radius[j]*ncrossF;
     }
   }
+  if (evflag) ev_tally_xyz(i,j,atom->nlocal, force->newton_pair,
+                                   0.0,0.0,fx,fy,0,delx,dely,0);
 }
 
 void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
@@ -477,6 +480,8 @@ void PairGranHopkins::compute_bonded(double *history, int* touch, int i, int j){
         history[5] = delta_0;
     }
   }
+  if (evflag) ev_tally_xyz(i,j,atom->nlocal, force->newton_pair,
+                                     0.0,0.0,fx,fy,0,x[i][0]-x[j][0],x[i][1]-x[j][1],0);
 }
 
 
@@ -505,7 +510,7 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
   }
 
   double denom;
-  sig_t = -sig_t;
+  sig_t = -sig_t; //Somewhat against convention, tensile load is taken to be negative
 
   double c1, c2;
   c1 = chi1;
@@ -533,48 +538,89 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
     //if Cn==0, function would've returned above
   }
 
+  //Re-compute, since stress state could still be outside of failure envelope
+  sig_n1 = kn*(Dn + Cn*chi1);
+  sig_s1 = kt*(Dt + Ct*chi1);
+  sig_n2 = kn*(Dn + Cn*chi2);
+  sig_s2 = kt*(Dt + Ct*chi2);
+
   //Check for 'cohesion' shear failure at chi1
+  //Top branch of envelope
   if (sig_s1 > tanphi*sig_n1 - tanphi*sig_t){
     denom = tanphi*kn*Cn - kt*Ct;
-    if (denom != 0) chi1 = (tanphi*(sig_t-kn*Dn)+kt*Dt)/denom;
-    else if (Cn != 0 && Ct != 0){
-      //No need to treat case where Cn = Ct = 0, since sig_s = 0 for that case,
-      // and it would've been picked up above
-      //For the rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
-      // therefore bond breaks.
-      chi1 = chi2;
-      return;
+    if (denom != 0) chi1 = (kt*Dt+tanphi*(sig_t-kn*Dn))/denom;
+    else {
+      if (Cn != 0 && Ct != 0){
+        //Rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
+        // therefore bond breaks.
+        chi1 = chi2;
+        return;
+      }
+      else if (Cn == 0 && Ct == 0){
+        //Rare case of s1 = s2, again yield criterion is independent of chi,
+        // and there is a possibility of shear failure of entire bond
+        if (kt*Dt > tanphi*(kn*Dn - sig_t)){
+          chi1 = chi2;
+          return;
+        }
+      }
     }
   }
 
+  //Bottom branch of envelope
   if (sig_s1 < -tanphi*sig_n1 + tanphi*sig_t){
     denom = -kn*tanphi*Cn - kt*Ct;
     if (denom != 0) chi1 = (kt*Dt+tanphi*(kn*Dn-sig_t))/denom;
-    else if (Cn != 0 && Ct != 0){
-      chi1 = chi2;
-      return;
+    else {
+      if (Cn != 0 && Ct != 0){
+        chi1 = chi2;
+        return;
+      }
+      else if (Cn == 0 && Ct == 0){
+        if (kt*Dt < -tanphi*(kn*Dn - sig_t)){
+          chi1 = chi2;
+          return;
+        }
+      }
     }
   }
 
   //Check for 'cohesion' shear failure at chi2
+  //Top branch of envelope
   if (sig_s2 > tanphi*sig_n2 - tanphi*sig_t){
     denom = tanphi*kn*Cn - kt*Ct;
-    if (denom != 0) chi2 = (tanphi*(sig_t-kn*Dn)+kt*Dt)/denom;
-    else if (Cn != 0 && Ct != 0){
-      //No need to treat case where Cn = Ct = 0, since sig_s = 0 for that case,
-      // and it would've been picked up above
-      //For the rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
-      // therefore bond breaks.
-      chi2 = chi1;
-      return;
+    if (denom != 0) chi2 = (kt*Dt+tanphi*(sig_t-kn*Dn))/denom;
+    else {
+      if (Cn != 0 && Ct != 0){
+        //Rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
+        // therefore bond breaks.
+        chi2 = chi1;
+        return;
+      }
+      else if (Cn == 0 && Ct == 0){
+        if (kt*Dt > tanphi*(kn*Dn - sig_t)){
+          chi1 = chi2;
+          return;
+        }
+      }
     }
   }
+
+  //Bottom branch of envelope
   if (sig_s2 < -tanphi*sig_n2 + tanphi*sig_t){
     denom = -kn*tanphi*Cn - kt*Ct;
     if (denom != 0) chi2 = (kt*Dt+tanphi*(kn*Dn-sig_t))/denom;
-    else if (Cn != 0 && Ct != 0){
-      chi2 = chi1;
-      return;
+    else {
+      if (Cn != 0 && Ct != 0){
+        chi1 = chi2;
+        return;
+      }
+      else if (Cn == 0 && Ct == 0){
+        if (kt*Dt < -tanphi*(kn*Dn - sig_t)){
+          chi1 = chi2;
+          return;
+        }
+      }
     }
   }  
   if (chi1 < 0 || chi1 > 1 || chi2 < 0 || chi2 > 1)
