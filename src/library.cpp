@@ -15,8 +15,8 @@
 // customize by adding new LAMMPS-specific functions
 
 #include <mpi.h>
-#include <string.h>
-#include <stdlib.h>
+#include <cstring>
+#include <cstdlib>
 #include "library.h"
 #include "lmptype.h"
 #include "lammps.h"
@@ -38,6 +38,7 @@
 #include "memory.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 
 using namespace LAMMPS_NS;
 
@@ -197,13 +198,16 @@ int lammps_version(void *ptr)
    process an input script in filename str
 ------------------------------------------------------------------------- */
 
-void lammps_file(void *ptr, const char *str)
+void lammps_file(void *ptr, char *str)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
 
   BEGIN_CAPTURE
   {
-    lmp->input->file(str);
+    if (lmp->update->whichflag != 0)
+      lmp->error->all(FLERR,"Library error: issuing LAMMPS command during run");
+    else
+      lmp->input->file(str);
   }
   END_CAPTURE
 }
@@ -214,14 +218,17 @@ void lammps_file(void *ptr, const char *str)
    return command name to caller
 ------------------------------------------------------------------------- */
 
-char *lammps_command(void *ptr, const char *str)
+char *lammps_command(void *ptr, char *str)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
   char *result = NULL;
 
   BEGIN_CAPTURE
   {
-    result = lmp->input->one(str);
+    if (lmp->update->whichflag != 0)
+      lmp->error->all(FLERR,"Library error: issuing LAMMPS command during run");
+    else
+      result = lmp->input->one(str);
   }
   END_CAPTURE
 
@@ -262,11 +269,11 @@ void lammps_commands_list(void *ptr, int ncmd, char **cmds)
 
 /* ----------------------------------------------------------------------
    process multiple input commands in single long str, separated by newlines
-   single command can span multiple lines via continuation characters 
+   single command can span multiple lines via continuation characters
    multi-line commands enabled by triple quotes will not work
 ------------------------------------------------------------------------- */
 
-void lammps_commands_string(void *ptr, const char *str)
+void lammps_commands_string(void *ptr, char *str)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
 
@@ -278,6 +285,10 @@ void lammps_commands_string(void *ptr, const char *str)
 
   BEGIN_CAPTURE
   {
+    if (lmp->update->whichflag != 0) {
+      lmp->error->all(FLERR,"Library error: issuing LAMMPS command during run");
+    }
+
     char *ptr = copy;
     for (int i=0; i < n-1; ++i) {
 
@@ -325,7 +336,7 @@ void lammps_free(void *ptr)
    customize by adding names
 ------------------------------------------------------------------------- */
 
-int lammps_extract_setting(void *ptr, const char *name)
+int lammps_extract_setting(void * /*ptr*/, char *name)
 {
   if (strcmp(name,"bigint") == 0) return sizeof(bigint);
   if (strcmp(name,"tagint") == 0) return sizeof(tagint);
@@ -345,7 +356,7 @@ int lammps_extract_setting(void *ptr, const char *name)
    customize by adding names
 ------------------------------------------------------------------------- */
 
-void *lammps_extract_global(void *ptr, const char *name)
+void *lammps_extract_global(void *ptr, char *name)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
 
@@ -439,7 +450,7 @@ void lammps_extract_box(void *ptr, double *boxlo, double *boxhi,
   periodicity[0] = domain->periodicity[0];
   periodicity[1] = domain->periodicity[1];
   periodicity[2] = domain->periodicity[2];
-  
+
   *box_change = domain->box_change;
 }
 
@@ -454,7 +465,7 @@ void lammps_extract_box(void *ptr, double *boxlo, double *boxhi,
    customize by adding names to Atom::extract()
 ------------------------------------------------------------------------- */
 
-void *lammps_extract_atom(void *ptr, const char *name)
+void *lammps_extract_atom(void *ptr, char *name)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
   return lmp->atom->extract(name);
@@ -470,10 +481,13 @@ void *lammps_extract_atom(void *ptr, const char *name)
      compute's internal data structure for the entity
      caller should cast it to (double *) for a scalar or vector
      caller should cast it to (double **) for an array
-   for per-atom or local data, returns a pointer to the
+   for per-atom or local vector/array data, returns a pointer to the
      compute's internal data structure for the entity
      caller should cast it to (double *) for a vector
      caller should cast it to (double **) for an array
+   for local data, accessing scalar data for the compute (type = 0),
+   returns a pointer that should be cast to (int *) which points to
+   an int with the number of local rows, i.e. the length of the local array.
    returns a void pointer to the compute's internal data structure
      for the entity which the caller can cast to the proper data type
    returns a NULL if id is not recognized or style/type not supported
@@ -484,7 +498,7 @@ void *lammps_extract_atom(void *ptr, const char *name)
      so caller must insure that it is OK
 ------------------------------------------------------------------------- */
 
-void *lammps_extract_compute(void *ptr, const char *id, int style, int type)
+void *lammps_extract_compute(void *ptr, char *id, int style, int type)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
 
@@ -531,6 +545,11 @@ void *lammps_extract_compute(void *ptr, const char *id, int style, int type)
 
     if (style == 2) {
       if (!compute->local_flag) return NULL;
+      if (type == 0) {
+        if (compute->invoked_local != lmp->update->ntimestep)
+          compute->compute_local();
+        return (void *) &compute->size_local_rows;
+      }
       if (type == 1) {
         if (compute->invoked_local != lmp->update->ntimestep)
           compute->compute_local();
@@ -572,7 +591,7 @@ void *lammps_extract_compute(void *ptr, const char *id, int style, int type)
      the fix is valid, so caller must insure that it is OK
 ------------------------------------------------------------------------- */
 
-void *lammps_extract_fix(void *ptr, const char *id, int style, int type,
+void *lammps_extract_fix(void *ptr, char *id, int style, int type,
                          int i, int j)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
@@ -584,19 +603,21 @@ void *lammps_extract_fix(void *ptr, const char *id, int style, int type,
     Fix *fix = lmp->modify->fix[ifix];
 
     if (style == 0) {
-      double *dptr = (double *) malloc(sizeof(double));
       if (type == 0) {
         if (!fix->scalar_flag) return NULL;
+        double *dptr = (double *) malloc(sizeof(double));
         *dptr = fix->compute_scalar();
         return (void *) dptr;
       }
       if (type == 1) {
         if (!fix->vector_flag) return NULL;
+        double *dptr = (double *) malloc(sizeof(double));
         *dptr = fix->compute_vector(i);
         return (void *) dptr;
       }
       if (type == 2) {
         if (!fix->array_flag) return NULL;
+        double *dptr = (double *) malloc(sizeof(double));
         *dptr = fix->compute_array(i,j);
         return (void *) dptr;
       }
@@ -646,7 +667,7 @@ void *lammps_extract_fix(void *ptr, const char *id, int style, int type,
      so caller must insure that it is OK
 ------------------------------------------------------------------------- */
 
-void *lammps_extract_variable(void *ptr, const char *name, char *group)
+void *lammps_extract_variable(void *ptr, char *name, char *group)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
 
@@ -675,6 +696,61 @@ void *lammps_extract_variable(void *ptr, const char *name, char *group)
   return NULL;
 }
 
+/* ----------------------------------------------------------------------
+   return the current value of a thermo keyword as a double
+   unlike lammps_extract_global() this does not give access to the
+     storage of the data in question
+   instead it triggers the Thermo class to compute the current value
+     and returns it
+------------------------------------------------------------------------- */
+
+double lammps_get_thermo(void *ptr, char *name)
+{
+  LAMMPS *lmp = (LAMMPS *) ptr;
+  double dval = 0.0;
+
+  BEGIN_CAPTURE
+  {
+    lmp->output->thermo->evaluate_keyword(name,&dval);
+  }
+  END_CAPTURE
+
+  return dval;
+}
+
+/* ----------------------------------------------------------------------
+   return the total number of atoms in the system
+   useful before call to lammps_get_atoms() so can pre-allocate vector
+------------------------------------------------------------------------- */
+
+int lammps_get_natoms(void *ptr)
+{
+  LAMMPS *lmp = (LAMMPS *) ptr;
+
+  if (lmp->atom->natoms > MAXSMALLINT) return 0;
+  int natoms = static_cast<int> (lmp->atom->natoms);
+  return natoms;
+}
+
+/* ----------------------------------------------------------------------
+   set the value of a STRING variable to str
+   return -1 if variable doesn't exist or not a STRING variable
+   return 0 for success
+------------------------------------------------------------------------- */
+
+int lammps_set_variable(void *ptr, char *name, char *str)
+{
+  LAMMPS *lmp = (LAMMPS *) ptr;
+  int err = -1;
+
+  BEGIN_CAPTURE
+  {
+    err = lmp->input->variable->set_string(name,str);
+  }
+  END_CAPTURE
+
+  return err;
+}
 
 /* ----------------------------------------------------------------------
    reset simulation box parameters
@@ -705,70 +781,24 @@ void lammps_reset_box(void *ptr, double *boxlo, double *boxhi,
 }
 
 /* ----------------------------------------------------------------------
-   set the value of a STRING variable to str
-   return -1 if variable doesn't exist or not a STRING variable
-   return 0 for success
-------------------------------------------------------------------------- */
-
-int lammps_set_variable(void *ptr, const char *name, const char *str)
-{
-  LAMMPS *lmp = (LAMMPS *) ptr;
-  int err = -1;
-
-  BEGIN_CAPTURE
-  {
-    err = lmp->input->variable->set_string(name,str);
-  }
-  END_CAPTURE
-
-  return err;
-}
-
-/* ----------------------------------------------------------------------
-   return the current value of a thermo keyword as a double
-   unlike lammps_extract_global() this does not give access to the
-     storage of the data in question
-   instead it triggers the Thermo class to compute the current value
-     and returns it
-------------------------------------------------------------------------- */
-
-double lammps_get_thermo(void *ptr, const char *name)
-{
-  LAMMPS *lmp = (LAMMPS *) ptr;
-  double dval = 0.0;
-
-  BEGIN_CAPTURE
-  {
-    lmp->output->thermo->evaluate_keyword(name,&dval);
-  }
-  END_CAPTURE
-
-  return dval;
-}
-
-/* ----------------------------------------------------------------------
-   return the total number of atoms in the system
-   useful before call to lammps_get_atoms() so can pre-allocate vector
-------------------------------------------------------------------------- */
-
-int lammps_get_natoms(void *ptr)
-{
-  LAMMPS *lmp = (LAMMPS *) ptr;
-
-  if (lmp->atom->natoms > MAXSMALLINT) return 0;
-  int natoms = static_cast<int> (lmp->atom->natoms);
-  return natoms;
-}
-
-/* ----------------------------------------------------------------------
-   gather the named atom-based entity across all processors
-   atom IDs must be consecutive from 1 to N
+   gather the named atom-based entity for all atoms
+     return it in user-allocated data
+   data will be ordered by atom ID
+     requirement for consecutive atom IDs (1 to N)
+   see gather_atoms_concat() to return data for all atoms, unordered
+   see gather_atoms_subset() to return data for only a subset of atoms
    name = desired quantity, e.g. x or charge
    type = 0 for integer values, 1 for double values
    count = # of per-atom values, e.g. 1 for type or charge, 3 for x or f
+     use count = 3 with "image" if want single image flag unpacked into xyz
    return atom-based values in 1d data, ordered by count, then by atom ID
      e.g. x[0][0],x[0][1],x[0][2],x[1][0],x[1][1],x[1][2],x[2][0],...
      data must be pre-allocated by caller to correct length
+     correct length = count*Natoms, as queried by get_natoms()
+   method:
+     alloc and zero count*Natom length vector
+     loop over Nlocal to fill vector with my values
+     Allreduce to sum vector into data across all procs
 ------------------------------------------------------------------------- */
 
 void lammps_gather_atoms(void *ptr, const char *name,
@@ -778,10 +808,13 @@ void lammps_gather_atoms(void *ptr, const char *name,
 
   BEGIN_CAPTURE
   {
+    int i,j,offset;
+
     // error if tags are not defined or not consecutive
+    // NOTE: test that name = image or ids is not a 64-bit int in code?
 
     int flag = 0;
-    if (lmp->atom->tag_enable == 0 || lmp->atom->tag_consecutive() == 0) 
+    if (lmp->atom->tag_enable == 0 || lmp->atom->tag_consecutive() == 0)
       flag = 1;
     if (lmp->atom->natoms > MAXSMALLINT) flag = 1;
     if (flag) {
@@ -792,11 +825,10 @@ void lammps_gather_atoms(void *ptr, const char *name,
 
     int natoms = static_cast<int> (lmp->atom->natoms);
 
-    int i,j,offset;
     void *vptr = lmp->atom->extract(name);
-    if(vptr == NULL) {
-        lmp->error->warning(FLERR,"lammps_gather_atoms: unknown property name");
-        return;
+    if (vptr == NULL) {
+      lmp->error->warning(FLERR,"lammps_gather_atoms: unknown property name");
+      return;
     }
 
     // copy = Natom length vector of per-atom values
@@ -818,10 +850,11 @@ void lammps_gather_atoms(void *ptr, const char *name,
       tagint *tag = lmp->atom->tag;
       int nlocal = lmp->atom->nlocal;
 
-      if (count == 1)
+      if (count == 1) {
         for (i = 0; i < nlocal; i++)
           copy[tag[i]-1] = vector[i];
-      else if (imgunpack) {
+
+      } else if (imgunpack) {
         for (i = 0; i < nlocal; i++) {
           offset = count*(tag[i]-1);
           const int image = vector[i];
@@ -829,13 +862,15 @@ void lammps_gather_atoms(void *ptr, const char *name,
           copy[offset++] = ((image >> IMGBITS) & IMGMASK) - IMGMAX;
           copy[offset++] = ((image >> IMG2BITS) & IMGMASK) - IMGMAX;
         }
-      } else
+
+      } else {
         for (i = 0; i < nlocal; i++) {
           offset = count*(tag[i]-1);
           for (j = 0; j < count; j++)
             copy[offset++] = array[i][j];
         }
-      
+      }
+
       MPI_Allreduce(copy,data,count*natoms,MPI_INT,MPI_SUM,lmp->world);
       lmp->memory->destroy(copy);
 
@@ -855,6 +890,7 @@ void lammps_gather_atoms(void *ptr, const char *name,
       if (count == 1) {
         for (i = 0; i < nlocal; i++)
           copy[tag[i]-1] = vector[i];
+
       } else {
         for (i = 0; i < nlocal; i++) {
           offset = count*(tag[i]-1);
@@ -871,26 +907,318 @@ void lammps_gather_atoms(void *ptr, const char *name,
 }
 
 /* ----------------------------------------------------------------------
-   scatter the named atom-based entity across all processors
-   atom IDs must be consecutive from 1 to N
+   gather the named atom-based entity for all atoms
+     return it in user-allocated data
+   data will be a concatenation of chunks of each proc's atoms,
+     in whatever order the atoms are on each proc
+     no requirement for consecutive atom IDs (1 to N)
+     can do a gather_atoms_concat for "id" if need to know atom IDs
+   see gather_atoms() to return data ordered by consecutive atom IDs
+   see gather_atoms_subset() to return data for only a subset of atoms
    name = desired quantity, e.g. x or charge
    type = 0 for integer values, 1 for double values
    count = # of per-atom values, e.g. 1 for type or charge, 3 for x or f
-   data = atom-based values in 1d data, ordered by count, then by atom ID
+     use count = 3 with "image" if want single image flag unpacked into xyz
+   return atom-based values in 1d data, ordered by count, then by atom
      e.g. x[0][0],x[0][1],x[0][2],x[1][0],x[1][1],x[1][2],x[2][0],...
+     data must be pre-allocated by caller to correct length
+     correct length = count*Natoms, as queried by get_natoms()
+   method:
+     Allgather Nlocal atoms from each proc into data
 ------------------------------------------------------------------------- */
 
-void lammps_scatter_atoms(void *ptr, const char *name,
+void lammps_gather_atoms_concat(void *ptr, char *name,
+                                int type, int count, void *data)
+{
+  LAMMPS *lmp = (LAMMPS *) ptr;
+
+  BEGIN_CAPTURE
+  {
+    int i,offset;
+
+    // error if tags are not defined
+    // NOTE: test that name = image or ids is not a 64-bit int in code?
+
+    int flag = 0;
+    if (lmp->atom->tag_enable == 0) flag = 1;
+    if (lmp->atom->natoms > MAXSMALLINT) flag = 1;
+    if (flag) {
+      if (lmp->comm->me == 0)
+        lmp->error->warning(FLERR,"Library error in lammps_gather_atoms");
+      return;
+    }
+
+    int natoms = static_cast<int> (lmp->atom->natoms);
+
+    void *vptr = lmp->atom->extract(name);
+    if (vptr == NULL) {
+      lmp->error->warning(FLERR,"lammps_gather_atoms: unknown property name");
+      return;
+    }
+
+    // perform MPI_Allgatherv on each proc's chunk of Nlocal atoms
+    
+    int nprocs = lmp->comm->nprocs;
+
+    int *recvcounts,*displs;
+    lmp->memory->create(recvcounts,nprocs,"lib/gather:recvcounts");
+    lmp->memory->create(displs,nprocs,"lib/gather:displs");
+
+    if (type == 0) {
+      int *vector = NULL;
+      int **array = NULL;
+      const int imgunpack = (count == 3) && (strcmp(name,"image") == 0);
+
+      if ((count == 1) || imgunpack) vector = (int *) vptr;
+      else array = (int **) vptr;
+
+      int *copy;
+      lmp->memory->create(copy,count*natoms,"lib/gather:copy");
+      for (i = 0; i < count*natoms; i++) copy[i] = 0;
+
+      int nlocal = lmp->atom->nlocal;
+
+      if (count == 1) {
+        MPI_Allgather(&nlocal,1,MPI_INT,recvcounts,1,MPI_INT,lmp->world);
+        displs[0] = 0;
+        for (i = 1; i < nprocs; i++)
+          displs[i] = displs[i-1] + recvcounts[i-1];
+        MPI_Allgatherv(vector,nlocal,MPI_INT,data,recvcounts,displs,
+                       MPI_INT,lmp->world);
+
+      } else if (imgunpack) {
+        int *copy;
+        lmp->memory->create(copy,count*nlocal,"lib/gather:copy");
+        offset = 0;
+        for (i = 0; i < nlocal; i++) {
+          const int image = vector[i];
+          copy[offset++] = (image & IMGMASK) - IMGMAX;
+          copy[offset++] = ((image >> IMGBITS) & IMGMASK) - IMGMAX;
+          copy[offset++] = ((image >> IMG2BITS) & IMGMASK) - IMGMAX;
+        }
+        int n = count*nlocal;
+        MPI_Allgather(&n,1,MPI_INT,recvcounts,1,MPI_INT,lmp->world);
+        displs[0] = 0;
+        for (i = 1; i < nprocs; i++)
+          displs[i] = displs[i-1] + recvcounts[i-1];
+        MPI_Allgatherv(copy,count*nlocal,MPI_INT,
+                       data,recvcounts,displs,MPI_INT,lmp->world);
+        lmp->memory->destroy(copy);
+
+      } else {
+        int n = count*nlocal;
+        MPI_Allgather(&n,1,MPI_INT,recvcounts,1,MPI_INT,lmp->world);
+        displs[0] = 0;
+        for (i = 1; i < nprocs; i++)
+          displs[i] = displs[i-1] + recvcounts[i-1];
+        MPI_Allgatherv(&array[0][0],count*nlocal,MPI_INT,
+                       data,recvcounts,displs,MPI_INT,lmp->world);
+      }
+
+    } else {
+      double *vector = NULL;
+      double **array = NULL;
+      if (count == 1) vector = (double *) vptr;
+      else array = (double **) vptr;
+
+      int nlocal = lmp->atom->nlocal;
+
+      if (count == 1) {
+        MPI_Allgather(&nlocal,1,MPI_INT,recvcounts,1,MPI_INT,lmp->world);
+        displs[0] = 0;
+        for (i = 1; i < nprocs; i++)
+          displs[i] = displs[i-1] + recvcounts[i-1];
+        MPI_Allgatherv(vector,nlocal,MPI_DOUBLE,data,recvcounts,displs,
+                       MPI_DOUBLE,lmp->world);
+
+      } else {
+        int n = count*nlocal;
+        MPI_Allgather(&n,1,MPI_INT,recvcounts,1,MPI_INT,lmp->world);
+        displs[0] = 0;
+        for (i = 1; i < nprocs; i++)
+          displs[i] = displs[i-1] + recvcounts[i-1];
+        MPI_Allgatherv(&array[0][0],count*nlocal,MPI_DOUBLE,
+                       data,recvcounts,displs,MPI_DOUBLE,lmp->world);
+      }
+    }
+
+    lmp->memory->destroy(recvcounts);
+    lmp->memory->destroy(displs);
+  }
+  END_CAPTURE
+}
+
+/* ----------------------------------------------------------------------
+   gather the named atom-based entity for a subset of atoms
+     return it in user-allocated data
+   data will be ordered by requested atom IDs
+     no requirement for consecutive atom IDs (1 to N)
+   see gather_atoms() to return data for all atoms, ordered by consecutive IDs
+   see gather_atoms_concat() to return data for all atoms, unordered
+   name = desired quantity, e.g. x or charge
+   type = 0 for integer values, 1 for double values
+   count = # of per-atom values, e.g. 1 for type or charge, 3 for x or f
+     use count = 3 with "image" if want single image flag unpacked into xyz
+   ndata = # of atoms to return data for (could be all atoms)
+   ids = list of Ndata atom IDs to return data for
+   return atom-based values in 1d data, ordered by count, then by atom
+     e.g. x[0][0],x[0][1],x[0][2],x[1][0],x[1][1],x[1][2],x[2][0],...
+     data must be pre-allocated by caller to correct length
+     correct length = count*Ndata
+   method:
+     alloc and zero count*Ndata length vector
+     loop over Ndata to fill vector with my values
+     Allreduce to sum vector into data across all procs
+------------------------------------------------------------------------- */
+
+void lammps_gather_atoms_subset(void *ptr, char *name,
+                                int type, int count,
+                                int ndata, int *ids, void *data)
+{
+  LAMMPS *lmp = (LAMMPS *) ptr;
+
+  BEGIN_CAPTURE
+  { 
+    int i,j,m,offset;
+    tagint id;
+
+    // error if tags are not defined
+    // NOTE: test that name = image or ids is not a 64-bit int in code?
+
+    int flag = 0;
+    if (lmp->atom->tag_enable == 0) flag = 1;
+    if (lmp->atom->natoms > MAXSMALLINT) flag = 1;
+    if (flag) {
+      if (lmp->comm->me == 0)
+        lmp->error->warning(FLERR,"Library error in lammps_gather_atoms_subset");
+      return;
+    }
+
+    void *vptr = lmp->atom->extract(name);
+    if (vptr == NULL) {
+      lmp->error->warning(FLERR,"lammps_gather_atoms_subset: "
+                          "unknown property name");
+      return;
+    }
+
+    // copy = Ndata length vector of per-atom values
+    // use atom ID to insert each atom's values into copy
+    // MPI_Allreduce with MPI_SUM to merge into data
+
+    if (type == 0) {
+      int *vector = NULL;
+      int **array = NULL;
+      const int imgunpack = (count == 3) && (strcmp(name,"image") == 0);
+
+      if ((count == 1) || imgunpack) vector = (int *) vptr;
+      else array = (int **) vptr;
+
+      int *copy;
+      lmp->memory->create(copy,count*ndata,"lib/gather:copy");
+      for (i = 0; i < count*ndata; i++) copy[i] = 0;
+
+      int nlocal = lmp->atom->nlocal;
+
+      if (count == 1) {
+        for (i = 0; i < ndata; i++) {
+          id = ids[i];
+          if ((m = lmp->atom->map(id)) >= 0 && m < nlocal)
+            copy[i] = vector[m];
+        }
+
+      } else if (imgunpack) {
+        for (i = 0; i < ndata; i++) {
+          id = ids[i];
+          if ((m = lmp->atom->map(id)) >= 0 && m < nlocal) {
+            offset = count*i;
+            const int image = vector[m];
+            copy[offset++] = (image & IMGMASK) - IMGMAX;
+            copy[offset++] = ((image >> IMGBITS) & IMGMASK) - IMGMAX;
+            copy[offset++] = ((image >> IMG2BITS) & IMGMASK) - IMGMAX;
+          }
+        }
+
+      } else {
+        for (i = 0; i < ndata; i++) {
+          id = ids[i];
+          if ((m = lmp->atom->map(id)) >= 0 && m < nlocal) {
+            offset = count*i;
+            for (j = 0; j < count; j++)
+              copy[offset++] = array[m][j];
+          }
+        }
+      }
+
+      MPI_Allreduce(copy,data,count*ndata,MPI_INT,MPI_SUM,lmp->world);
+      lmp->memory->destroy(copy);
+
+    } else {
+      double *vector = NULL;
+      double **array = NULL;
+      if (count == 1) vector = (double *) vptr;
+      else array = (double **) vptr;
+
+      double *copy;
+      lmp->memory->create(copy,count*ndata,"lib/gather:copy");
+      for (i = 0; i < count*ndata; i++) copy[i] = 0.0;
+
+      int nlocal = lmp->atom->nlocal;
+
+      if (count == 1) {
+        for (i = 0; i < ndata; i++) {
+          id = ids[i];
+          if ((m = lmp->atom->map(id)) >= 0 && m < nlocal)
+            copy[i] = vector[m];
+        }
+
+      } else {
+        for (i = 0; i < ndata; i++) {
+          id = ids[i];
+          if ((m = lmp->atom->map(id)) >= 0 && m < nlocal) {
+            offset = count*i;
+            for (j = 0; j < count; j++)
+              copy[offset++] = array[m][j];
+          }
+        }
+      }
+
+      MPI_Allreduce(copy,data,count*ndata,MPI_DOUBLE,MPI_SUM,lmp->world);
+      lmp->memory->destroy(copy);
+    }
+  }
+  END_CAPTURE
+}
+
+/* ----------------------------------------------------------------------
+   scatter the named atom-based entity in data to all atoms
+   data is ordered by atom ID
+     requirement for consecutive atom IDs (1 to N)
+   see scatter_atoms_subset() to scatter data for some (or all) atoms, unordered
+   name = desired quantity, e.g. x or charge
+   type = 0 for integer values, 1 for double values
+   count = # of per-atom values, e.g. 1 for type or charge, 3 for x or f
+     use count = 3 with "image" for xyz to be packed into single image flag
+   data = atom-based values in 1d data, ordered by count, then by atom ID
+     e.g. x[0][0],x[0][1],x[0][2],x[1][0],x[1][1],x[1][2],x[2][0],...
+     data must be correct length = count*Natoms, as queried by get_natoms()
+   method:
+     loop over Natoms, if I own atom ID, set its values from data
+------------------------------------------------------------------------- */
+
+void lammps_scatter_atoms(void *ptr, char *name,
                           int type, int count, void *data)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
 
   BEGIN_CAPTURE
   {
+    int i,j,m,offset;
+
     // error if tags are not defined or not consecutive or no atom map
+    // NOTE: test that name = image or ids is not a 64-bit int in code?
 
     int flag = 0;
-    if (lmp->atom->tag_enable == 0 || lmp->atom->tag_consecutive() == 0) 
+    if (lmp->atom->tag_enable == 0 || lmp->atom->tag_consecutive() == 0)
       flag = 1;
     if (lmp->atom->natoms > MAXSMALLINT) flag = 1;
     if (lmp->atom->map_style == 0) flag = 1;
@@ -902,7 +1230,6 @@ void lammps_scatter_atoms(void *ptr, const char *name,
 
     int natoms = static_cast<int> (lmp->atom->natoms);
 
-    int i,j,m,offset;
     void *vptr = lmp->atom->extract(name);
     if(vptr == NULL) {
         lmp->error->warning(FLERR,
@@ -927,6 +1254,7 @@ void lammps_scatter_atoms(void *ptr, const char *name,
         for (i = 0; i < natoms; i++)
           if ((m = lmp->atom->map(i+1)) >= 0)
             vector[m] = dptr[i];
+
       } else if (imgpack) {
         for (i = 0; i < natoms; i++)
           if ((m = lmp->atom->map(i+1)) >= 0) {
@@ -936,6 +1264,7 @@ void lammps_scatter_atoms(void *ptr, const char *name,
             image += (dptr[offset++] + IMGMAX) << IMG2BITS;
             vector[m] = image;
           }
+
       } else {
         for (i = 0; i < natoms; i++)
           if ((m = lmp->atom->map(i+1)) >= 0) {
@@ -944,6 +1273,7 @@ void lammps_scatter_atoms(void *ptr, const char *name,
               array[m][j] = dptr[offset++];
           }
       }
+
     } else {
       double *vector = NULL;
       double **array = NULL;
@@ -955,9 +1285,129 @@ void lammps_scatter_atoms(void *ptr, const char *name,
         for (i = 0; i < natoms; i++)
           if ((m = lmp->atom->map(i+1)) >= 0)
             vector[m] = dptr[i];
+
       } else {
         for (i = 0; i < natoms; i++) {
           if ((m = lmp->atom->map(i+1)) >= 0) {
+            offset = count*i;
+            for (j = 0; j < count; j++)
+              array[m][j] = dptr[offset++];
+          }
+        }
+      }
+    }
+  }
+  END_CAPTURE
+}
+
+/* ----------------------------------------------------------------------
+   scatter the named atom-based entity in data to a subset of atoms
+   data is ordered by provided atom IDs
+     no requirement for consecutive atom IDs (1 to N)
+   see scatter_atoms() to scatter data for all atoms, ordered by consecutive IDs
+   name = desired quantity, e.g. x or charge
+   type = 0 for integer values, 1 for double values
+   count = # of per-atom values, e.g. 1 for type or charge, 3 for x or f
+     use count = 3 with "image" for xyz to be packed into single image flag
+   ndata = # of atoms in ids and data (could be all atoms)
+   ids = list of Ndata atom IDs to scatter data to
+   data = atom-based values in 1d data, ordered by count, then by atom ID
+     e.g. x[0][0],x[0][1],x[0][2],x[1][0],x[1][1],x[1][2],x[2][0],...
+     data must be correct length = count*Ndata
+   method:
+     loop over Ndata, if I own atom ID, set its values from data
+------------------------------------------------------------------------- */
+
+void lammps_scatter_atoms_subset(void *ptr, char *name,
+                                 int type, int count, 
+                                 int ndata, int *ids, void *data)
+{ 
+  LAMMPS *lmp = (LAMMPS *) ptr;
+
+  BEGIN_CAPTURE
+  {
+    int i,j,m,offset;
+    tagint id;
+
+    // error if tags are not defined or no atom map
+    // NOTE: test that name = image or ids is not a 64-bit int in code?
+
+    int flag = 0;
+    if (lmp->atom->tag_enable == 0) flag = 1;
+    if (lmp->atom->natoms > MAXSMALLINT) flag = 1;
+    if (lmp->atom->map_style == 0) flag = 1;
+    if (flag) {
+      if (lmp->comm->me == 0)
+        lmp->error->warning(FLERR,"Library error in lammps_scatter_atoms_subset");
+      return;
+    }
+
+    void *vptr = lmp->atom->extract(name);
+    if(vptr == NULL) {
+        lmp->error->warning(FLERR,
+                            "lammps_scatter_atoms_subset: unknown property name");
+        return;
+    }
+
+    // copy = Natom length vector of per-atom values
+    // use atom ID to insert each atom's values into copy
+    // MPI_Allreduce with MPI_SUM to merge into data, ordered by atom ID
+
+    if (type == 0) {
+      int *vector = NULL;
+      int **array = NULL;
+      const int imgpack = (count == 3) && (strcmp(name,"image") == 0);
+
+      if ((count == 1) || imgpack) vector = (int *) vptr;
+      else array = (int **) vptr;
+      int *dptr = (int *) data;
+
+      if (count == 1) {
+        for (i = 0; i < ndata; i++)
+          if ((m = lmp->atom->map(i+1)) >= 0)
+            vector[m] = dptr[i];
+
+      } else if (imgpack) {
+        for (i = 0; i < ndata; i++) {
+          id = ids[i];
+          if ((m = lmp->atom->map(id)) >= 0) {
+            offset = count*i;
+            int image = dptr[offset++] + IMGMAX;
+            image += (dptr[offset++] + IMGMAX) << IMGBITS;
+            image += (dptr[offset++] + IMGMAX) << IMG2BITS;
+            vector[m] = image;
+          }
+        }
+
+      } else {
+        for (i = 0; i < ndata; i++) {
+          id = ids[i];
+          if ((m = lmp->atom->map(id)) >= 0) {
+            offset = count*i;
+            for (j = 0; j < count; j++)
+              array[m][j] = dptr[offset++];
+          }
+        }
+      }
+
+    } else {
+      double *vector = NULL;
+      double **array = NULL;
+      if (count == 1) vector = (double *) vptr;
+      else array = (double **) vptr;
+      double *dptr = (double *) data;
+
+      if (count == 1) {
+        for (i = 0; i < ndata; i++) {
+          id = ids[i];
+          if ((m = lmp->atom->map(id)) >= 0)
+            vector[m] = dptr[i];
+        }
+
+      } else {
+        for (i = 0; i < ndata; i++) {
+          id = ids[i];
+          if ((m = lmp->atom->map(id)) >= 0) {
             offset = count*i;
             for (j = 0; j < count; j++)
               array[m][j] = dptr[offset++];
@@ -992,7 +1442,7 @@ void lammps_scatter_atoms(void *ptr, const char *name,
 ------------------------------------------------------------------------- */
 
 void lammps_create_atoms(void *ptr, int n, tagint *id, int *type,
-			 double *x, double *v, imageint *image,
+                         double *x, double *v, imageint *image,
                          int shrinkexceed)
 {
   LAMMPS *lmp = (LAMMPS *) ptr;
@@ -1021,7 +1471,7 @@ void lammps_create_atoms(void *ptr, int n, tagint *id, int *type,
     bigint natoms_prev = atom->natoms;
     int nlocal_prev = nlocal;
     double xdata[3];
-    
+
     for (int i = 0; i < n; i++) {
       xdata[0] = x[3*i];
       xdata[1] = x[3*i+1];
@@ -1029,14 +1479,14 @@ void lammps_create_atoms(void *ptr, int n, tagint *id, int *type,
       imageint * img = image ? &image[i] : NULL;
       tagint     tag = id    ? id[i]     : -1;
       if (!domain->ownatom(tag, xdata, img, shrinkexceed)) continue;
-  
+
       atom->avec->create_atom(type[i],xdata);
       if (id) atom->tag[nlocal] = id[i];
       else atom->tag[nlocal] = i+1;
       if (v) {
-	atom->v[nlocal][0] = v[3*i];
-	atom->v[nlocal][1] = v[3*i+1];
-	atom->v[nlocal][2] = v[3*i+2];
+        atom->v[nlocal][0] = v[3*i];
+        atom->v[nlocal][1] = v[3*i+1];
+        atom->v[nlocal][2] = v[3*i+2];
       }
       if (image) atom->image[nlocal] = image[i];
       nlocal++;
@@ -1061,16 +1511,67 @@ void lammps_create_atoms(void *ptr, int n, tagint *id, int *type,
     }
 
     // warn if new natoms is not correct
-    
+
     if (lmp->atom->natoms != natoms_prev + n) {
       char str[128];
       sprintf(str,"Library warning in lammps_create_atoms, "
-              "invalid total atoms %ld %ld",lmp->atom->natoms,natoms_prev+n);
+              "invalid total atoms " BIGINT_FORMAT " " BIGINT_FORMAT,
+              lmp->atom->natoms,natoms_prev+n);
       if (lmp->comm->me == 0)
         lmp->error->warning(FLERR,str);
     }
   }
   END_CAPTURE
+}
+
+// ----------------------------------------------------------------------
+// library API functions for accessing LAMMPS configuration
+// ----------------------------------------------------------------------
+
+int lammps_config_has_package(char * package_name) {
+  return Info::has_package(package_name);
+}
+
+int lammps_config_package_count() {
+  int i = 0;
+  while(LAMMPS::installed_packages[i] != NULL) {
+    ++i;
+  }
+  return i;
+}
+
+int lammps_config_package_name(int index, char * buffer, int max_size) {
+  int i = 0;
+  while(LAMMPS::installed_packages[i] != NULL && i < index) {
+    ++i;
+  }
+
+  if(LAMMPS::installed_packages[i] != NULL) {
+    strncpy(buffer, LAMMPS::installed_packages[i], max_size);
+    return true;
+  }
+
+  return false;
+}
+
+int lammps_config_has_gzip_support() {
+  return Info::has_gzip_support();
+}
+
+int lammps_config_has_png_support() {
+  return Info::has_png_support();
+}
+
+int lammps_config_has_jpeg_support() {
+  return Info::has_jpeg_support();
+}
+
+int lammps_config_has_ffmpeg_support() {
+  return Info::has_ffmpeg_support();
+}
+
+int lammps_config_has_exceptions() {
+  return Info::has_exceptions();
 }
 
 // ----------------------------------------------------------------------

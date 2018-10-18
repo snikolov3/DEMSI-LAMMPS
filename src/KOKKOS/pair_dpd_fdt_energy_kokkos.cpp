@@ -15,10 +15,10 @@
    Contributing author: Stan Moore (Sandia)
 ------------------------------------------------------------------------- */
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include "atom_kokkos.h"
 #include "atom_vec.h"
 #include "comm.h"
@@ -28,11 +28,12 @@
 #include "neighbor.h"
 #include "neigh_list.h"
 #include "neigh_request.h"
-#include "memory.h"
+#include "memory_kokkos.h"
 #include "modify.h"
 #include "pair_dpd_fdt_energy_kokkos.h"
 #include "error.h"
 #include "atom_masks.h"
+#include "kokkos.h"
 
 using namespace LAMMPS_NS;
 
@@ -62,15 +63,15 @@ PairDPDfdtEnergyKokkos<DeviceType>::~PairDPDfdtEnergyKokkos()
 {
   if (copymode) return;
 
-  memory->destroy_kokkos(k_eatom,eatom);
-  memory->destroy_kokkos(k_vatom,vatom);
+  memoryKK->destroy_kokkos(k_eatom,eatom);
+  memoryKK->destroy_kokkos(k_vatom,vatom);
 
   if (allocated) {
-    memory->destroy_kokkos(k_duCond,duCond);
-    memory->destroy_kokkos(k_duMech,duMech);
+    memoryKK->destroy_kokkos(k_duCond,duCond);
+    memoryKK->destroy_kokkos(k_duMech,duMech);
   }
 
-  memory->destroy_kokkos(k_cutsq,cutsq);
+  memoryKK->destroy_kokkos(k_cutsq,cutsq);
 
 #ifdef DPD_USE_RAN_MARS
   rand_pool.destroy();
@@ -110,7 +111,10 @@ void PairDPDfdtEnergyKokkos<DeviceType>::init_style()
 #ifdef DPD_USE_RAN_MARS
   rand_pool.init(random,seed);
 #else
-  rand_pool.init(seed + comm->me,DeviceType::max_hardware_threads());
+  typedef Kokkos::Experimental::UniqueToken<
+    DeviceType, Kokkos::Experimental::UniqueTokenScope::Global> unique_token_type;
+  unique_token_type unique_token;
+  rand_pool.init(seed + comm->me,unique_token.size());
 #endif
 }
 
@@ -167,13 +171,13 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // reallocate per-atom arrays if necessary
 
   if (eflag_atom) {
-    memory->destroy_kokkos(k_eatom,eatom);
-    memory->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
+    memoryKK->destroy_kokkos(k_eatom,eatom);
+    memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
     d_eatom = k_eatom.template view<DeviceType>();
   }
   if (vflag_atom) {
-    memory->destroy_kokkos(k_vatom,vatom);
-    memory->create_kokkos(k_vatom,vatom,maxvatom,6,"pair:vatom");
+    memoryKK->destroy_kokkos(k_vatom,vatom);
+    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,6,"pair:vatom");
     d_vatom = k_vatom.template view<DeviceType>();
   }
 
@@ -182,7 +186,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   f = atomKK->k_f.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
   mass = atomKK->k_mass.view<DeviceType>();
-  rmass = atomKK->rmass;
+  rmass = atomKK->k_rmass.view<DeviceType>();
   dpdTheta = atomKK->k_dpdTheta.view<DeviceType>();
 
   k_cutsq.template sync<DeviceType>();
@@ -274,11 +278,11 @@ void PairDPDfdtEnergyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
     // Allocate memory for duCond and duMech
     if (allocated) {
-      memory->destroy_kokkos(k_duCond,duCond);
-      memory->destroy_kokkos(k_duMech,duMech);
+      memoryKK->destroy_kokkos(k_duCond,duCond);
+      memoryKK->destroy_kokkos(k_duMech,duMech);
     }
-    memory->create_kokkos(k_duCond,duCond,nlocal+nghost,"pair:duCond");
-    memory->create_kokkos(k_duMech,duMech,nlocal+nghost,"pair:duMech");
+    memoryKK->create_kokkos(k_duCond,duCond,nlocal+nghost,"pair:duCond");
+    memoryKK->create_kokkos(k_duMech,duMech,nlocal+nghost,"pair:duMech");
     d_duCond = k_duCond.view<DeviceType>();
     d_duMech = k_duMech.view<DeviceType>();
     h_duCond = k_duCond.h_view;
@@ -560,7 +564,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyComputeNo
         a_f(j,2) -= delz*fpair;
       }
 
-      if (rmass) {
+      if (rmass.data()) {
         mass_i = rmass[i];
         mass_j = rmass[j];
       } else {
@@ -587,7 +591,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::operator()(TagPairDPDfdtEnergyComputeNo
       // Compute uCond
       randnum = rand_gen.normal();
       kappa_ij = STACKPARAMS?m_params[itype][jtype].kappa:params(itype,jtype).kappa;
-      alpha_ij = sqrt(2.0*boltz*kappa_ij);
+      alpha_ij = STACKPARAMS?m_params[itype][jtype].alpha:params(itype,jtype).alpha;
       randPair = alpha_ij*wr*randnum*dtinvsqrt;
 
       uTmp = kappa_ij*(1.0/dpdTheta[i] - 1.0/dpdTheta[j])*wd;
@@ -641,7 +645,7 @@ void PairDPDfdtEnergyKokkos<DeviceType>::allocate()
   int nghost = atom->nghost;
 
   memory->destroy(cutsq);
-  memory->create_kokkos(k_cutsq,cutsq,n+1,n+1,"pair:cutsq");
+  memoryKK->create_kokkos(k_cutsq,cutsq,n+1,n+1,"pair:cutsq");
   d_cutsq = k_cutsq.template view<DeviceType>();
 
   k_params = Kokkos::DualView<params_dpd**,Kokkos::LayoutRight,DeviceType>("PairDPDfdtEnergy::params",n+1,n+1);
@@ -650,8 +654,8 @@ void PairDPDfdtEnergyKokkos<DeviceType>::allocate()
   if (!splitFDT_flag) {
     memory->destroy(duCond);
     memory->destroy(duMech);
-    memory->create_kokkos(k_duCond,duCond,nlocal+nghost+1,"pair:duCond");
-    memory->create_kokkos(k_duMech,duMech,nlocal+nghost+1,"pair:duMech");
+    memoryKK->create_kokkos(k_duCond,duCond,nlocal+nghost+1,"pair:duCond");
+    memoryKK->create_kokkos(k_duMech,duMech,nlocal+nghost+1,"pair:duMech");
     d_duCond = k_duCond.view<DeviceType>();
     d_duMech = k_duMech.view<DeviceType>();
     h_duCond = k_duCond.h_view;
@@ -672,6 +676,7 @@ double PairDPDfdtEnergyKokkos<DeviceType>::init_one(int i, int j)
   k_params.h_view(i,j).a0 = a0[i][j];
   k_params.h_view(i,j).sigma = sigma[i][j];
   k_params.h_view(i,j).kappa = kappa[i][j];
+  k_params.h_view(i,j).alpha = alpha[i][j];
   k_params.h_view(j,i) = k_params.h_view(i,j);
   if(i<MAX_TYPES_STACKPARAMS+1 && j<MAX_TYPES_STACKPARAMS+1) {
     m_params[i][j] = m_params[j][i] = k_params.h_view(i,j);

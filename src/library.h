@@ -17,6 +17,7 @@
 */
 
 #include <mpi.h>
+#include <inttypes.h>  /* for int64_t */
 
 /* ifdefs allow this file to be included in a C program */
 
@@ -28,38 +29,51 @@ void lammps_open(int, char **, MPI_Comm, void **);
 void lammps_open_no_mpi(int, char **, void **);
 void lammps_close(void *);
 int  lammps_version(void *);
-void lammps_file(void *, const char *);
-char *lammps_command(void *, const char *);
+void lammps_file(void *, char *);
+char *lammps_command(void *, char *);
 void lammps_commands_list(void *, int, char **);
-void lammps_commands_string(void *, const char *);
+void lammps_commands_string(void *, char *);
 void lammps_free(void *);
 
-int lammps_extract_setting(void *, const char *);
-void *lammps_extract_global(void *, const char *);
-void lammps_extract_box(void *, double *, double *, 
+int lammps_extract_setting(void *, char *);
+void *lammps_extract_global(void *, char *);
+void lammps_extract_box(void *, double *, double *,
                         double *, double *, double *, int *, int *);
-void *lammps_extract_atom(void *, const char *);
-void *lammps_extract_compute(void *, const char *, int, int);
-void *lammps_extract_fix(void *, const char *, int, int, int, int);
-void *lammps_extract_variable(void *, const char *, const char *);
+void *lammps_extract_atom(void *, char *);
+void *lammps_extract_compute(void *, char *, int, int);
+void *lammps_extract_fix(void *, char *, int, int, int, int);
+void *lammps_extract_variable(void *, char *, char *);
 
-void lammps_reset_box(void *, double *, double *, double, double, double);
-int lammps_set_variable(void *, const char *, const char *);
-double lammps_get_thermo(void *, const char *);
-
+double lammps_get_thermo(void *, char *);
 int lammps_get_natoms(void *);
-void lammps_gather_atoms(void *, const char *, int, int, void *);
-void lammps_scatter_atoms(void *, const char *, int, int, void *);
+
+int lammps_set_variable(void *, char *, char *);
+void lammps_reset_box(void *, double *, double *, double, double, double);
+
+void lammps_gather_atoms(void *, char *, int, int, void *);
+void lammps_gather_atoms_concat(void *, char *, int, int, void *);
+void lammps_gather_atoms_subset(void *, char *, int, int, int, int *, void *);
+void lammps_scatter_atoms(void *, char *, int, int, void *);
+void lammps_scatter_atoms_subset(void *, char *, int, int, int, int *, void *);
+
+int lammps_config_has_package(char * package_name);
+int lammps_config_package_count();
+int lammps_config_package_name(int index, char * buffer, int max_size);
+int lammps_config_has_gzip_support();
+int lammps_config_has_png_support();
+int lammps_config_has_jpeg_support();
+int lammps_config_has_ffmpeg_support();
+int lammps_config_has_exceptions();
 
 // lammps_create_atoms() takes tagint and imageint as args
 // ifdef insures they are compatible with rest of LAMMPS
 // caller must match to how LAMMPS library is built
 
 #ifdef LAMMPS_BIGBIG
-void lammps_create_atoms(void *, int, int64_t *, int *, 
+void lammps_create_atoms(void *, int, int64_t *, int *,
                          double *, double *, int64_t *, int);
 #else
-void lammps_create_atoms(void *, int, int *, int *, 
+void lammps_create_atoms(void *, int, int *, int *,
                          double *, double *, int *, int);
 #endif
 
@@ -75,15 +89,51 @@ int lammps_get_last_error_message(void *, char *, int);
 
 /* ERROR/WARNING messages:
 
+E: Library error: issuing LAMMPS command during run
+
+UNDOCUMENTED
+
 W: Library error in lammps_gather_atoms
 
 This library function cannot be used if atom IDs are not defined
 or are not consecutively numbered.
+
+W: lammps_gather_atoms: unknown property name
+
+UNDOCUMENTED
+
+W: Library error in lammps_gather_atoms_subset
+
+UNDOCUMENTED
+
+W: lammps_gather_atoms_subset: unknown property name
+
+UNDOCUMENTED
 
 W: Library error in lammps_scatter_atoms
 
 This library function cannot be used if atom IDs are not defined or
 are not consecutively numbered, or if no atom map is defined.  See the
 atom_modify command for details about atom maps.
+
+W: lammps_scatter_atoms: unknown property name
+
+UNDOCUMENTED
+
+W: Library error in lammps_scatter_atoms_subset
+
+UNDOCUMENTED
+
+W: lammps_scatter_atoms_subset: unknown property name
+
+UNDOCUMENTED
+
+W: Library error in lammps_create_atoms
+
+UNDOCUMENTED
+
+W: Library warning in lammps_create_atoms, invalid total atoms %ld %ld
+
+UNDOCUMENTED
 
 */

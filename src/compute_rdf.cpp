@@ -16,9 +16,9 @@
 ------------------------------------------------------------------------- */
 
 #include <mpi.h>
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
 #include "compute_rdf.h"
 #include "atom.h"
 #include "update.h"
@@ -32,6 +32,7 @@
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
+#include "comm.h"
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -168,7 +169,7 @@ void ComputeRDF::init()
       cutghost = comm->cutghostuser;
 
     if (mycutneigh > cutghost)
-      error->all(FLERR,"Compure rdf cutoff exceeds ghost atom range - "
+      error->all(FLERR,"Compute rdf cutoff exceeds ghost atom range - "
                  "use comm_modify cutoff command");
     if (force->pair && mycutneigh < force->pair->cutforce + skin)
       if (comm->me == 0)
@@ -212,7 +213,7 @@ void ComputeRDF::init()
 
 /* ---------------------------------------------------------------------- */
 
-void ComputeRDF::init_list(int id, NeighList *ptr)
+void ComputeRDF::init_list(int /*id*/, NeighList *ptr)
 {
   list = ptr;
 }

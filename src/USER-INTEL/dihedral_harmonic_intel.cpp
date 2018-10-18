@@ -16,11 +16,12 @@
 ------------------------------------------------------------------------- */
 
 #include <mpi.h>
-#include <math.h>
+#include <cmath>
 #include "dihedral_harmonic_intel.h"
 #include "atom.h"
 #include "comm.h"
 #include "memory.h"
+#include "modify.h"
 #include "neighbor.h"
 #include "domain.h"
 #include "force.h"
@@ -395,7 +396,7 @@ void DihedralHarmonicIntel::init_style()
 
 template <class flt_t, class acc_t>
 void DihedralHarmonicIntel::pack_force_const(ForceConst<flt_t> &fc,
-                                             IntelBuffers<flt_t,acc_t> *buffers)
+                                             IntelBuffers<flt_t,acc_t> * /*buffers*/)
 {
   const int bp1 = atom->ndihedraltypes + 1;
   fc.set_ntypes(bp1,memory);
