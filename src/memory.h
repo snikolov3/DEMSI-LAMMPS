@@ -16,9 +16,6 @@
 
 #include "lmptype.h"
 #include "pointers.h"
-#ifdef LMP_KOKKOS
-#include "kokkos_type.h"
-#endif
 
 namespace LAMMPS_NS {
 
@@ -30,16 +27,6 @@ class Memory : protected Pointers {
   void *srealloc(void *, bigint n, const char *);
   void sfree(void *);
   void fail(const char *);
-
-  // Kokkos memory allocation functions
-  // provide a dummy prototpye for any Kokkos memory function
-  //   called in main LAMMPS even when not built with KOKKOS package
-
-#ifdef LMP_KOKKOS
-#include "memory_kokkos.h"
-#else
-  void grow_kokkos(tagint **, tagint **, int, int, const char*) {}
-#endif
 
 /* ----------------------------------------------------------------------
    create/grow/destroy vecs and multidim arrays with contiguous memory blocks
@@ -63,7 +50,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE **create(TYPE **&array, int n, const char *name)
+  TYPE **create(TYPE **& /*array*/, int /*n*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -81,7 +68,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE **grow(TYPE **&array, int n, const char *name)
+  TYPE **grow(TYPE **& /*array*/, int /*n*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -109,7 +96,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE **create1d_offset(TYPE **&array, int nlo, int nhi, const char *name)
+  TYPE **create1d_offset(TYPE **& /*array*/, int /*nlo*/, int /*nhi*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -144,7 +131,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ***create(TYPE ***&array, int n1, int n2, const char *name)
+  TYPE ***create(TYPE ***& /*array*/, int /*n1*/, int /*n2*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -171,7 +158,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ***grow(TYPE ***&array, int n1, int n2, const char *name)
+  TYPE ***grow(TYPE ***& /*array*/, int /*n1*/, int /*n2*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -211,7 +198,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ***create_ragged(TYPE ***&array, int n1, int *n2, const char *name)
+  TYPE ***create_ragged(TYPE ***& /*array*/, int /*n1*/, int * /*n2*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -230,7 +217,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ***create2d_offset(TYPE ***&array, int n1, int n2lo, int n2hi,
+  TYPE ***create2d_offset(TYPE ***& /*array*/, int /*n1*/, int /*n2lo*/, int /*n2hi*/,
                           const char *name) {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -275,7 +262,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ****create(TYPE ****&array, int n1, int n2, int n3, const char *name)
+  TYPE ****create(TYPE ****& /*array*/, int /*n1*/, int /*n2*/, int /*n3*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -310,7 +297,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ****grow(TYPE ****&array, int n1, int n2, int n3, const char *name)
+  TYPE ****grow(TYPE ****& /*array*/, int /*n1*/, int /*n2*/, int /*n3*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -343,8 +330,8 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ****create3d_offset(TYPE ****&array, int n1lo, int n1hi,
-                           int n2, int n3, const char *name)
+  TYPE ****create3d_offset(TYPE ****& /*array*/, int /*n1lo*/, int /*n1hi*/,
+                           int /*n2*/, int /*n3*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------
@@ -387,8 +374,8 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ****create3d_offset(TYPE ****&array, int n1lo, int n1hi,
-                           int n2lo, int n2hi, int n3lo, int n3hi,
+  TYPE ****create3d_offset(TYPE ****& /*array*/, int /*n1lo*/, int /*n1hi*/,
+                           int /*n2lo*/, int /*n2hi*/, int /*n3lo*/, int /*n3hi*/,
                            const char *name)
   {fail(name); return NULL;}
 
@@ -445,7 +432,7 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE *****create(TYPE *****&array, int n1, int n2, int n3, int n4,
+  TYPE *****create(TYPE *****& /*array*/, int /*n1*/, int /*n2*/, int /*n3*/, int /*n4*/,
                    const char *name)
   {fail(name); return NULL;}
 
@@ -491,8 +478,8 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ****create4d_offset(TYPE *****&array, int n1, int n2lo, int n2hi,
-                           int n3lo, int n3hi, int n4lo, int n4hi,
+  TYPE ****create4d_offset(TYPE *****& /*array*/, int /*n1*/, int /*n2lo*/, int /*n2hi*/,
+                           int /*n3lo*/, int /*n3hi*/, int /*n4lo*/, int /*n4hi*/,
                            const char *name)
   {fail(name); return NULL;}
 
@@ -559,8 +546,8 @@ class Memory : protected Pointers {
   }
 
   template <typename TYPE>
-  TYPE ******create(TYPE ******&array, int n1, int n2, int n3, int n4,
-                    int n5, const char *name)
+  TYPE ******create(TYPE ******& /*array*/, int /*n1*/, int /*n2*/, int /*n3*/, int /*n4*/,
+                    int /*n5*/, const char *name)
   {fail(name); return NULL;}
 
 /* ----------------------------------------------------------------------

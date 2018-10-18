@@ -11,8 +11,8 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include <math.h>
-#include <stdlib.h>
+#include <cmath>
+#include <cstdlib>
 #include "pair_yukawa.h"
 #include "atom.h"
 #include "force.h"
@@ -139,7 +139,6 @@ void PairYukawa::allocate()
       setflag[i][j] = 0;
 
   memory->create(cutsq,n+1,n+1,"pair:cutsq");
-
   memory->create(rad,n+1,"pair:rad");
   memory->create(cut,n+1,n+1,"pair:cut");
   memory->create(a,n+1,n+1,"pair:a");
@@ -320,8 +319,8 @@ void PairYukawa::write_data_all(FILE *fp)
 
 /* ---------------------------------------------------------------------- */
 
-double PairYukawa::single(int i, int j, int itype, int jtype, double rsq,
-                          double factor_coul, double factor_lj,
+double PairYukawa::single(int /*i*/, int /*j*/, int itype, int jtype, double rsq,
+                          double /*factor_coul*/, double factor_lj,
                           double &fforce)
 {
   double r2inv,r,rinv,screening,forceyukawa,phi;

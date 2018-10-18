@@ -11,9 +11,9 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include "memory.h"
 #include "error.h"
 
@@ -79,7 +79,9 @@ void *Memory::srealloc(void *ptr, bigint nbytes, const char *name)
 
 #if defined(LMP_USE_TBB_ALLOCATOR)
   ptr = scalable_aligned_realloc(ptr, nbytes, LAMMPS_MEMALIGN);
-#elif defined(LMP_INTEL_NO_TBB) && defined(LAMMPS_MEMALIGN)
+#elif defined(LMP_INTEL_NO_TBB) && defined(LAMMPS_MEMALIGN) && \
+      defined(__INTEL_COMPILER)
+
   ptr = realloc(ptr, nbytes);
   uintptr_t offset = ((uintptr_t)(const void *)(ptr)) % LAMMPS_MEMALIGN;
   if (offset) {
@@ -121,6 +123,7 @@ void Memory::sfree(void *ptr)
 void Memory::fail(const char *name)
 {
   char str[128];
-  sprintf(str,"Cannot create/grow a vector/array of pointers for %s",name);
+  snprintf(str,128,
+           "Cannot create/grow a vector/array of pointers for %s",name);
   error->one(FLERR,str);
 }

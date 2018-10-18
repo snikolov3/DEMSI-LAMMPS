@@ -15,8 +15,8 @@
    Contributing author: Stan Moore (SNL)
 ------------------------------------------------------------------------- */
 
-#include <math.h>
-#include <stdlib.h>
+#include <cmath>
+#include <cstdlib>
 #include "angle_harmonic_kokkos.h"
 #include "atom_kokkos.h"
 #include "neighbor_kokkos.h"
@@ -24,7 +24,7 @@
 #include "comm.h"
 #include "force.h"
 #include "math_const.h"
-#include "memory.h"
+#include "memory_kokkos.h"
 #include "error.h"
 #include "atom_masks.h"
 
@@ -51,8 +51,8 @@ template<class DeviceType>
 AngleHarmonicKokkos<DeviceType>::~AngleHarmonicKokkos()
 {
   if (!copymode) {
-    memory->destroy_kokkos(k_eatom,eatom);
-    memory->destroy_kokkos(k_vatom,vatom);
+    memoryKK->destroy_kokkos(k_eatom,eatom);
+    memoryKK->destroy_kokkos(k_vatom,vatom);
   }
 }
 
@@ -70,13 +70,13 @@ void AngleHarmonicKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // reallocate per-atom arrays if necessary
 
   if (eflag_atom) {
-    memory->destroy_kokkos(k_eatom,eatom);
-    memory->create_kokkos(k_eatom,eatom,maxeatom,"angle:eatom");
+    memoryKK->destroy_kokkos(k_eatom,eatom);
+    memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"angle:eatom");
     d_eatom = k_eatom.template view<DeviceType>();
   }
   if (vflag_atom) {
-    memory->destroy_kokkos(k_vatom,vatom);
-    memory->create_kokkos(k_vatom,vatom,maxvatom,6,"angle:vatom");
+    memoryKK->destroy_kokkos(k_vatom,vatom);
+    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,6,"angle:vatom");
     d_vatom = k_vatom.template view<DeviceType>();
   }
 
@@ -256,6 +256,25 @@ template<class DeviceType>
 void AngleHarmonicKokkos<DeviceType>::coeff(int narg, char **arg)
 {
   AngleHarmonic::coeff(narg, arg);
+
+  int n = atom->nangletypes;
+  for (int i = 1; i <= n; i++) {
+    k_k.h_view[i] = k[i];
+    k_theta0.h_view[i] = theta0[i];
+  }
+
+  k_k.template modify<LMPHostType>();
+  k_theta0.template modify<LMPHostType>();
+}
+
+/* ----------------------------------------------------------------------
+   proc 0 reads coeffs from restart file, bcasts them
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void AngleHarmonicKokkos<DeviceType>::read_restart(FILE *fp)
+{
+  AngleHarmonic::read_restart(fp);
 
   int n = atom->nangletypes;
   for (int i = 1; i <= n; i++) {

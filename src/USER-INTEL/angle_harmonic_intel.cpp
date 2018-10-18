@@ -15,14 +15,15 @@
    Contributing author: W. Michael Brown (Intel)
 ------------------------------------------------------------------------- */
 
-#include <math.h>
-#include <stdlib.h>
+#include <cmath>
+#include <cstdlib>
 #include "angle_harmonic_intel.h"
 #include "atom.h"
 #include "neighbor.h"
 #include "domain.h"
 #include "comm.h"
 #include "force.h"
+#include "modify.h"
 #include "math_const.h"
 #include "memory.h"
 #include "suffix.h"
@@ -313,7 +314,7 @@ void AngleHarmonicIntel::init_style()
 
 template <class flt_t, class acc_t>
 void AngleHarmonicIntel::pack_force_const(ForceConst<flt_t> &fc,
-                                        IntelBuffers<flt_t,acc_t> *buffers)
+                                          IntelBuffers<flt_t,acc_t> * /*buffers*/)
 {
   const int bp1 = atom->nangletypes + 1;
   fc.set_ntypes(bp1,memory);
