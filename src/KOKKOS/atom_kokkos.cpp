@@ -75,6 +75,11 @@ AtomKokkos::~AtomKokkos()
   memoryKK->destroy_kokkos(k_improper_atom3, improper_atom3);
   memoryKK->destroy_kokkos(k_improper_atom4, improper_atom4);
 
+  // USER-DEMSI package
+  memoryKK->destroy_kokkos(k_mean_thickness,mean_thickness);
+  memoryKK->destroy_kokkos(k_min_thickness,min_thickness);
+  memoryKK->destroy_kokkos(k_forcing,forcing);
+
   // USER-DPD package
   memoryKK->destroy_kokkos(k_uCond,uCond);
   memoryKK->destroy_kokkos(k_uMech,uMech);
