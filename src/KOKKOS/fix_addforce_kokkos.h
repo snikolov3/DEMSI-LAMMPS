@@ -40,19 +40,19 @@ struct s_double_4 {
   }
   KOKKOS_INLINE_FUNCTION
   s_double_4& operator+=(const s_double_4 &rhs){
-    values[0] += values[0];
-    values[1] += values[1];
-    values[2] += values[2];
-    values[3] += values[3];
+    values[0] += rhs.values[0];
+    values[1] += rhs.values[1];
+    values[2] += rhs.values[2];
+    values[3] += rhs.values[3];
     return *this;
   }
 
   KOKKOS_INLINE_FUNCTION
   void operator+=(const volatile s_double_4 &rhs) volatile {
-    values[0] += values[0];
-    values[1] += values[1];
-    values[2] += values[2];
-    values[3] += values[3];
+    values[0] += rhs.values[0];
+    values[1] += rhs.values[1];
+    values[2] += rhs.values[2];
+    values[3] += rhs.values[3];
   }
 };
 typedef s_double_4 double_4;
