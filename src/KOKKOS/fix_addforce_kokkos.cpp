@@ -88,10 +88,10 @@ void FixAddForceKokkos<DeviceType>::post_force(int vflag)
 
   int nlocal = atom->nlocal;
   
-  if (vflag)
-    error->all(FLERR,"vflag not enabled in fix_addforce with Kokkos");
-  //if (vflag) v_setup(vflag);
-  //else evflag = 0;
+  //if (vflag)
+  //  error->all(FLERR,"vflag not enabled in fix_addforce with Kokkos");
+  if (vflag) v_setup(vflag);
+  else evflag = 0;
 
   // update region if necessary
 
