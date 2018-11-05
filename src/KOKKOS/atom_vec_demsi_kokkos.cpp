@@ -94,7 +94,6 @@ void AtomVecDemsiKokkos::init()
 
 void AtomVecDemsiKokkos::grow(int n)
 {
-   std::cout << "In grow \n";
   if (n == 0) nmax += DELTA;
   else nmax = n;
   atomKK->nmax = nmax;
@@ -991,7 +990,6 @@ struct AtomVecDemsiKokkos_PackCommSelf {
 int AtomVecDemsiKokkos::pack_comm_self(
   const int &n, const DAT::tdual_int_2d &list, const int & iswap,
   const int nfirst, const int &pbc_flag, const int* const pbc) {
-  std::cout << "in pack_comm_self \n";
 
   if(commKK->forward_comm_on_host) {
     sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
@@ -1453,7 +1451,6 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
 {
   int i,j,m;
   double dx,dy,dz,dvx,dvy,dvz;
-  std::cout << "in pack_comm_vel \n";
 
   if (radvary == 0) {
     sync(Host,X_MASK|V_MASK|OMEGA_MASK);
@@ -1923,7 +1920,6 @@ int AtomVecDemsiKokkos::pack_border(int n, int *list, double *buf,
   int i,j,m;
   double dx,dy,dz;
 
-  std::cout << "in pack_border\n";
 
    // need this?
   //sync(Host,ALL_MASK);
@@ -2181,7 +2177,6 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
 int AtomVecDemsiKokkos::pack_border_vel(int n, int *list, double *buf,
                                    int pbc_flag, int *pbc)
 {
-  std::cout << "in pack_border_vel\n";
   int i,j,m;
   double dx,dy,dz,dvx,dvy,dvz;
 
@@ -2359,7 +2354,6 @@ void AtomVecDemsiKokkos::unpack_border_kokkos(const int &n, const int &first,
 					       const DAT::tdual_xfloat_2d &buf,
                                                ExecutionSpace space) {
 
-  std::cout << "in unpack_border_kokkos\n";
   while (first+n >= nmax) grow(0);
   if(space==Host) {
     struct AtomVecDemsiKokkos_UnpackBorder<LMPHostType> f(buf.view<LMPHostType>(),
@@ -2739,7 +2733,6 @@ int AtomVecDemsiKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_
                                              ExecutionSpace space,int dim,X_FLOAT lo,X_FLOAT hi) 
 {
 
-  std::cout << "in pack_exchange_kokkos\n";
 
   const int elements = 24+atom->maxspecial+2*atom->bond_per_atom;
 
@@ -2770,7 +2763,6 @@ int AtomVecDemsiKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_
 
 int AtomVecDemsiKokkos::pack_exchange(int i, double *buf)
 {
-  std::cout << "in pack_exchange\n";
 
  //  Need this? 
   sync(Host,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
@@ -2927,7 +2919,6 @@ int AtomVecDemsiKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int n
                                                int nlocal,int dim,X_FLOAT lo,X_FLOAT hi,
                                                ExecutionSpace space) {
 
-  std::cout << "in unpack_exchange_kokkos\n";
 
   const size_t elements = 24+atom->maxspecial+2*atom->bond_per_atom;
   if(space == Host) {
@@ -2959,7 +2950,6 @@ int AtomVecDemsiKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int n
 int AtomVecDemsiKokkos::unpack_exchange(double *buf)
 {
  
-  std::cout << "in unpack_exchange\n";
 
   int nlocal = atom->nlocal;
   if (nlocal == nmax) grow(0);
