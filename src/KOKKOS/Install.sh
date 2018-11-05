@@ -73,6 +73,8 @@ action atom_vec_molecular_kokkos.cpp atom_vec_molecular.cpp
 action atom_vec_molecular_kokkos.h atom_vec_molecular.h
 action atom_vec_sphere_kokkos.cpp atom_vec_sphere.cpp
 action atom_vec_sphere_kokkos.h atom_vec_sphere.h
+action atom_vec_demsi_kokkos.cpp atom_vec_demsi.cpp 
+action atom_vec_demsi_kokkos.h atom_vec_demsi.h 
 action bond_class2_kokkos.cpp bond_class2.cpp 
 action bond_class2_kokkos.h bond_class2.h
 action bond_fene_kokkos.cpp bond_fene.cpp
@@ -131,6 +133,8 @@ action fix_reaxc_species_kokkos.cpp fix_reaxc_species.cpp
 action fix_reaxc_species_kokkos.h fix_reaxc_species.h
 action fix_setforce_kokkos.cpp
 action fix_setforce_kokkos.h
+action fix_addforce_kokkos.cpp
+action fix_addforce_kokkos.h
 action fix_shardlow_kokkos.cpp fix_shardlow.cpp
 action fix_shardlow_kokkos.h fix_shardlow.h
 action fix_momentum_kokkos.cpp
@@ -207,6 +211,8 @@ action pair_exp6_rx_kokkos.cpp pair_exp6_rx.cpp
 action pair_exp6_rx_kokkos.h pair_exp6_rx.h
 action pair_gran_hooke_history_kokkos.h pair_gran_hooke_history.h
 action pair_gran_hooke_history_kokkos.cpp pair_gran_hooke_history.cpp
+action pair_gran_hopkins_kokkos.h pair_gran_hopkins.h
+action pair_gran_hopkins_kokkos.cpp pair_gran_hopkins.cpp
 action pair_hybrid_kokkos.cpp
 action pair_hybrid_kokkos.h
 action pair_hybrid_overlay_kokkos.cpp

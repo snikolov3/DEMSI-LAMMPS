@@ -56,7 +56,7 @@ class AtomKokkos : public Atom {
 
 // USER-DEMSI package
   DAT::tdual_float_1d  k_min_thickness,k_mean_thickness;
-  DAT::tdual_f_array   k_forcing;
+  DAT::tdual_float_2d  k_forcing;
                        
 
 // USER-DPD package
