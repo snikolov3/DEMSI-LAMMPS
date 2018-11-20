@@ -121,7 +121,6 @@ void FixAddForceKokkos<DeviceType>::post_force(int vflag)
   double_4 foriginal_kk;
   force_flag = 0;
 
-
   // constant force
   // potential energy = - x dot f in unwrapped coords
 
@@ -169,6 +168,7 @@ void FixAddForceKokkos<DeviceType>::post_force(int vflag)
   foriginal[1] = foriginal_kk.values[1];
   foriginal[2] = foriginal_kk.values[2];
   foriginal[3] = foriginal_kk.values[3];
+
 }
 
 template<class DeviceType>
@@ -236,13 +236,13 @@ void FixAddForceKokkos<DeviceType>::operator()(TagFixAddForceNonConstant, const 
     else {
        if (xstyle) f(i,0) += xvalue;
     }
-    if (ystyle == ATOM) f(i,0) += d_sforce(i,1);
+    if (ystyle == ATOM) f(i,1) += d_sforce(i,1);
     else {
-       if (ystyle) f(i,0) += yvalue;
+       if (ystyle) f(i,1) += yvalue;
     }
-    if (zstyle == ATOM) f(i,0) += d_sforce(i,2);
+    if (zstyle == ATOM) f(i,2) += d_sforce(i,2);
     else {
-       if (zstyle) f(i,0) += zvalue;
+       if (zstyle) f(i,2) += zvalue;
     }
 
     //if (xstyle) f(i,0) += xvalue;

@@ -1453,7 +1453,7 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
   double dx,dy,dz,dvx,dvy,dvz;
 
   if (radvary == 0) {
-    sync(Host,X_MASK|V_MASK|OMEGA_MASK);
+    sync(Host,X_MASK|V_MASK|OMEGA_MASK|THICKNESS_MASK);
     m = 0;
     if (pbc_flag == 0) {
       for (i = 0; i < n; i++) {
@@ -1467,6 +1467,8 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
         buf[m++] = h_omega(j,0);
         buf[m++] = h_omega(j,1);
         buf[m++] = h_omega(j,2);
+        buf[m++] = h_mean_thickness(j);
+        buf[m++] = h_min_thickness(j);
       }
     } else {
       if (domain->triclinic == 0) {
@@ -1490,6 +1492,8 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = h_omega(j,0);
           buf[m++] = h_omega(j,1);
           buf[m++] = h_omega(j,2);
+          buf[m++] = h_mean_thickness(j);
+          buf[m++] = h_min_thickness(j);
         }
       } else {
         dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -1512,12 +1516,14 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = h_omega(j,0);
           buf[m++] = h_omega(j,1);
           buf[m++] = h_omega(j,2);
+          buf[m++] = h_mean_thickness(j);
+          buf[m++] = h_min_thickness(j);
         }
       }
     }
 
   } else {
-    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK);
+    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK|THICKNESS_MASK);
     m = 0;
     if (pbc_flag == 0) {
       for (i = 0; i < n; i++) {
@@ -1533,6 +1539,8 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
         buf[m++] = h_omega(j,0);
         buf[m++] = h_omega(j,1);
         buf[m++] = h_omega(j,2);
+        buf[m++] = h_mean_thickness(j);
+        buf[m++] = h_min_thickness(j);
       }
     } else {
       if (domain->triclinic == 0) {
@@ -1558,6 +1566,8 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = h_omega(j,0);
           buf[m++] = h_omega(j,1);
           buf[m++] = h_omega(j,2);
+          buf[m++] = h_mean_thickness(j);
+          buf[m++] = h_min_thickness(j);
         }
       } else {
         dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -1582,6 +1592,8 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = h_omega(j,0);
           buf[m++] = h_omega(j,1);
           buf[m++] = h_omega(j,2);
+          buf[m++] = h_mean_thickness(j);
+          buf[m++] = h_min_thickness(j);
         }
       }
     }

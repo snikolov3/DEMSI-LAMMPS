@@ -22,16 +22,16 @@
 #include "kokkos.h"
 #include "atom_kokkos.h"
 #include "atom_masks.h"
+#include "memory_kokkos.h"
 #include "update.h"
 #include "force.h"
-#include "fix.h"
 #include "fix_neigh_history_kokkos.h"
 #include "neighbor.h"
 #include "neigh_list.h"
 #include "neigh_request.h"
 #include "comm.h"
-#include "memory_kokkos.h"
 #include "error.h"
+#include "modify.h"
 #include "math_const.h"
 
 using namespace LAMMPS_NS;
@@ -58,6 +58,14 @@ PairGranHopkinsKokkos<DeviceType>::PairGranHopkinsKokkos(LAMMPS *lmp) : PairGran
 template<class DeviceType>
 PairGranHopkinsKokkos<DeviceType>::~PairGranHopkinsKokkos()
 {
+  if (copymode) return;
+
+  if (allocated) {
+    memoryKK->destroy_kokkos(k_eatom,eatom);
+    memoryKK->destroy_kokkos(k_vatom,vatom);
+    eatom = NULL;
+    vatom = NULL;
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -121,7 +129,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   int historyupdate = 1;
   if (update->setupflag) historyupdate = 0;
 
-  // need this?
+  // reallocate per-atom arrays if necessary
   if (eflag_atom) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
@@ -137,17 +145,6 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
-  int inum = list->inum;
-  NeighListKokkos<DeviceType>* k_list = static_cast<NeighListKokkos<DeviceType>*>(list);
-  d_numneigh = k_list->d_numneigh;
-  d_neighbors = k_list->d_neighbors;
-  d_ilist = k_list->d_ilist;
-
-  d_firsttouch = fix_historyKK->d_firstflag;
-  d_firsthistory = fix_historyKK->d_firstvalue;
-
-  EV_FLOAT ev; // need this?
-
   x = atomKK->k_x.view<DeviceType>();
   v = atomKK->k_v.view<DeviceType>();
   omega = atomKK->k_omega.view<DeviceType>();
@@ -158,48 +155,124 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   tag = atomKK->k_tag.view<DeviceType>();
   rmass = atomKK->k_rmass.view<DeviceType>();
   radius = atomKK->k_radius.view<DeviceType>();
-  min_thick = atomKK->k_min_thickness.view<DeviceType>();
-  mean_thick = atomKK->k_mean_thickness.view<DeviceType>();
+  min_thickness = atomKK->k_min_thickness.view<DeviceType>();
+  mean_thickness = atomKK->k_mean_thickness.view<DeviceType>();
   nlocal = atom->nlocal;
   nall = atom->nlocal + atom->nghost;
 
-  if (lmp->kokkos->neighflag == HALF) {
-     if (force->newton_pair) {
-        if (historyupdate) {
-            Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,1,1>>(0,inum),*this);
-        } else {
-            Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,1,0>>(0,inum),*this);
-        }
-     } else {
-        if (historyupdate) {
-            Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,0,1>>(0,inum),*this);
-        } else {
-            Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,0,0>>(0,inum),*this);
-        }
-     }
-  }
-  else if (lmp->kokkos->neighflag == HALFTHREAD) {
-     if (force->newton_pair) {
-        if (historyupdate) {
-            Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,1,1>>(0,inum),*this);
-        } else {
-            Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,1,0>>(0,inum),*this);
-        }
-     } else {
-        if (historyupdate) {
-            Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,0,1>>(0,inum),*this);
-        } else {
-            Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,0,0>>(0,inum),*this);
-        }
-     }
+  int inum = list->inum;
+  NeighListKokkos<DeviceType>* k_list = static_cast<NeighListKokkos<DeviceType>*>(list);
+  d_numneigh = k_list->d_numneigh;
+  d_neighbors = k_list->d_neighbors;
+  d_ilist = k_list->d_ilist;
+
+  d_firsttouch = fix_historyKK->d_firstflag;
+  d_firsthistory = fix_historyKK->d_firstvalue;
+
+  EV_FLOAT ev; 
+
+ if (lmp->kokkos->neighflag == HALF) {
+    if (force->newton_pair) {
+       if (historyupdate) {
+          if (vflag_atom) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,1,1,2>>(0,inum),*this, ev);
+          } else  if (vflag_global) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,1,1,1>>(0,inum),*this, ev);
+          } else {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,1,1,0>>(0,inum),*this, ev);
+          }
+       } else {
+          if (vflag_atom) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,1,0,2>>(0,inum),*this, ev);
+          } else  if (vflag_global) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,1,0,1>>(0,inum),*this, ev);
+          } else {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,1,0,0>>(0,inum),*this, ev);
+          }
+       }
+    } else {
+       if (historyupdate) {
+          if (vflag_atom) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,0,1,2>>(0,inum),*this, ev);
+          } else  if (vflag_global) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,0,1,1>>(0,inum),*this, ev);
+          } else {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,0,1,0>>(0,inum),*this, ev);
+          }
+       } else {
+          if (vflag_atom) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,0,0,2>>(0,inum),*this, ev);
+          } else  if (vflag_global) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,0,0,1>>(0,inum),*this, ev);
+          } else {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALF,0,0,0>>(0,inum),*this, ev);
+          }
+       }
+    }
+ }
+ else if (lmp->kokkos->neighflag == HALFTHREAD) {
+    if (force->newton_pair) {
+      if (historyupdate) {
+          if (vflag_atom) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,1,1,2>>(0,inum),*this, ev);
+          } else  if (vflag_global) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,1,1,1>>(0,inum),*this, ev);
+          } else {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,1,1,0>>(0,inum),*this, ev);
+          }
+       } else {
+          if (vflag_atom) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,1,0,2>>(0,inum),*this, ev);
+          } else  if (vflag_global) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,1,0,1>>(0,inum),*this, ev);
+          } else {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,1,0,0>>(0,inum),*this, ev);
+          }
+       }
+    } else {
+       if (historyupdate) {
+          if (vflag_atom) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,0,1,2>>(0,inum),*this, ev);
+          } else  if (vflag_global) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,0,1,1>>(0,inum),*this, ev);
+          } else {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,0,1,0>>(0,inum),*this, ev);
+          }
+       } else {
+          if (vflag_atom) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,0,0,2>>(0,inum),*this, ev);
+          } else  if (vflag_global) {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,0,0,1>>(0,inum),*this, ev);
+          } else {
+             Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairGranHopkinsCompute<HALFTHREAD,0,0,0>>(0,inum),*this, ev);
+          }
+       }
+    }
+ }
+
+   if (vflag_global) {
+    virial[0] += ev.v[0];
+    virial[1] += ev.v[1];
+    virial[2] += ev.v[2];
+    virial[3] += ev.v[3];
+    virial[4] += ev.v[4];
+    virial[5] += ev.v[5];
   }
 
+  if (vflag_atom) {
+    k_vatom.template modify<DeviceType>();
+    k_vatom.template sync<LMPHostType>();
+  }
+
+  if (vflag_fdotr) pair_virial_fdotr_compute(this);
+
+  copymode = 0;
 }
 
 template<class DeviceType>
-template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE>
+template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE>, const int ii) const {
+void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE,EVFLAG>, const int ii, EV_FLOAT &ev) const {
 
   // The f and torque arrays are atomic for Half/Thread neighbor style
   Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
@@ -209,11 +282,11 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
   int itype = type[i];
   int jnum = d_numneigh[i];
 
-  //F_FLOAT fx = 0.0;
-  //F_FLOAT fy = 0.0;
+  F_FLOAT fx = 0.0;
+  F_FLOAT fy = 0.0;
 
-  //F_FLOAT torque_i = 0.0;
-  //F_FLOAT torque_j = 0.0;
+  F_FLOAT torque_i = 0.0;
+  F_FLOAT torque_j = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
@@ -221,18 +294,13 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
 
     int jtype = type[j];
 
-    F_FLOAT fx = 0.0;
-    F_FLOAT fy = 0.0;
-    F_FLOAT torque_i = 0.0;
-    F_FLOAT torque_j = 0.0;
-
     F_FLOAT chi1 = d_firsthistory(i,size_history*jj+8);
     F_FLOAT chi2 = d_firsthistory(i,size_history*jj+9);
     if (chi1 >= chi2){ // Un-bonded, chi1 >= chi2
-      compute_nonbonded_kokkos<HISTORYUPDATE>(i,j,jj,fx,fy,torque_i,torque_j);
+      compute_nonbonded_kokkos<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE,EVFLAG>(i,j,jj,fx,fy,torque_i,torque_j,ev);
     }
     else { //Bonded
-      compute_bonded_kokkos<HISTORYUPDATE,NEWTON_PAIR>(i,j,jj,fx,fy,torque_i,torque_j);
+      compute_bonded_kokkos<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE,EVFLAG>(i,j,jj,fx,fy,torque_i,torque_j,ev);
     }
 
     a_f(i,0) += fx;
@@ -245,15 +313,15 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
        a_f(j,0) -= fx;
        a_f(j,1) -= fy;
        a_torque(j,2) += torque_j;
-     }
+    }
   }
 }
 
 template<class DeviceType>
-template<int HISTORYUPDATE>
+template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(const int i, const int j, const int jj,
-                     F_FLOAT& fx, F_FLOAT& fy, F_FLOAT& torque_i, F_FLOAT& torque_j) const
+void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, int jj,
+                     F_FLOAT fx, F_FLOAT fy, F_FLOAT torque_i, F_FLOAT torque_j, EV_FLOAT &ev) const
 {
    F_FLOAT r, rinv, nx, ny, radmin;
    F_FLOAT vnnr, vnx, vny;
@@ -334,8 +402,8 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(const int i, co
 
    // Compute plastic normal force
    hprime = d_firsthistory(i,size_history*jj+4);
-   ke = Emod/L*(1/(1/mean_thick(i) + 1/mean_thick(j)));
-   hmin = MIN(min_thick(i), min_thick(j));
+   ke = Emod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
+   hmin = MIN(min_thickness(i), min_thickness(j));
    if (hprime < hstar){
       kr = 26126*hprime;
       kp = 928*hprime*hprime;
@@ -387,7 +455,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(const int i, co
     dispmag =sqrt(var1*var1 + var2*var2); 
 
     // total tangential force
-    kt0 = Gmod/L*(1/(1/mean_thick(i) + 1/mean_thick(j)));
+    kt0 = Gmod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
     ftx = - (kt0*var1 + damp_tangential*vtx);
     fty = - (kt0*var2 + damp_tangential*vty);
 
@@ -411,14 +479,19 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(const int i, co
     ncrossF = nx*fty - ny*ftx;
     torque_i = -radius[i]*ncrossF;
     torque_j = -radius[j]*ncrossF;
+
+    if (EVFLAG == 2)
+      ev_tally_xyz_atom<NEIGHFLAG, NEWTON_PAIR>(ev, i, j, fx, fy, 0, delx, dely, 0);
+    if (EVFLAG == 1)
+      ev_tally_xyz<NEWTON_PAIR>(ev, i, j, fx, fy, 0, delx, dely, 0);
 }
 
         
 template<class DeviceType>
-template<int HISTORYUPDATE, int NEWTON_PAIR>
+template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(const int i, const int j, const int jj,
-                     F_FLOAT& fx, F_FLOAT& fy, F_FLOAT& torque_i, F_FLOAT& torque_j) const
+void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(int i, int j, int jj,
+                     F_FLOAT fx, F_FLOAT fy, F_FLOAT torque_i, F_FLOAT torque_j, EV_FLOAT &ev) const
 {
 
   //See design document for definitions of these variables
@@ -520,26 +593,10 @@ void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(const int i, const
   fx = Fnmag*bex + Ftmag*mex;
   fy = Fnmag*bey + Ftmag*mey;
 
-  //Ensure that damping does not cause force to change sign
- /* if (fx < 0 && fdampx > 0){
-    fx = MIN(fx+fdampx, 0);
-  }
-  else if (fx > 0 && fdampx < 0){
-    fx = MAX(fx+fdampx, 0);
-  }
-  else */
   fx = fx+fdampx;
-
-  /*if (fy < 0 && fdampy > 0){
-    fy = MIN(fy+fdampy, 0);
-  }
-  else if (fy > 0 && fdampy < 0){
-    fy = MAX(fy+fdampy, 0);
-  }
-  else*/
   fy = fy+fdampy;
 
-  torque_i += Nn + Nt + torquedamp;
+  torque_i = Nn + Nt + torquedamp;
 
   if (NEWTON_PAIR || j < nlocal){
 
@@ -552,11 +609,11 @@ void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(const int i, const
 
     Nnj = nprefac*(An*Cnj*chidiff3 + (Bnj*Cnj+An*Dnj)*chidiff2 + Bnj*Dnj*chidiff);
     Ntj = -Btj*Ftmag;
-    torque_j += Nnj + Ntj - torquedamp;
+    torque_j = Nnj + Ntj - torquedamp;
   }
 
   //Update chi1, chi2
-  hmin = MIN(min_thick(i), min_thick(j));
+  hmin = MIN(min_thickness(i), min_thickness(j));
   if (HISTORYUPDATE){
     F_FLOAT c1, c2;
     c1 = d_firsthistory(i,size_history*jj+8);
@@ -578,13 +635,21 @@ void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(const int i, const
         d_firsthistory(i,size_history*jj+5) = delta_0;
     }
   }
+
+    F_FLOAT delx = x(i,0) - x(j,0);
+    F_FLOAT dely = x(i,1) - x(j,1);
+    if (EVFLAG == 2)
+      ev_tally_xyz_atom<NEIGHFLAG, NEWTON_PAIR>(ev, i, j, fx, fy, 0, delx, dely, 0);
+    if (EVFLAG == 1)
+      ev_tally_xyz<NEWTON_PAIR>(ev, i, j, fx, fy, 0, delx, dely, 0);
 }
 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::update_chi(F_FLOAT kn0, F_FLOAT kt0, F_FLOAT Dn, F_FLOAT Cn, 
-                                   F_FLOAT Dt, F_FLOAT Ct, F_FLOAT hmin, F_FLOAT chi1, F_FLOAT chi2) const
+                                                   F_FLOAT Dt, F_FLOAT Ct, F_FLOAT hmin, F_FLOAT chi1, 
+                                                   F_FLOAT chi2) const
 {
 
   F_FLOAT sig_n1 = kn0*(Dn + Cn*chi1);
@@ -639,54 +704,174 @@ void PairGranHopkinsKokkos<DeviceType>::update_chi(F_FLOAT kn0, F_FLOAT kt0, F_F
     //if Cn==0, function would've returned above
   }
 
+  //Re-compute, since stress state could still be outside of failure envelope
+  sig_n1 = kn0*(Dn + Cn*chi1);
+  sig_s1 = kt0*(Dt + Ct*chi1);
+  sig_n2 = kn0*(Dn + Cn*chi2);
+  sig_s2 = kt0*(Dt + Ct*chi2);
+
   //Check for 'cohesion' shear failure at chi1
   if (sig_s1 > tanphi*sig_n1 - tanphi*sig_t){
     denom = tanphi*kn0*Cn - kt0*Ct;
     if (denom != 0) chi1 = (tanphi*(sig_t-kn0*Dn)+kt0*Dt)/denom;
-    else if (Cn != 0 && Ct != 0){
-      //No need to treat case where Cn = Ct = 0, since sig_s = 0 for that case,
-      // and it would've been picked up above
-      //For the rare case of kt0*Ct = -kn0*tanphi*Cn, yield criterion is independent of chi,
-      // therefore bond breaks.
-      chi1 = chi2;
-      return;
+    else {
+      if (Cn != 0 && Ct != 0){
+        //Rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
+        // therefore bond breaks.
+        chi1 = chi2;
+        return;
+       }
+       else if (Cn == 0 && Ct == 0){
+        //Rare case of s1 = s2, again yield criterion is independent of chi,
+        // and there is a possibility of shear failure of entire bond
+        if (kt*Dt > tanphi*(kn*Dn - sig_t)){
+          chi1 = chi2;
+          return;
+        }
+      }
     }
   }
 
+  //Bottom branch of envelope
   if (sig_s1 < -tanphi*sig_n1 + tanphi*sig_t){
     denom = -kn0*tanphi*Cn - kt0*Ct;
     if (denom != 0) chi1 = (kt0*Dt+tanphi*(kn0*Dn-sig_t))/denom;
-    else if (Cn != 0 && Ct != 0){
-      chi1 = chi2;
-      return;
+    else {
+      if (Cn != 0 && Ct != 0){
+        chi1 = chi2;
+        return;
+      }
+      else if (Cn == 0 && Ct == 0){
+        if (kt0*Dt < -tanphi*(kn0*Dn - sig_t)){
+          chi1 = chi2;
+          return;
+        }
+      }
     }
   }
-
+    
   //Check for 'cohesion' shear failure at chi2
+  //Top branch of envelope
   if (sig_s2 > tanphi*sig_n2 - tanphi*sig_t){
     denom = tanphi*kn0*Cn - kt0*Ct;
     if (denom != 0) chi2 = (tanphi*(sig_t-kn0*Dn)+kt0*Dt)/denom;
-    else if (Cn != 0 && Ct != 0){
-      //No need to treat case where Cn = Ct = 0, since sig_s = 0 for that case,
-      // and it would've been picked up above
-      //For the rare case of kt0*Ct = -kn0*tanphi*Cn, yield criterion is independent of chi,
-      // therefore bond breaks.
-      chi2 = chi1;
-      return;
+    else {
+      if (Cn != 0 && Ct != 0){
+        //Rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
+        // therefore bond breaks.
+        chi2 = chi1;
+        return;
+      }
+      else if (Cn == 0 && Ct == 0){
+        if (kt0*Dt > tanphi*(kn0*Dn - sig_t)){
+          chi1 = chi2;
+          return;
+        }
+      }
     }
   }
+
+  //Bottom branch of envelope
   if (sig_s2 < -tanphi*sig_n2 + tanphi*sig_t){
     denom = -kn0*tanphi*Cn - kt0*Ct;
     if (denom != 0) chi2 = (kt0*Dt+tanphi*(kn0*Dn-sig_t))/denom;
-    else if (Cn != 0 && Ct != 0){
-      chi2 = chi1;
-      return;
+    else {
+      if (Cn != 0 && Ct != 0){
+        chi1 = chi2;
+        return;
+      }
+      else if (Cn == 0 && Ct == 0){
+        if (kt0*Dt < -tanphi*(kn0*Dn - sig_t)){
+          chi1 = chi2;
+          return;
+        }
+      }
     }
-  }  
+  }
   if (chi1 < 0 || chi1 > 1 || chi2 < 0 || chi2 > 1)
     chi1 = chi2 = 0;
-
 }
+
+
+template<class DeviceType>
+template<int NEWTON_PAIR>
+KOKKOS_INLINE_FUNCTION
+void PairGranHopkinsKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, int i, int j,
+                                                          F_FLOAT fx, F_FLOAT fy, F_FLOAT fz,
+                                                          X_FLOAT delx, X_FLOAT dely, X_FLOAT delz) const
+{
+  F_FLOAT v[6];
+
+  v[0] = delx*fx;
+  v[1] = dely*fy;
+  v[2] = delz*fz;
+  v[3] = delx*fy;
+  v[4] = delx*fz;
+  v[5] = dely*fz;
+
+  if (NEWTON_PAIR) {
+    ev.v[0] += v[0];
+    ev.v[1] += v[1];
+    ev.v[2] += v[2];
+    ev.v[3] += v[3];
+    ev.v[4] += v[4];
+    ev.v[5] += v[5];
+  } else {
+    if (i < nlocal) {
+      ev.v[0] += 0.5*v[0];
+      ev.v[1] += 0.5*v[1];
+      ev.v[2] += 0.5*v[2];
+      ev.v[3] += 0.5*v[3];
+      ev.v[4] += 0.5*v[4];
+      ev.v[5] += 0.5*v[5];
+    }
+    if (j < nlocal) {
+      ev.v[0] += 0.5*v[0];
+      ev.v[1] += 0.5*v[1];
+      ev.v[2] += 0.5*v[2];
+      ev.v[3] += 0.5*v[3];
+      ev.v[4] += 0.5*v[4];
+      ev.v[5] += 0.5*v[5];
+    }
+  }
+}
+
+template<class DeviceType>
+template<int NEIGHFLAG, int NEWTON_PAIR>
+KOKKOS_INLINE_FUNCTION
+void PairGranHopkinsKokkos<DeviceType>::ev_tally_xyz_atom(EV_FLOAT &ev, int i, int j,
+                                                          F_FLOAT fx, F_FLOAT fy, F_FLOAT fz,
+                                                          X_FLOAT delx, X_FLOAT dely, X_FLOAT delz) const
+{
+  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+
+  F_FLOAT v[6];
+
+  v[0] = delx*fx;
+  v[1] = dely*fy;
+  v[2] = delz*fz;
+  v[3] = delx*fy;
+  v[4] = delx*fz;
+  v[5] = dely*fz;
+
+  if (NEWTON_PAIR || i < nlocal) {
+    v_vatom(i,0) += 0.5*v[0];
+    v_vatom(i,1) += 0.5*v[1];
+    v_vatom(i,2) += 0.5*v[2];
+    v_vatom(i,3) += 0.5*v[3];
+    v_vatom(i,4) += 0.5*v[4];
+    v_vatom(i,5) += 0.5*v[5];
+  }
+  if (NEWTON_PAIR || j < nlocal) {
+    v_vatom(j,0) += 0.5*v[0];
+    v_vatom(j,1) += 0.5*v[1];
+    v_vatom(j,2) += 0.5*v[2];
+    v_vatom(j,3) += 0.5*v[3];
+    v_vatom(j,4) += 0.5*v[4];
+    v_vatom(j,5) += 0.5*v[5];
+  }
+}
+
 
 
 namespace LAMMPS_NS {
