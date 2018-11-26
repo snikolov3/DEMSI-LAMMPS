@@ -17,8 +17,8 @@ FixStyle(nve/sphere/demsi,FixNVESphereDemsi)
 
 #else
 
-#ifndef LMP_FIX_NVE_SPHERE_H
-#define LMP_FIX_NVE_SPHERE_H
+#ifndef LMP_FIX_NVE_SPHERE_DEMSI_H
+#define LMP_FIX_NVE_SPHERE_DEMSI_H
 
 #include "fix_nve.h"
 

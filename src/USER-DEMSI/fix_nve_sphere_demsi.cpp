@@ -48,6 +48,11 @@ FixNVESphereDemsi::FixNVESphereDemsi(LAMMPS *lmp, int narg, char **arg) :
 
 
   int iarg = 3;
+  if (narg < 5){
+    error->all(FLERR,"Fix nve/sphere/demsi requires additional parameters");
+  }
+  ocean_density = force->numeric(FLERR, arg[3]);
+  ocean_drag = force->numeric(FLERR, arg[4]);
   /*while (iarg < narg) {
     if (strcmp(arg[iarg],"update") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix nve/sphere command");
@@ -73,8 +78,6 @@ FixNVESphereDemsi::FixNVESphereDemsi(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR,"Fix nve/sphere demsi requires 2d simulation");
   if (!atom->sphere_flag)
     error->all(FLERR,"Fix nve/sphere requires atom style sphere");
-  if (extra == DIPOLE && !atom->mu_flag)
-    error->all(FLERR,"Fix nve/sphere update dipole requires atom attribute mu");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -148,13 +151,13 @@ void FixNVESphereDemsi::initial_integrate(int /*vflag*/)
       vel_diff = sqrt((wind_vel_x[i]-v[i][0])*(wind_vel_x[i]-v[i][0]) +
           (wind_vel_y[i]-v[i][1])*(wind_vel_y[i]-v[i][1]));
       D = ice_area[i]*ocean_drag*ocean_density*vel_diff;
-      m_prime = rmass[i]/update->dt*0.5;
+      m_prime = rmass[i]/(update->dt*0.5);
       a00 = a11 = m_prime+D;
       a10 = rmass[i]*coriolis[i];
       a01 = -a10;
 
       b0 = m_prime*v[i][0] + f[i][0] + bx[i] + D*wind_vel_x[i];
-      b1 = m_prime*v[i][1] + f[i][1] + by[i] + D*wind_vel_x[i];
+      b1 = m_prime*v[i][1] + f[i][1] + by[i] + D*wind_vel_y[i];
 
       detinv = 1.0/(a00*a11 - a01*a10);
       v[i][0] = detinv*( a11*b0 - a01*b1);
@@ -216,13 +219,13 @@ void FixNVESphereDemsi::final_integrate()
       vel_diff = sqrt((wind_vel_x[i]-v[i][0])*(wind_vel_x[i]-v[i][0]) +
           (wind_vel_y[i]-v[i][1])*(wind_vel_y[i]-v[i][1]));
       D = ice_area[i]*ocean_drag*ocean_density*vel_diff;
-      m_prime = rmass[i]/update->dt*0.5;
+      m_prime = rmass[i]/(update->dt*0.5);
       a00 = a11 = m_prime+D;
       a10 = rmass[i]*coriolis[i];
       a01 = -a10;
 
       b0 = m_prime*v[i][0] + f[i][0] + bx[i] + D*wind_vel_x[i];
-      b1 = m_prime*v[i][1] + f[i][1] + by[i] + D*wind_vel_x[i];
+      b1 = m_prime*v[i][1] + f[i][1] + by[i] + D*wind_vel_y[i];
 
       detinv = 1.0/(a00*a11 - a01*a10);
       v[i][0] = detinv*( a11*b0 - a01*b1);
