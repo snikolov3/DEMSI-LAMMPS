@@ -38,7 +38,7 @@ class FixNVESphereDemsi : public FixNVE {
   double inertia;
   int ice_area_index, coriolis_index;
   int bx_index, by_index;
-  int wind_vel_x_index, wind_vel_y_index;
+  int ocean_vel_x_index, ocean_vel_y_index;
 
 };
 

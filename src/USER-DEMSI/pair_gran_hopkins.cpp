@@ -250,7 +250,7 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
     else
       fnmag = fnmag_plastic;
 
-    fnmag = fnmag_elastic;
+    //fnmag = fnmag_elastic;
 
     fnx = fnmag*nx;
     fny = fnmag*ny;
