@@ -43,36 +43,12 @@ FixNVESphereDemsi::FixNVESphereDemsi(LAMMPS *lmp, int narg, char **arg) :
 
   // process extra keywords
   // inertia = moment of inertia prefactor for sphere or disc
-
   inertia = 0.5;
 
-
-  int iarg = 3;
-  if (narg < 5){
-    error->all(FLERR,"Fix nve/sphere/demsi requires additional parameters");
-  }
-  ocean_density = force->numeric(FLERR, arg[3]);
-  ocean_drag = force->numeric(FLERR, arg[4]);
-  /*while (iarg < narg) {
-    if (strcmp(arg[iarg],"update") == 0) {
-      if (iarg+2 > narg) error->all(FLERR,"Illegal fix nve/sphere command");
-      if (strcmp(arg[iarg+1],"dipole") == 0) extra = DIPOLE;
-      else if (strcmp(arg[iarg+1],"dipole/dlm") == 0) {
-        extra = DIPOLE;
-        dlm = DLM;
-      } else error->all(FLERR,"Illegal fix nve/sphere command");
-      iarg += 2;
-    }
-    else if (strcmp(arg[iarg],"disc")==0) {
-      inertia = 0.5;
-      if (domain->dimension != 2)
-        error->all(FLERR,"Fix nve/sphere disc requires 2d simulation");
-      iarg++;
-    }
-    else error->all(FLERR,"Illegal fix nve/sphere command");
-  }*/
-
-  // error checks
+  ocean_density = ocean_drag = 0;
+  forcing = NULL;
+  ice_area_index = ocean_vel_x_index = ocean_vel_y_index = 0;
+  coriolis_index = bx_index = by_index = 0;
 
   if (domain->dimension != 2)
     error->all(FLERR,"Fix nve/sphere demsi requires 2d simulation");
@@ -92,6 +68,7 @@ void FixNVESphereDemsi::init()
   double *radius = atom->radius;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
+  forcing = atom->forcing;
 
   int flag;
   ice_area_index = atom->find_custom("ice_area", flag);
@@ -146,8 +123,6 @@ void FixNVESphereDemsi::initial_integrate(int /*vflag*/)
 
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
-      dtfm = dtf / rmass[i];
-
       vel_diff = sqrt((ocean_vel_x[i]-v[i][0])*(ocean_vel_x[i]-v[i][0]) +
           (ocean_vel_y[i]-v[i][1])*(ocean_vel_y[i]-v[i][1]));
       D = ice_area[i]*ocean_drag*ocean_density*vel_diff;
@@ -156,8 +131,8 @@ void FixNVESphereDemsi::initial_integrate(int /*vflag*/)
       a10 = rmass[i]*coriolis[i];
       a01 = -a10;
 
-      b0 = m_prime*v[i][0] + f[i][0] + bx[i] + D*ocean_vel_x[i];
-      b1 = m_prime*v[i][1] + f[i][1] + by[i] + D*ocean_vel_y[i];
+      b0 = m_prime*v[i][0] + f[i][0] + bx[i] + forcing[i][0] + D*ocean_vel_x[i];
+      b1 = m_prime*v[i][1] + f[i][1] + by[i] + forcing[i][1] + D*ocean_vel_y[i];
 
       detinv = 1.0/(a00*a11 - a01*a10);
       v[i][0] = detinv*( a11*b0 - a01*b1);
@@ -165,11 +140,8 @@ void FixNVESphereDemsi::initial_integrate(int /*vflag*/)
 
       x[i][0] += dtv * v[i][0];
       x[i][1] += dtv * v[i][1];
-      x[i][2] += dtv * v[i][2];
 
       dtirotate = dtfrotate / (radius[i]*radius[i]*rmass[i]);
-      omega[i][0] += dtirotate * torque[i][0];
-      omega[i][1] += dtirotate * torque[i][1];
       omega[i][2] += dtirotate * torque[i][2];
     }
   }
@@ -214,8 +186,6 @@ void FixNVESphereDemsi::final_integrate()
   double rke = 0.0;
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
-      dtfm = dtf / rmass[i];
-
       vel_diff = sqrt((ocean_vel_x[i]-v[i][0])*(ocean_vel_x[i]-v[i][0]) +
           (ocean_vel_y[i]-v[i][1])*(ocean_vel_y[i]-v[i][1]));
       D = ice_area[i]*ocean_drag*ocean_density*vel_diff;
@@ -224,16 +194,14 @@ void FixNVESphereDemsi::final_integrate()
       a10 = rmass[i]*coriolis[i];
       a01 = -a10;
 
-      b0 = m_prime*v[i][0] + f[i][0] + bx[i] + D*ocean_vel_x[i];
-      b1 = m_prime*v[i][1] + f[i][1] + by[i] + D*ocean_vel_y[i];
+      b0 = m_prime*v[i][0] + f[i][0] + bx[i] + forcing[i][0] + D*ocean_vel_x[i];
+      b1 = m_prime*v[i][1] + f[i][1] + by[i] + forcing[i][1] + D*ocean_vel_y[i];
 
       detinv = 1.0/(a00*a11 - a01*a10);
       v[i][0] = detinv*( a11*b0 - a01*b1);
       v[i][1] = detinv*(-a10*b0 + a00*b1);
 
       dtirotate = dtfrotate / (radius[i]*radius[i]*rmass[i]);
-      omega[i][0] += dtirotate * torque[i][0];
-      omega[i][1] += dtirotate * torque[i][1];
       omega[i][2] += dtirotate * torque[i][2];
       rke += (omega[i][0]*omega[i][0] + omega[i][1]*omega[i][1] +
               omega[i][2]*omega[i][2])*radius[i]*radius[i]*rmass[i];
