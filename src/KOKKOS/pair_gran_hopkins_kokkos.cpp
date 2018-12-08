@@ -74,7 +74,7 @@ void PairGranHopkinsKokkos<DeviceType>::init_style()
 {
   if (history && fix_history == NULL) {
     char dnumstr[16];
-    sprintf(dnumstr,"%d",3);
+    sprintf(dnumstr,"%d",12);
     char **fixarg = new char*[4];
     fixarg[0] = (char *) "NEIGH_HISTORY";
     fixarg[1] = (char *) "all";
@@ -88,6 +88,8 @@ void PairGranHopkinsKokkos<DeviceType>::init_style()
     fix_history = (FixNeighHistory *) modify->fix[modify->nfix-1];
     fix_history->pair = this;
     fix_historyKK = (FixNeighHistoryKokkos<DeviceType> *)fix_history;
+   // int fix_history_index = modify->find_fix_by_style("NEIGH_HISTORY");
+    int fix_history_index = modify->find_fix_by_style(fixarg[2]);
   }
 
   // PairGranHopkins uses PairGranHookeHistory::init_style
@@ -284,9 +286,12 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
 
   F_FLOAT fx = 0.0;
   F_FLOAT fy = 0.0;
+  F_FLOAT fx_sum = 0.0;
+  F_FLOAT fy_sum = 0.0;
 
   F_FLOAT torque_i = 0.0;
   F_FLOAT torque_j = 0.0;
+  F_FLOAT torque_i_sum = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors(i,jj);
@@ -297,31 +302,51 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
     F_FLOAT chi1 = d_firsthistory(i,size_history*jj+8);
     F_FLOAT chi2 = d_firsthistory(i,size_history*jj+9);
     if (chi1 >= chi2){ // Un-bonded, chi1 >= chi2
-      compute_nonbonded_kokkos<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE,EVFLAG>(i,j,jj,fx,fy,torque_i,torque_j,ev);
+      compute_nonbonded_kokkos<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE>(i,j,jj,fx,fy,torque_i,torque_j);
     }
     else { //Bonded
-      compute_bonded_kokkos<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE,EVFLAG>(i,j,jj,fx,fy,torque_i,torque_j,ev);
+      compute_bonded_kokkos<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE>(i,j,jj,fx,fy,torque_i,torque_j);
     }
+
+    fx_sum += fx;
+    fy_sum += fy;
+    torque_i_sum += torque_i;
 
     a_f(i,0) += fx;
     a_f(i,1) += fy;
 
     // torque induced by tangential force
+    F_FLOAT torque_temp = a_torque(i,2) + torque_i;
     a_torque(i,2) += torque_i;
+
 
     if (NEWTON_PAIR || j < nlocal){
        a_f(j,0) -= fx;
        a_f(j,1) -= fy;
        a_torque(j,2) += torque_j;
     }
+
+    F_FLOAT delx = x(i,0) - x(j,0);
+    F_FLOAT dely = x(i,1) - x(j,1);
+    if (EVFLAG == 2)
+      ev_tally_xyz_atom<NEIGHFLAG, NEWTON_PAIR>(ev, i, j, fx_sum, fy_sum, 0, delx, dely, 0);
+    if (EVFLAG == 1)
+      ev_tally_xyz<NEWTON_PAIR>(ev, i, j, fx_sum, fy_sum, 0, delx, dely, 0);
   }
+
+ //   a_f(i,0) += fx_sum;
+ //   a_f(i,1) += fy_sum;
+
+    // torque induced by tangential force
+ //   a_torque(i,2) += torque_i_sum;
+
 }
 
 template<class DeviceType>
-template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE, int EVFLAG>
+template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE>
 KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, int jj,
-                     F_FLOAT fx, F_FLOAT fy, F_FLOAT torque_i, F_FLOAT torque_j, EV_FLOAT &ev) const
+                     F_FLOAT &fx, F_FLOAT &fy, F_FLOAT &torque_i, F_FLOAT &torque_j) const
 {
    F_FLOAT r, rinv, nx, ny, radmin;
    F_FLOAT vnnr, vnx, vny;
@@ -423,9 +448,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
       fnmag = fnmag_elastic;
    else
       fnmag = fnmag_plastic;
-
-   // should this be here?
-   fnmag = fnmag_elastic;
+   // fnmag = fnmag_elastic;
 
    fnx = fnmag*nx;
    fny = fnmag*ny;
@@ -480,18 +503,14 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
     torque_i = -radius[i]*ncrossF;
     torque_j = -radius[j]*ncrossF;
 
-    if (EVFLAG == 2)
-      ev_tally_xyz_atom<NEIGHFLAG, NEWTON_PAIR>(ev, i, j, fx, fy, 0, delx, dely, 0);
-    if (EVFLAG == 1)
-      ev_tally_xyz<NEWTON_PAIR>(ev, i, j, fx, fy, 0, delx, dely, 0);
 }
 
         
 template<class DeviceType>
-template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE, int EVFLAG>
+template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE>
 KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(int i, int j, int jj,
-                     F_FLOAT fx, F_FLOAT fy, F_FLOAT torque_i, F_FLOAT torque_j, EV_FLOAT &ev) const
+                     F_FLOAT &fx, F_FLOAT &fy, F_FLOAT &torque_i, F_FLOAT &torque_j) const
 {
 
   //See design document for definitions of these variables
@@ -512,7 +531,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(int i, int j, int 
   F_FLOAT dvx, dvy;
 
   if (HISTORYUPDATE){
-
+ 
     // Update bond end points based on particle translations
     d_firsthistory(i,size_history*jj)   += dt*v(i,0);
     d_firsthistory(i,size_history*jj+1) += dt*v(i,1);
@@ -618,7 +637,6 @@ void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(int i, int j, int 
     F_FLOAT c1, c2;
     c1 = d_firsthistory(i,size_history*jj+8);
     c2 = d_firsthistory(i,size_history*jj+9);
-    //update_chi(kn0, kt0, Dn, Cn, Dt, Ct, hmin, d_firsthistory(i,size_history*jj+8), d_firsthistory(i,size_history*jj+9));
     update_chi(kn0, kt0, Dn, Cn, Dt, Ct, hmin, c1, c2);
     d_firsthistory(i,size_history*jj+8) = c1;
     d_firsthistory(i,size_history*jj+9) = c2;
@@ -635,23 +653,15 @@ void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(int i, int j, int 
         d_firsthistory(i,size_history*jj+5) = delta_0;
     }
   }
-
-    F_FLOAT delx = x(i,0) - x(j,0);
-    F_FLOAT dely = x(i,1) - x(j,1);
-    if (EVFLAG == 2)
-      ev_tally_xyz_atom<NEIGHFLAG, NEWTON_PAIR>(ev, i, j, fx, fy, 0, delx, dely, 0);
-    if (EVFLAG == 1)
-      ev_tally_xyz<NEWTON_PAIR>(ev, i, j, fx, fy, 0, delx, dely, 0);
 }
 
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::update_chi(F_FLOAT kn0, F_FLOAT kt0, F_FLOAT Dn, F_FLOAT Cn, 
-                                                   F_FLOAT Dt, F_FLOAT Ct, F_FLOAT hmin, F_FLOAT chi1, 
-                                                   F_FLOAT chi2) const
-{
-
+                                                   F_FLOAT Dt, F_FLOAT Ct, F_FLOAT hmin, F_FLOAT &chi1, 
+                                                   F_FLOAT &chi2) const
+{ 
   F_FLOAT sig_n1 = kn0*(Dn + Cn*chi1);
   F_FLOAT sig_s1 = kt0*(Dt + Ct*chi1);
   F_FLOAT sig_n2 = kn0*(Dn + Cn*chi2);
@@ -676,7 +686,7 @@ void PairGranHopkinsKokkos<DeviceType>::update_chi(F_FLOAT kn0, F_FLOAT kt0, F_F
   }
 
   F_FLOAT denom;
-  sig_t = -sig_t;
+  sig_t = -sig_t; //Somewhat against convention, tensile load is taken to be negative
 
   F_FLOAT c1, c2;
   c1 = chi1;
@@ -713,7 +723,7 @@ void PairGranHopkinsKokkos<DeviceType>::update_chi(F_FLOAT kn0, F_FLOAT kt0, F_F
   //Check for 'cohesion' shear failure at chi1
   if (sig_s1 > tanphi*sig_n1 - tanphi*sig_t){
     denom = tanphi*kn0*Cn - kt0*Ct;
-    if (denom != 0) chi1 = (tanphi*(sig_t-kn0*Dn)+kt0*Dt)/denom;
+    if (denom != 0) chi1 = (kt0*Dt+tanphi*(sig_t-kn0*Dn))/denom;
     else {
       if (Cn != 0 && Ct != 0){
         //Rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
@@ -724,7 +734,7 @@ void PairGranHopkinsKokkos<DeviceType>::update_chi(F_FLOAT kn0, F_FLOAT kt0, F_F
        else if (Cn == 0 && Ct == 0){
         //Rare case of s1 = s2, again yield criterion is independent of chi,
         // and there is a possibility of shear failure of entire bond
-        if (kt*Dt > tanphi*(kn*Dn - sig_t)){
+        if (kt0*Dt > tanphi*(kn0*Dn - sig_t)){
           chi1 = chi2;
           return;
         }
@@ -754,7 +764,7 @@ void PairGranHopkinsKokkos<DeviceType>::update_chi(F_FLOAT kn0, F_FLOAT kt0, F_F
   //Top branch of envelope
   if (sig_s2 > tanphi*sig_n2 - tanphi*sig_t){
     denom = tanphi*kn0*Cn - kt0*Ct;
-    if (denom != 0) chi2 = (tanphi*(sig_t-kn0*Dn)+kt0*Dt)/denom;
+    if (denom != 0) chi2 = (kt0*Dt+tanphi*(sig_t-kn0*Dn))/denom;
     else {
       if (Cn != 0 && Ct != 0){
         //Rare case of kt*Ct = -kn*tanphi*Cn, yield criterion is independent of chi,
@@ -790,6 +800,7 @@ void PairGranHopkinsKokkos<DeviceType>::update_chi(F_FLOAT kn0, F_FLOAT kt0, F_F
   }
   if (chi1 < 0 || chi1 > 1 || chi2 < 0 || chi2 > 1)
     chi1 = chi2 = 0;
+
 }
 
 

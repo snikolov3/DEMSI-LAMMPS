@@ -50,21 +50,21 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairGranHopkinsCompute<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE,EVFLAG>, const int, EV_FLOAT &ev) const;
 
-  template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE, int EVFLAG>
+  template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE>
   KOKKOS_INLINE_FUNCTION
-  void compute_nonbonded_kokkos(int i, int j,int jj, F_FLOAT fx, F_FLOAT fy,
-			        F_FLOAT torque_i, F_FLOAT torque_j, EV_FLOAT &ev) const;
+  void compute_nonbonded_kokkos(int i, int j, int jj, F_FLOAT &fx, F_FLOAT &fy,
+			        F_FLOAT &torque_i, F_FLOAT &torque_j) const;
 
-  template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE, int EVFLAG>
+  template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE>
   KOKKOS_INLINE_FUNCTION
-  void compute_bonded_kokkos(int i, int j, int jj, F_FLOAT fx, F_FLOAT fy,
-	                     F_FLOAT torque_i, F_FLOAT torque_j, EV_FLOAT &ev) const;
+  void compute_bonded_kokkos(int i, int j, int jj, F_FLOAT &fx, F_FLOAT &fy,
+	                     F_FLOAT &torque_i, F_FLOAT &torque_j) const;
 
 
   KOKKOS_INLINE_FUNCTION
   void update_chi(F_FLOAT kn0, F_FLOAT kt0, F_FLOAT Dn, F_FLOAT Cn,
-                  F_FLOAT Dt, F_FLOAT Ct, F_FLOAT hmin, F_FLOAT chi1,
-                  F_FLOAT chi2) const;
+                  F_FLOAT Dt, F_FLOAT Ct, F_FLOAT hmin, F_FLOAT &chi1,
+                  F_FLOAT &chi2) const;
 
   template<int NEWTON_PAIR>
   KOKKOS_INLINE_FUNCTION
