@@ -284,13 +284,8 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
   int itype = type[i];
   int jnum = d_numneigh[i];
 
-  F_FLOAT fx = 0.0;
-  F_FLOAT fy = 0.0;
   F_FLOAT fx_sum = 0.0;
   F_FLOAT fy_sum = 0.0;
-
-  F_FLOAT torque_i = 0.0;
-  F_FLOAT torque_j = 0.0;
   F_FLOAT torque_i_sum = 0.0;
 
   for (int jj = 0; jj < jnum; jj++) {
@@ -298,6 +293,11 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
     j &= NEIGHMASK;
 
     int jtype = type[j];
+
+    F_FLOAT fx = 0.0;
+    F_FLOAT fy = 0.0;
+    F_FLOAT torque_i = 0.0;
+    F_FLOAT torque_j = 0.0;
 
     F_FLOAT chi1 = d_firsthistory(i,size_history*jj+8);
     F_FLOAT chi2 = d_firsthistory(i,size_history*jj+9);
@@ -311,14 +311,6 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
     fx_sum += fx;
     fy_sum += fy;
     torque_i_sum += torque_i;
-
-    a_f(i,0) += fx;
-    a_f(i,1) += fy;
-
-    // torque induced by tangential force
-    F_FLOAT torque_temp = a_torque(i,2) + torque_i;
-    a_torque(i,2) += torque_i;
-
 
     if (NEWTON_PAIR || j < nlocal){
        a_f(j,0) -= fx;
@@ -334,11 +326,11 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
       ev_tally_xyz<NEWTON_PAIR>(ev, i, j, fx_sum, fy_sum, 0, delx, dely, 0);
   }
 
- //   a_f(i,0) += fx_sum;
- //   a_f(i,1) += fy_sum;
+  a_f(i,0) += fx_sum;
+  a_f(i,1) += fy_sum;
 
-    // torque induced by tangential force
- //   a_torque(i,2) += torque_i_sum;
+  // torque induced by tangential force
+  a_torque(i,2) += torque_i_sum;
 
 }
 
@@ -385,76 +377,74 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
           d_firsthistory(i,size_history*jj+3) = 0;
           d_firsthistory(i,size_history*jj+4) = hprime_0;
           d_firsthistory(i,size_history*jj+5) = 0;
-      }
-   }
+     }
 
-   r = sqrt(rsq);
-   rinv = 1.0/r;
-   nx = delx/r;
-   ny = dely/r;
+     r = sqrt(rsq);
+     rinv = 1.0/r;
+     nx = delx/r;
+     ny = dely/r;
 
-   radmin = MIN(radius[i],radius[j]); 
+     radmin = MIN(radius[i],radius[j]); 
 
-   L = 2*radmin*(1+(abs(radius[i] - radius[j])/r));
+     L = 2*radmin*(1+(abs(radius[i] - radius[j])/r));
 
-   // relative translational velocity
-   V_FLOAT vrx = v(i,0) - v(j,0);
-   V_FLOAT vry = v(i,1) - v(j,1);
+     // relative translational velocity
+     V_FLOAT vrx = v(i,0) - v(j,0);
+     V_FLOAT vry = v(i,1) - v(j,1);
 
-   delta = radsum - r - d_firsthistory(i,size_history*jj+5);
+     delta = radsum - r - d_firsthistory(i,size_history*jj+5);
+     if (delta < 0) return ; //delta = 0;
 
-   if (delta < 0) return ; //delta = 0;
+     // Compute tangential force
+     // normal component of relative translational velocity
+     vnnr = vrx*nx + vry*ny;
+     vnx = nx*vnnr;
+     vny = ny*vnnr;
 
-   // Compute tangential force
-   // normal component of relative translational velocity
-   vnnr = vrx*nx + vry*ny;
-   vnx = nx*vnnr;
-   vny = ny*vnnr;
+     // subtract to compute tangential component of relative translational velocity
+     vtrx = vrx - vnx;
+     vtry = vry - vny;
 
-   // subtract to compute tangential component of relative translational velocity
-   vtrx = vrx - vnx;
-   vtry = vry - vny;
+     // total relative tangential velocities at contact
+     wrz = radius[i]*omega(i,2) + radius[j]*omega(j,2);
+     vtx = vtrx + ny*wrz;
+     vty = vtry - nx*wrz;
 
-   // total relative tangential velocities at contact
-   wrz = radius[i]*omega(i,2) + radius[j]*omega(j,2);
-   vtx = vtrx + ny*wrz;
-   vty = vtry - nx*wrz;
+     vrel = vtx*vtx + vty*vty;
+     vrel = sqrt(vrel);
 
-   vrel = vtx*vtx + vty*vty;
-   vrel = sqrt(vrel);
+     delta_dot = -vnnr;
 
-   delta_dot = -vnnr;
+     // Compute plastic normal force
+     hprime = d_firsthistory(i,size_history*jj+4);
+     ke = Emod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
+     hmin = MIN(min_thickness(i), min_thickness(j));
+     if (hprime < hstar){
+        kr = 26126*hprime;
+        kp = 928*hprime*hprime;
+     }
+     else{
+        kr = kp = hprime*sig_c;
+     }
 
-   // Compute plastic normal force
-   hprime = d_firsthistory(i,size_history*jj+4);
-   ke = Emod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
-   hmin = MIN(min_thickness(i), min_thickness(j));
-   if (hprime < hstar){
-      kr = 26126*hprime;
-      kp = 928*hprime*hprime;
-   }
-   else{
-      kr = kp = hprime*sig_c;
-   }
+     num = d_firsthistory(i,size_history*jj)/(kp*update->dt) + delta_dot*L + delta*L*ke/damp_normal + ke*kr/(damp_normal*kp);
+     denom = 1/(kp*update->dt) + 1/damp_normal*(1+ke/kp);
+     fnmag_plastic = num/denom;
 
-   num = d_firsthistory(i,size_history*jj)/(kp*update->dt) + delta_dot*L + delta*L*ke/damp_normal + ke*kr/(damp_normal*kp);
-   denom = 1/(kp*update->dt) + 1/damp_normal*(1+ke/kp);
-   fnmag_plastic = num/denom;
+     // Elastic normal force
+     fnmag_elastic = ke*delta*L + damp_normal*delta_dot*L;
 
-   // Elastic normal force
-   fnmag_elastic = ke*delta*L + damp_normal*delta_dot*L;
+     if (fabs(fnmag_elastic) < fabs(fnmag_plastic))
+       fnmag = fnmag_elastic;
+     else
+       fnmag = fnmag_plastic;
+    // fnmag = fnmag_elastic;
 
-   if (fabs(fnmag_elastic) < fabs(fnmag_plastic))
-      fnmag = fnmag_elastic;
-   else
-      fnmag = fnmag_plastic;
-   // fnmag = fnmag_elastic;
+     fnx = fnmag*nx;
+     fny = fnmag*ny;
 
-   fnx = fnmag*nx;
-   fny = fnmag*ny;
-
-    // update tangential displacement, rotate if needed
-    if (HISTORYUPDATE){
+     // update tangential displacement, rotate if needed
+     if (HISTORYUPDATE){
        d_firsthistory(i,size_history*jj) = fnx;
        d_firsthistory(i,size_history*jj+1) = fny;
        ndisp = nx*d_firsthistory(i,size_history*jj+2) + ny*d_firsthistory(i,size_history*jj+3);
@@ -471,28 +461,28 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
         }
         d_firsthistory(i,size_history*jj+2) += vtx*update->dt;
         d_firsthistory(i,size_history*jj+3) += vty*update->dt;
-    }
+     }
 
-    var1 = d_firsthistory(i,size_history*jj+2);
-    var2 = d_firsthistory(i,size_history*jj+3);
-    dispmag =sqrt(var1*var1 + var2*var2); 
+     var1 = d_firsthistory(i,size_history*jj+2);
+     var2 = d_firsthistory(i,size_history*jj+3);
+     dispmag =sqrt(var1*var1 + var2*var2); 
 
-    // total tangential force
-    kt0 = Gmod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
-    ftx = - (kt0*var1 + damp_tangential*vtx);
-    fty = - (kt0*var2 + damp_tangential*vty);
+     // total tangential force
+     kt0 = Gmod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
+     ftx = - (kt0*var1 + damp_tangential*vtx);
+     fty = - (kt0*var2 + damp_tangential*vty);
 
-    ftmag = sqrt(ftx*ftx + fty*fty);
-    ftcrit = friction_tangential*fabs(fnmag);
-    if (ftmag > ftcrit){
-      if (dispmag != 0){
-        ftx *= ftcrit/ftmag;
-        fty *= ftcrit/ftmag;
-        d_firsthistory(i,size_history*jj+2) = -(ftcrit + damp_tangential*vtx)/kt0;
-        d_firsthistory(i,size_history*jj+3) = -(ftcrit + damp_tangential*vty)/kt0;
-      }
-      else ftx = fty = 0;
-    }
+     ftmag = sqrt(ftx*ftx + fty*fty);
+     ftcrit = friction_tangential*fabs(fnmag);
+     if (ftmag > ftcrit){
+       if (dispmag != 0){
+         ftx *= ftcrit/ftmag;
+         fty *= ftcrit/ftmag;
+         d_firsthistory(i,size_history*jj+2) = -(ftcrit + damp_tangential*vtx)/kt0;
+         d_firsthistory(i,size_history*jj+3) = -(ftcrit + damp_tangential*vty)/kt0;
+       }
+       else ftx = fty = 0;
+     }
 
     //Apply forces
     fx = fnx + ftx;
@@ -503,6 +493,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
     torque_i = -radius[i]*ncrossF;
     torque_j = -radius[j]*ncrossF;
 
+  } // rsq < radsum*radsum
 }
 
         
@@ -617,6 +608,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(int i, int j, int 
 
   torque_i = Nn + Nt + torquedamp;
 
+  torque_j = 0;
   if (NEWTON_PAIR || j < nlocal){
 
     rxj = d_firsthistory(i,size_history*jj) + 0.5*s1x - x(j,0);
