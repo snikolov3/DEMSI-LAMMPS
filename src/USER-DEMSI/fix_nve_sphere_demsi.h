@@ -32,14 +32,13 @@ class FixNVESphereDemsi : public FixNVE {
   virtual void initial_integrate(int);
   virtual void final_integrate();
 
+  //DEMSI sets these (presumably they never change during a run;
+  // if they are location/temperature dependent, they would have
+  // to be made into per-particle properties)
   double ocean_drag, ocean_density;
 
  protected:
   double inertia;
-  double **forcing;
-  int ice_area_index, coriolis_index;
-  int bx_index, by_index;
-  int ocean_vel_x_index, ocean_vel_y_index;
 
 };
 

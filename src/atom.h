@@ -106,9 +106,34 @@ class Atom : protected Pointers {
   double *edpd_cv;               // heat capacity
   int cc_species;
 
-  // USER-DEMSI package
+  //USER-DEMSI package
   double **forcing;
-  double *mean_thickness, *min_thickness;
+  double *mean_thickness;
+  double *min_thickness;
+  double *ice_area;
+  double *coriolis;
+  double **ocean_vel;
+  double **bvector;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   // molecular info
 
@@ -170,8 +195,28 @@ class Atom : protected Pointers {
   int eff_plastic_strain_rate_flag;
   int damage_flag;
 
-  // USER-DEMSI package
+  //USER-DEMSI package
   int demsi_flag;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   // Peridynamics scale factor, used by dump cfg
 

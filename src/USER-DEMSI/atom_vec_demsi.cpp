@@ -33,23 +33,23 @@ using namespace MathConst;
 
 AtomVecDemsi::AtomVecDemsi(LAMMPS *lmp) : AtomVec(lmp)
 {
-  molecular = 1;
+molecular = 1;
 
   comm_x_only = 1;
   comm_f_only = 0;
-  size_forward = 5;
-  size_reverse = 6;
-  size_border = 12;
+size_forward = 3;
+size_reverse = 6;
+size_border = 18;
   size_velocity = 6;
   size_data_atom = 7;
   size_data_vel = 7;
   xcol_data = 5;
 
   atom->sphere_flag = 1;
-  atom->demsi_flag = 1;
+atom->demsi_flag = 1;
   atom->radius_flag = atom->rmass_flag = atom->omega_flag =
     atom->torque_flag = 1;
-  bonds_allow = 1;
+bonds_allow = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -61,8 +61,8 @@ void AtomVecDemsi::init()
   // set radvary if particle diameters are time-varying due to fix adapt
 
   radvary = 0;
-  comm_x_only = 0;
-  size_forward = 5;
+comm_x_only = 0;
+size_forward = 3;
 
   for (int i = 0; i < modify->nfix; i++)
     if (strcmp(modify->fix[i]->style,"adapt") == 0) {
@@ -70,7 +70,7 @@ void AtomVecDemsi::init()
       if (fix->diamflag) {
         radvary = 1;
         comm_x_only = 0;
-        size_forward = 7;
+size_forward = 3;
       }
     }
 }
@@ -103,17 +103,18 @@ void AtomVecDemsi::grow(int n)
   torque = memory->grow(atom->torque,nmax*comm->nthreads,3,"atom:torque");
 
   forcing = memory->grow(atom->forcing,nmax,2,"atom:forcing");
-  mean_thickness = memory->grow(atom->mean_thickness,nmax,"atom:forcing");
-  min_thickness = memory->grow(atom->min_thickness,nmax,"atom:forcing");
+  mean_thickness = memory->grow(atom->mean_thickness,nmax,"atom:mean_thickness");
+  min_thickness = memory->grow(atom->min_thickness,nmax,"atom:min_thickness");
+  ice_area = memory->grow(atom->ice_area,nmax,"atom:ice_area");
+  coriolis = memory->grow(atom->coriolis,nmax,"atom:coriolis");
+  ocean_vel = memory->grow(atom->ocean_vel,nmax,2,"atom:ocean_vel");
+  bvector = memory->grow(atom->bvector,nmax,2,"atom:bvector");
 
   nspecial = memory->grow(atom->nspecial,nmax,3,"atom:nspecial");
-    special = memory->grow(atom->special,nmax,atom->maxspecial,"atom:special");
-
+  special = memory->grow(atom->special,nmax,atom->maxspecial,"atom:special");
   num_bond = memory->grow(atom->num_bond,nmax,"atom:num_bond");
-  bond_type = memory->grow(atom->bond_type,nmax,atom->bond_per_atom,
-      "atom:bond_type");
-  bond_atom = memory->grow(atom->bond_atom,nmax,atom->bond_per_atom,
-      "atom:bond_atom");
+  bond_type = memory->grow(atom->bond_type,nmax,atom->bond_per_atom,"atom:bond_type");
+  bond_atom = memory->grow(atom->bond_atom,nmax,atom->bond_per_atom,"atom:bond_atom");
 
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
@@ -131,7 +132,15 @@ void AtomVecDemsi::grow_reset()
   x = atom->x; v = atom->v; f = atom->f;
   radius = atom->radius; rmass = atom->rmass;
   omega = atom->omega; torque = atom->torque;
-  forcing = atom->forcing; mean_thickness = atom->mean_thickness; min_thickness = atom->min_thickness;
+
+  forcing = atom->forcing;
+  mean_thickness = atom->mean_thickness;
+  min_thickness = atom->min_thickness;
+  ice_area = atom->ice_area;
+  coriolis = atom->coriolis;
+  ocean_vel = atom->ocean_vel;
+  bvector = atom->bvector;
+
   nspecial = atom->nspecial; special = atom->special;
   num_bond = atom->num_bond; bond_type = atom->bond_type;
   bond_atom = atom->bond_atom;
@@ -164,18 +173,21 @@ void AtomVecDemsi::copy(int i, int j, int delflag)
   forcing[j][1] = forcing[i][1];
   mean_thickness[j] = mean_thickness[i];
   min_thickness[j] = min_thickness[i];
-
-
+  ice_area[j] = ice_area[i];
+  coriolis[j] = coriolis[i];
+  ocean_vel[j][0] = ocean_vel[i][0];
+  ocean_vel[j][1] = ocean_vel[i][1];
+  bvector[j][0] = bvector[i][0];
+  bvector[j][1] = bvector[i][1];
   nspecial[j][0] = nspecial[i][0];
   nspecial[j][1] = nspecial[i][1];
   nspecial[j][2] = nspecial[i][2];
   for (int k = 0; k < nspecial[j][2]; k++) special[j][k] = special[i][k];
-
-  num_bond[j] = num_bond[i];
+    num_bond[j] = num_bond[i];
   for (int k = 0; k < num_bond[j]; k++) {
     bond_type[j][k] = bond_type[i][k];
     bond_atom[j][k] = bond_atom[i][k];
-  }
+}
 
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
@@ -198,8 +210,6 @@ int AtomVecDemsi::pack_comm(int n, int *list, double *buf,
         buf[m++] = x[j][0];
         buf[m++] = x[j][1];
         buf[m++] = x[j][2];
-        buf[m++] = mean_thickness[j];
-        buf[m++] = min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -216,8 +226,6 @@ int AtomVecDemsi::pack_comm(int n, int *list, double *buf,
         buf[m++] = x[j][0] + dx;
         buf[m++] = x[j][1] + dy;
         buf[m++] = x[j][2] + dz;
-        buf[m++] = mean_thickness[j];
-        buf[m++] = min_thickness[j];
       }
     }
 
@@ -231,8 +239,6 @@ int AtomVecDemsi::pack_comm(int n, int *list, double *buf,
         buf[m++] = x[j][2];
         buf[m++] = radius[j];
         buf[m++] = rmass[j];
-        buf[m++] = mean_thickness[j];
-        buf[m++] = min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -251,8 +257,6 @@ int AtomVecDemsi::pack_comm(int n, int *list, double *buf,
         buf[m++] = x[j][2] + dz;
         buf[m++] = radius[j];
         buf[m++] = rmass[j];
-        buf[m++] = mean_thickness[j];
-        buf[m++] = min_thickness[j];
       }
     }
   }
@@ -282,8 +286,6 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
         buf[m++] = omega[j][0];
         buf[m++] = omega[j][1];
         buf[m++] = omega[j][2];
-        buf[m++] = mean_thickness[j];
-        buf[m++] = min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -307,8 +309,6 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = omega[j][0];
           buf[m++] = omega[j][1];
           buf[m++] = omega[j][2];
-          buf[m++] = mean_thickness[j];
-          buf[m++] = min_thickness[j];
         }
       } else {
         dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -331,8 +331,6 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = omega[j][0];
           buf[m++] = omega[j][1];
           buf[m++] = omega[j][2];
-          buf[m++] = mean_thickness[j];
-          buf[m++] = min_thickness[j];
         }
       }
     }
@@ -353,8 +351,6 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
         buf[m++] = omega[j][0];
         buf[m++] = omega[j][1];
         buf[m++] = omega[j][2];
-        buf[m++] = mean_thickness[j];
-        buf[m++] = min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -380,8 +376,6 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = omega[j][0];
           buf[m++] = omega[j][1];
           buf[m++] = omega[j][2];
-          buf[m++] = mean_thickness[j];
-          buf[m++] = min_thickness[j];
         }
       } else {
         dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -406,8 +400,6 @@ int AtomVecDemsi::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = omega[j][0];
           buf[m++] = omega[j][1];
           buf[m++] = omega[j][2];
-          buf[m++] = mean_thickness[j];
-          buf[m++] = min_thickness[j];
         }
       }
     }
@@ -422,22 +414,13 @@ int AtomVecDemsi::pack_comm_hybrid(int n, int *list, double *buf)
 {
   int i,j,m;
 
-  m = 0;
-  if (radvary == 0){
-    for (i = 0; i < n; i++) {
-      j = list[i];
-      buf[m++] = mean_thickness[j];
-      buf[m++] = min_thickness[j];
-    }
-    return m;
-  }
+  if (radvary == 0) return 0;
 
+  m = 0;
   for (i = 0; i < n; i++) {
     j = list[i];
     buf[m++] = radius[j];
     buf[m++] = rmass[j];
-    buf[m++] = mean_thickness[j];
-    buf[m++] = min_thickness[j];
   }
   return m;
 }
@@ -455,8 +438,6 @@ void AtomVecDemsi::unpack_comm(int n, int first, double *buf)
       x[i][0] = buf[m++];
       x[i][1] = buf[m++];
       x[i][2] = buf[m++];
-      mean_thickness[i] = buf[m++];
-      min_thickness[i] = buf[m++];
     }
   } else {
     m = 0;
@@ -467,8 +448,6 @@ void AtomVecDemsi::unpack_comm(int n, int first, double *buf)
       x[i][2] = buf[m++];
       radius[i] = buf[m++];
       rmass[i] = buf[m++];
-      mean_thickness[i] = buf[m++];
-      min_thickness[i] = buf[m++];
     }
   }
 }
@@ -492,8 +471,6 @@ void AtomVecDemsi::unpack_comm_vel(int n, int first, double *buf)
       omega[i][0] = buf[m++];
       omega[i][1] = buf[m++];
       omega[i][2] = buf[m++];
-      mean_thickness[i] = buf[m++];
-      min_thickness[i] = buf[m++];
     }
   } else {
     m = 0;
@@ -510,8 +487,6 @@ void AtomVecDemsi::unpack_comm_vel(int n, int first, double *buf)
       omega[i][0] = buf[m++];
       omega[i][1] = buf[m++];
       omega[i][2] = buf[m++];
-      mean_thickness[i] = buf[m++];
-      min_thickness[i] = buf[m++];
     }
   }
 }
@@ -522,21 +497,13 @@ int AtomVecDemsi::unpack_comm_hybrid(int n, int first, double *buf)
 {
   int i,m,last;
 
+  if (radvary == 0) return 0;
+
   m = 0;
   last = first + n;
-  if (radvary == 0){
-    for (i = first; i < last; i++) {
-      mean_thickness[i] = buf[m++];
-      min_thickness[i] = buf[m++];
-    }
-    return m;
-  }
-
   for (i = first; i < last; i++) {
     radius[i] = buf[m++];
     rmass[i] = buf[m++];
-    mean_thickness[i] = buf[m++];
-    min_thickness[i] = buf[m++];
   }
   return m;
 }
@@ -625,15 +592,21 @@ int AtomVecDemsi::pack_border(int n, int *list, double *buf,
       buf[m++] = x[j][0];
       buf[m++] = x[j][1];
       buf[m++] = x[j][2];
+  buf[m++] = forcing[j][0];
+  buf[m++] = forcing[j][1];
+  buf[m++] = mean_thickness[j];
+  buf[m++] = min_thickness[j];
+  buf[m++] = ice_area[j];
+  buf[m++] = coriolis[j];
+  buf[m++] = ocean_vel[j][0];
+  buf[m++] = ocean_vel[j][1];
+  buf[m++] = bvector[j][0];
+  buf[m++] = bvector[j][1];
       buf[m++] = ubuf(tag[j]).d;
       buf[m++] = ubuf(type[j]).d;
       buf[m++] = ubuf(mask[j]).d;
       buf[m++] = radius[j];
       buf[m++] = rmass[j];
-      buf[m++] = forcing[j][0];
-      buf[m++] = forcing[j][1];
-      buf[m++] = mean_thickness[j];
-      buf[m++] = min_thickness[j];
     }
   } else {
     if (domain->triclinic == 0) {
@@ -650,15 +623,21 @@ int AtomVecDemsi::pack_border(int n, int *list, double *buf,
       buf[m++] = x[j][0] + dx;
       buf[m++] = x[j][1] + dy;
       buf[m++] = x[j][2] + dz;
+  buf[m++] = forcing[j][0];
+  buf[m++] = forcing[j][1];
+  buf[m++] = mean_thickness[j];
+  buf[m++] = min_thickness[j];
+  buf[m++] = ice_area[j];
+  buf[m++] = coriolis[j];
+  buf[m++] = ocean_vel[j][0];
+  buf[m++] = ocean_vel[j][1];
+  buf[m++] = bvector[j][0];
+  buf[m++] = bvector[j][1];
       buf[m++] = ubuf(tag[j]).d;
       buf[m++] = ubuf(type[j]).d;
       buf[m++] = ubuf(mask[j]).d;
       buf[m++] = radius[j];
       buf[m++] = rmass[j];
-      buf[m++] = forcing[j][0];
-      buf[m++] = forcing[j][1];
-      buf[m++] = mean_thickness[j];
-      buf[m++] = min_thickness[j];
     }
   }
 
@@ -684,6 +663,16 @@ int AtomVecDemsi::pack_border_vel(int n, int *list, double *buf,
       buf[m++] = x[j][0];
       buf[m++] = x[j][1];
       buf[m++] = x[j][2];
+  buf[m++] = forcing[j][0];
+  buf[m++] = forcing[j][1];
+  buf[m++] = mean_thickness[j];
+  buf[m++] = min_thickness[j];
+  buf[m++] = ice_area[j];
+  buf[m++] = coriolis[j];
+  buf[m++] = ocean_vel[j][0];
+  buf[m++] = ocean_vel[j][1];
+  buf[m++] = bvector[j][0];
+  buf[m++] = bvector[j][1];
       buf[m++] = ubuf(tag[j]).d;
       buf[m++] = ubuf(type[j]).d;
       buf[m++] = ubuf(mask[j]).d;
@@ -695,10 +684,6 @@ int AtomVecDemsi::pack_border_vel(int n, int *list, double *buf,
       buf[m++] = omega[j][0];
       buf[m++] = omega[j][1];
       buf[m++] = omega[j][2];
-      buf[m++] = forcing[j][0];
-      buf[m++] = forcing[j][1];
-      buf[m++] = mean_thickness[j];
-      buf[m++] = min_thickness[j];
     }
   } else {
     if (domain->triclinic == 0) {
@@ -716,6 +701,16 @@ int AtomVecDemsi::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = x[j][0] + dx;
         buf[m++] = x[j][1] + dy;
         buf[m++] = x[j][2] + dz;
+  buf[m++] = forcing[j][0];
+  buf[m++] = forcing[j][1];
+  buf[m++] = mean_thickness[j];
+  buf[m++] = min_thickness[j];
+  buf[m++] = ice_area[j];
+  buf[m++] = coriolis[j];
+  buf[m++] = ocean_vel[j][0];
+  buf[m++] = ocean_vel[j][1];
+  buf[m++] = bvector[j][0];
+  buf[m++] = bvector[j][1];
         buf[m++] = ubuf(tag[j]).d;
         buf[m++] = ubuf(type[j]).d;
         buf[m++] = ubuf(mask[j]).d;
@@ -727,10 +722,6 @@ int AtomVecDemsi::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = omega[j][0];
         buf[m++] = omega[j][1];
         buf[m++] = omega[j][2];
-        buf[m++] = forcing[j][0];
-        buf[m++] = forcing[j][1];
-        buf[m++] = mean_thickness[j];
-        buf[m++] = min_thickness[j];
       }
     } else {
       dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -741,6 +732,16 @@ int AtomVecDemsi::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = x[j][0] + dx;
         buf[m++] = x[j][1] + dy;
         buf[m++] = x[j][2] + dz;
+  buf[m++] = forcing[j][0];
+  buf[m++] = forcing[j][1];
+  buf[m++] = mean_thickness[j];
+  buf[m++] = min_thickness[j];
+  buf[m++] = ice_area[j];
+  buf[m++] = coriolis[j];
+  buf[m++] = ocean_vel[j][0];
+  buf[m++] = ocean_vel[j][1];
+  buf[m++] = bvector[j][0];
+  buf[m++] = bvector[j][1];
         buf[m++] = ubuf(tag[j]).d;
         buf[m++] = ubuf(type[j]).d;
         buf[m++] = ubuf(mask[j]).d;
@@ -758,10 +759,6 @@ int AtomVecDemsi::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = omega[j][0];
         buf[m++] = omega[j][1];
         buf[m++] = omega[j][2];
-        buf[m++] = forcing[j][0];
-        buf[m++] = forcing[j][1];
-        buf[m++] = mean_thickness[j];
-        buf[m++] = min_thickness[j];
       }
     }
   }
@@ -784,10 +781,6 @@ int AtomVecDemsi::pack_border_hybrid(int n, int *list, double *buf)
     j = list[i];
     buf[m++] = radius[j];
     buf[m++] = rmass[j];
-    buf[m++] = forcing[j][0];
-    buf[m++] = forcing[j][1];
-    buf[m++] = mean_thickness[j];
-    buf[m++] = min_thickness[j];
   }
   return m;
 }
@@ -805,15 +798,21 @@ void AtomVecDemsi::unpack_border(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
+forcing[i][0] = buf[m++];
+forcing[i][1] = buf[m++];
+mean_thickness[i] = buf[m++];
+min_thickness[i] = buf[m++];
+ice_area[i] = buf[m++];
+coriolis[i] = buf[m++];
+ocean_vel[i][0] = buf[m++];
+ocean_vel[i][1] = buf[m++];
+bvector[i][0] = buf[m++];
+bvector[i][1] = buf[m++];
     tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
     radius[i] = buf[m++];
     rmass[i] = buf[m++];
-    forcing[i][0] = buf[m++];
-    forcing[i][1] = buf[m++];
-    mean_thickness[i] = buf[m++];
-    min_thickness[i] = buf[m++];
   }
 
   if (atom->nextra_border)
@@ -836,6 +835,16 @@ void AtomVecDemsi::unpack_border_vel(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
+forcing[i][0] = buf[m++];
+forcing[i][1] = buf[m++];
+mean_thickness[i] = buf[m++];
+min_thickness[i] = buf[m++];
+ice_area[i] = buf[m++];
+coriolis[i] = buf[m++];
+ocean_vel[i][0] = buf[m++];
+ocean_vel[i][1] = buf[m++];
+bvector[i][0] = buf[m++];
+bvector[i][1] = buf[m++];
     tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
@@ -847,10 +856,6 @@ void AtomVecDemsi::unpack_border_vel(int n, int first, double *buf)
     omega[i][0] = buf[m++];
     omega[i][1] = buf[m++];
     omega[i][2] = buf[m++];
-    forcing[i][0] = buf[m++];
-    forcing[i][1] = buf[m++];
-    mean_thickness[i] = buf[m++];
-    min_thickness[i] = buf[m++];
   }
 
   if (atom->nextra_border)
@@ -870,10 +875,6 @@ int AtomVecDemsi::unpack_border_hybrid(int n, int first, double *buf)
   for (i = first; i < last; i++) {
     radius[i] = buf[m++];
     rmass[i] = buf[m++];
-    forcing[i][0] = buf[m++];
-    forcing[i][1] = buf[m++];
-    mean_thickness[i] = buf[m++];
-    min_thickness[i] = buf[m++];
   }
   return m;
 }
@@ -889,6 +890,16 @@ int AtomVecDemsi::pack_exchange(int i, double *buf)
   buf[m++] = x[i][0];
   buf[m++] = x[i][1];
   buf[m++] = x[i][2];
+  buf[m++] = forcing[i][0];
+  buf[m++] = forcing[i][1];
+  buf[m++] = mean_thickness[i];
+  buf[m++] = min_thickness[i];
+  buf[m++] = ice_area[i];
+  buf[m++] = coriolis[i];
+  buf[m++] = ocean_vel[i][0];
+  buf[m++] = ocean_vel[i][1];
+  buf[m++] = bvector[i][0];
+  buf[m++] = bvector[i][1];
   buf[m++] = v[i][0];
   buf[m++] = v[i][1];
   buf[m++] = v[i][2];
@@ -903,17 +914,12 @@ int AtomVecDemsi::pack_exchange(int i, double *buf)
   buf[m++] = omega[i][1];
   buf[m++] = omega[i][2];
 
-  buf[m++] = forcing[i][0];
-  buf[m++] = forcing[i][1];
-  buf[m++] = mean_thickness[i];
-  buf[m++] = min_thickness[i];
 
   buf[m++] = ubuf(num_bond[i]).d;
   for (int k = 0; k < num_bond[i]; k++) {
     buf[m++] = ubuf(bond_type[i][k]).d;
     buf[m++] = ubuf(bond_atom[i][k]).d;
   }
-
   buf[m++] = ubuf(nspecial[i][0]).d;
   buf[m++] = ubuf(nspecial[i][1]).d;
   buf[m++] = ubuf(nspecial[i][2]).d;
@@ -938,6 +944,16 @@ int AtomVecDemsi::unpack_exchange(double *buf)
   x[nlocal][0] = buf[m++];
   x[nlocal][1] = buf[m++];
   x[nlocal][2] = buf[m++];
+forcing[nlocal][0] = buf[m++];
+forcing[nlocal][1] = buf[m++];
+mean_thickness[nlocal] = buf[m++];
+min_thickness[nlocal] = buf[m++];
+ice_area[nlocal] = buf[m++];
+coriolis[nlocal] = buf[m++];
+ocean_vel[nlocal][0] = buf[m++];
+ocean_vel[nlocal][1] = buf[m++];
+bvector[nlocal][0] = buf[m++];
+bvector[nlocal][1] = buf[m++];
   v[nlocal][0] = buf[m++];
   v[nlocal][1] = buf[m++];
   v[nlocal][2] = buf[m++];
@@ -952,22 +968,16 @@ int AtomVecDemsi::unpack_exchange(double *buf)
   omega[nlocal][1] = buf[m++];
   omega[nlocal][2] = buf[m++];
 
-  forcing[nlocal][0] = buf[m++];
-  forcing[nlocal][1] = buf[m++];
-  mean_thickness[nlocal] = buf[m++];
-  min_thickness[nlocal] = buf[m++];
-
-  num_bond[nlocal] = (int) ubuf(buf[m++]).i;
-  for (int k = 0; k < num_bond[nlocal]; k++) {
-    bond_type[nlocal][k] = (int) ubuf(buf[m++]).i;
-    bond_atom[nlocal][k] = (tagint) ubuf(buf[m++]).i;
-  }
-
-  nspecial[nlocal][0] = (int) ubuf(buf[m++]).i;
-  nspecial[nlocal][1] = (int) ubuf(buf[m++]).i;
-  nspecial[nlocal][2] = (int) ubuf(buf[m++]).i;
-  for (int k = 0; k < nspecial[nlocal][2]; k++)
-    special[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+num_bond[nlocal] = (int) ubuf(buf[m++]).i;
+for (int k = 0; k < num_bond[nlocal]; k++) {
+  bond_type[nlocal][k] = (int) ubuf(buf[m++]).i;
+  bond_atom[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+}
+nspecial[nlocal][0] = (int) ubuf(buf[m++]).i;
+nspecial[nlocal][1] = (int) ubuf(buf[m++]).i;
+nspecial[nlocal][2] = (int) ubuf(buf[m++]).i;
+for (int k = 0; k < nspecial[nlocal][2]; k++)
+  special[nlocal][k] = (tagint) ubuf(buf[m++]).i;
 
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
@@ -988,9 +998,7 @@ int AtomVecDemsi::size_restart()
   int i;
 
   int nlocal = atom->nlocal;
-  int n = 0;
-  for (int i = 0; i < nlocal; i++)
-    n += 20 + 2*num_bond[i];
+  int n = 16 * nlocal;
 
   if (atom->nextra_restart)
     for (int iextra = 0; iextra < atom->nextra_restart; iextra++)
@@ -1003,7 +1011,7 @@ int AtomVecDemsi::size_restart()
 /* ----------------------------------------------------------------------
    pack atom I's data for restart file including extra quantities
    xyz must be 1st 3 values, so that read_restart can test on them
-   molecular types may be negative, but write as positive
+molecular = 1;
 ------------------------------------------------------------------------- */
 
 int AtomVecDemsi::pack_restart(int i, double *buf)
@@ -1012,6 +1020,16 @@ int AtomVecDemsi::pack_restart(int i, double *buf)
   buf[m++] = x[i][0];
   buf[m++] = x[i][1];
   buf[m++] = x[i][2];
+  buf[m++] = forcing[i][0];
+  buf[m++] = forcing[i][1];
+  buf[m++] = mean_thickness[i];
+  buf[m++] = min_thickness[i];
+  buf[m++] = ice_area[i];
+  buf[m++] = coriolis[i];
+  buf[m++] = ocean_vel[i][0];
+  buf[m++] = ocean_vel[i][1];
+  buf[m++] = bvector[i][0];
+  buf[m++] = bvector[i][1];
   buf[m++] = ubuf(tag[i]).d;
   buf[m++] = ubuf(type[i]).d;
   buf[m++] = ubuf(mask[i]).d;
@@ -1026,16 +1044,16 @@ int AtomVecDemsi::pack_restart(int i, double *buf)
   buf[m++] = omega[i][1];
   buf[m++] = omega[i][2];
 
-  buf[m++] = forcing[i][0];
-  buf[m++] = forcing[i][1];
-  buf[m++] = mean_thickness[i];
-  buf[m++] = min_thickness[i];
 
   buf[m++] = ubuf(num_bond[i]).d;
   for (int k = 0; k < num_bond[i]; k++) {
-    buf[m++] = ubuf(MAX(bond_type[i][k],-bond_type[i][k])).d;
+    buf[m++] = ubuf(bond_type[i][k]).d;
     buf[m++] = ubuf(bond_atom[i][k]).d;
   }
+  buf[m++] = ubuf(nspecial[i][0]).d;
+  buf[m++] = ubuf(nspecial[i][1]).d;
+  buf[m++] = ubuf(nspecial[i][2]).d;
+  for (int k = 0; k < nspecial[i][2]; k++) buf[m++] = ubuf(special[i][k]).d;
 
   if (atom->nextra_restart)
     for (int iextra = 0; iextra < atom->nextra_restart; iextra++)
@@ -1062,6 +1080,16 @@ int AtomVecDemsi::unpack_restart(double *buf)
   x[nlocal][0] = buf[m++];
   x[nlocal][1] = buf[m++];
   x[nlocal][2] = buf[m++];
+forcing[nlocal][0] = buf[m++];
+forcing[nlocal][1] = buf[m++];
+mean_thickness[nlocal] = buf[m++];
+min_thickness[nlocal] = buf[m++];
+ice_area[nlocal] = buf[m++];
+coriolis[nlocal] = buf[m++];
+ocean_vel[nlocal][0] = buf[m++];
+ocean_vel[nlocal][1] = buf[m++];
+bvector[nlocal][0] = buf[m++];
+bvector[nlocal][1] = buf[m++];
   tag[nlocal] = (tagint) ubuf(buf[m++]).i;
   type[nlocal] = (int) ubuf(buf[m++]).i;
   mask[nlocal] = (int) ubuf(buf[m++]).i;
@@ -1076,18 +1104,16 @@ int AtomVecDemsi::unpack_restart(double *buf)
   omega[nlocal][1] = buf[m++];
   omega[nlocal][2] = buf[m++];
 
-  forcing[nlocal][0] = buf[m++];
-  forcing[nlocal][1] = buf[m++];
-  mean_thickness[nlocal] = buf[m++];
-  min_thickness[nlocal] = buf[m++];
-
-  num_bond[nlocal] = (int) ubuf(buf[m++]).i;
-  for (int k = 0; k < num_bond[nlocal]; k++) {
-    bond_type[nlocal][k] = (int) ubuf(buf[m++]).i;
-    bond_atom[nlocal][k] = (tagint) ubuf(buf[m++]).i;
-  }
-
-  nspecial[nlocal][0] = nspecial[nlocal][1] = nspecial[nlocal][2] = 0;
+num_bond[nlocal] = (int) ubuf(buf[m++]).i;
+for (int k = 0; k < num_bond[nlocal]; k++) {
+  bond_type[nlocal][k] = (int) ubuf(buf[m++]).i;
+  bond_atom[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+}
+nspecial[nlocal][0] = (int) ubuf(buf[m++]).i;
+nspecial[nlocal][1] = (int) ubuf(buf[m++]).i;
+nspecial[nlocal][2] = (int) ubuf(buf[m++]).i;
+for (int k = 0; k < nspecial[nlocal][2]; k++)
+  special[nlocal][k] = (tagint) ubuf(buf[m++]).i;
 
   double **extra = atom->extra;
   if (atom->nextra_store) {
@@ -1122,8 +1148,7 @@ void AtomVecDemsi::create_atom(int itype, double *coord)
   v[nlocal][2] = 0.0;
 
   radius[nlocal] = 0.5;
-  rmass[nlocal] = 4.0*MY_PI/3.0 * radius[nlocal]*radius[nlocal]*radius[nlocal];
-  omega[nlocal][0] = 0.0;
+rmass[nlocal] = MY_PI*radius[nlocal]*radius[nlocal];
   omega[nlocal][1] = 0.0;
   omega[nlocal][2] = 0.0;
 
@@ -1131,9 +1156,15 @@ void AtomVecDemsi::create_atom(int itype, double *coord)
   forcing[nlocal][1] = 0.0;
   mean_thickness[nlocal] = 0.0;
   min_thickness[nlocal] = 0.0;
+  ice_area[nlocal] = 0.0;
+  coriolis[nlocal] = 0.0;
+  ocean_vel[nlocal][0] = 0.0;
+  ocean_vel[nlocal][1] = 0.0;
+  bvector[nlocal][0] = 0.0;
+  bvector[nlocal][1] = 0.0;
 
-  num_bond[nlocal] = 0;
-  nspecial[nlocal][0] = nspecial[nlocal][1] = nspecial[nlocal][2] = 0;
+num_bond[nlocal] = 0;
+nspecial[nlocal][0] = nspecial[nlocal][1] = nspecial[nlocal][2] = 0;
 
   atom->nlocal++;
 }
@@ -1163,7 +1194,7 @@ void AtomVecDemsi::data_atom(double *coord, imageint imagetmp, char **values)
 
   if (radius[nlocal] == 0.0) rmass[nlocal] = density;
   else
-    rmass[nlocal] = MY_PI*radius[nlocal]*radius[nlocal] * density;
+rmass[nlocal] = MY_PI*radius[nlocal]*radius[nlocal];
 
   x[nlocal][0] = coord[0];
   x[nlocal][1] = coord[1];
@@ -1183,8 +1214,15 @@ void AtomVecDemsi::data_atom(double *coord, imageint imagetmp, char **values)
   forcing[nlocal][1] = 0.0;
   mean_thickness[nlocal] = 0.0;
   min_thickness[nlocal] = 0.0;
+  ice_area[nlocal] = 0.0;
+  coriolis[nlocal] = 0.0;
+  ocean_vel[nlocal][0] = 0.0;
+  ocean_vel[nlocal][1] = 0.0;
+  bvector[nlocal][0] = 0.0;
+  bvector[nlocal][1] = 0.0;
 
-  num_bond[nlocal] = 0.0;
+num_bond[nlocal] = 0;
+nspecial[nlocal][0] = nspecial[nlocal][1] = nspecial[nlocal][2] = 0;
 
   atom->nlocal++;
 }
@@ -1206,9 +1244,7 @@ int AtomVecDemsi::data_atom_hybrid(int nlocal, char **values)
 
   if (radius[nlocal] == 0.0) rmass[nlocal] = density;
   else
-    rmass[nlocal] = MY_PI * radius[nlocal]*radius[nlocal] * density;
-
-  num_bond[nlocal] = 0;
+rmass[nlocal] = MY_PI*radius[nlocal]*radius[nlocal];
 
   return 2;
 }
@@ -1252,7 +1288,7 @@ void AtomVecDemsi::pack_data(double **buf)
     buf[i][2] = 2.0*radius[i];
     if (radius[i] == 0.0) buf[i][3] = rmass[i];
     else
-      buf[i][3] = rmass[i] / (MY_PI * radius[i]*radius[i]);
+      buf[i][3] = rmass[i] / (MY_PI*radius[i]*radius[i]);
     buf[i][4] = x[i][0];
     buf[i][5] = x[i][1];
     buf[i][6] = x[i][2];
@@ -1270,7 +1306,7 @@ int AtomVecDemsi::pack_data_hybrid(int i, double *buf)
 {
   buf[0] = 2.0*radius[i];
   if (radius[i] == 0.0) buf[1] = rmass[i];
-  else buf[1] = rmass[i] / (MY_PI * radius[i]*radius[i]);
+  else buf[1] = rmass[i] / (MY_PI*radius[i]*radius[i]);
   return 2;
 }
 
@@ -1374,19 +1410,22 @@ bigint AtomVecDemsi::memory_usage()
   if (atom->memcheck("omega")) bytes += memory->usage(omega,nmax,3);
   if (atom->memcheck("torque"))
     bytes += memory->usage(torque,nmax*comm->nthreads,3);
+
   if (atom->memcheck("forcing")) bytes += memory->usage(forcing,nmax,2);
   if (atom->memcheck("mean_thickness")) bytes += memory->usage(mean_thickness,nmax);
   if (atom->memcheck("min_thickness")) bytes += memory->usage(min_thickness,nmax);
-
+  if (atom->memcheck("ice_area")) bytes += memory->usage(ice_area,nmax);
+  if (atom->memcheck("coriolis")) bytes += memory->usage(coriolis,nmax);
+  if (atom->memcheck("ocean_vel")) bytes += memory->usage(ocean_vel,nmax,2);
+  if (atom->memcheck("bvector")) bytes += memory->usage(bvector,nmax,2);
   if (atom->memcheck("num_bond")) bytes += memory->usage(num_bond,nmax);
   if (atom->memcheck("bond_type"))
     bytes += memory->usage(bond_type,nmax,atom->bond_per_atom);
   if (atom->memcheck("bond_atom"))
     bytes += memory->usage(bond_atom,nmax,atom->bond_per_atom);
-
   if (atom->memcheck("nspecial")) bytes += memory->usage(nspecial,nmax,3);
   if (atom->memcheck("special"))
-     bytes += memory->usage(special,nmax,atom->maxspecial);
+    bytes += memory->usage(special,nmax,atom->maxspecial);
 
   return bytes;
 }

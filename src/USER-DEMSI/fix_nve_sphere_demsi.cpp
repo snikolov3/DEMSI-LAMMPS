@@ -46,14 +46,11 @@ FixNVESphereDemsi::FixNVESphereDemsi(LAMMPS *lmp, int narg, char **arg) :
   inertia = 0.5;
 
   ocean_density = ocean_drag = 0;
-  forcing = NULL;
-  ice_area_index = ocean_vel_x_index = ocean_vel_y_index = 0;
-  coriolis_index = bx_index = by_index = 0;
 
   if (domain->dimension != 2)
     error->all(FLERR,"Fix nve/sphere demsi requires 2d simulation");
-  if (!atom->sphere_flag)
-    error->all(FLERR,"Fix nve/sphere requires atom style sphere");
+  if (!atom->demsi_flag)
+    error->all(FLERR,"Fix nve/sphere requires atom style demsi");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -68,15 +65,6 @@ void FixNVESphereDemsi::init()
   double *radius = atom->radius;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-  forcing = atom->forcing;
-
-  int flag;
-  ice_area_index = atom->find_custom("ice_area", flag);
-  coriolis_index = atom->find_custom("coriolis", flag);
-  ocean_vel_x_index = atom->find_custom("ocean_vel_x", flag);
-  ocean_vel_y_index = atom->find_custom("ocean_vel_y", flag);
-  bx_index = atom->find_custom("bx", flag);
-  by_index = atom->find_custom("by", flag);
 
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit)
@@ -97,12 +85,11 @@ void FixNVESphereDemsi::initial_integrate(int /*vflag*/)
   double **torque = atom->torque;
   double *radius = atom->radius;
   double *rmass = atom->rmass;
-  double *ice_area = atom->dvector[ice_area_index];
-  double *coriolis = atom->dvector[coriolis_index];
-  double *ocean_vel_x = atom->dvector[ocean_vel_x_index];
-  double *ocean_vel_y = atom->dvector[ocean_vel_y_index];
-  double *bx = atom->dvector[bx_index];
-  double *by = atom->dvector[by_index];
+  double *ice_area = atom->ice_area;
+  double *coriolis = atom->coriolis;
+  double **ocean_vel = atom->ocean_vel;
+  double **bvector = atom->bvector;
+  double **forcing = atom->forcing;
 
   double D, vel_diff, m_prime;
   double a00, a01, a10, a11;
@@ -123,16 +110,16 @@ void FixNVESphereDemsi::initial_integrate(int /*vflag*/)
 
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
-      vel_diff = sqrt((ocean_vel_x[i]-v[i][0])*(ocean_vel_x[i]-v[i][0]) +
-          (ocean_vel_y[i]-v[i][1])*(ocean_vel_y[i]-v[i][1]));
+      vel_diff = sqrt((ocean_vel[i][0]-v[i][0])*(ocean_vel[i][0]-v[i][0]) +
+          (ocean_vel[i][1]-v[i][1])*(ocean_vel[i][1]-v[i][1]));
       D = ice_area[i]*ocean_drag*ocean_density*vel_diff;
       m_prime = rmass[i]/dtf;
       a00 = a11 = m_prime+D;
       a10 = rmass[i]*coriolis[i];
       a01 = -a10;
 
-      b0 = m_prime*v[i][0] + f[i][0] + bx[i] + forcing[i][0] + D*ocean_vel_x[i];
-      b1 = m_prime*v[i][1] + f[i][1] + by[i] + forcing[i][1] + D*ocean_vel_y[i];
+      b0 = m_prime*v[i][0] + f[i][0] + bvector[i][0] + forcing[i][0] + D*ocean_vel[i][0];
+      b1 = m_prime*v[i][1] + f[i][1] + bvector[i][1] + forcing[i][1] + D*ocean_vel[i][1];
 
       detinv = 1.0/(a00*a11 - a01*a10);
       v[i][0] = detinv*( a11*b0 - a01*b1);
@@ -158,12 +145,11 @@ void FixNVESphereDemsi::final_integrate()
   double **omega = atom->omega;
   double **torque = atom->torque;
   double *rmass = atom->rmass;
-  double *ice_area = atom->dvector[ice_area_index];
-  double *coriolis = atom->dvector[coriolis_index];
-  double *ocean_vel_x = atom->dvector[ocean_vel_x_index];
-  double *ocean_vel_y = atom->dvector[ocean_vel_y_index];
-  double *bx = atom->dvector[bx_index];
-  double *by = atom->dvector[by_index];
+  double *ice_area = atom->ice_area;
+  double *coriolis = atom->coriolis;
+  double **ocean_vel = atom->ocean_vel;
+  double **bvector = atom->bvector;
+  double **forcing = atom->forcing;
 
   double *radius = atom->radius;
   int *mask = atom->mask;
@@ -186,16 +172,16 @@ void FixNVESphereDemsi::final_integrate()
   double rke = 0.0;
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
-      vel_diff = sqrt((ocean_vel_x[i]-v[i][0])*(ocean_vel_x[i]-v[i][0]) +
-          (ocean_vel_y[i]-v[i][1])*(ocean_vel_y[i]-v[i][1]));
+      vel_diff = sqrt((ocean_vel[i][0]-v[i][0])*(ocean_vel[i][0]-v[i][0]) +
+          (ocean_vel[i][1]-v[i][1])*(ocean_vel[i][1]-v[i][1]));
       D = ice_area[i]*ocean_drag*ocean_density*vel_diff;
       m_prime = rmass[i]/dtf;
       a00 = a11 = m_prime+D;
       a10 = rmass[i]*coriolis[i];
       a01 = -a10;
 
-      b0 = m_prime*v[i][0] + f[i][0] + bx[i] + forcing[i][0] + D*ocean_vel_x[i];
-      b1 = m_prime*v[i][1] + f[i][1] + by[i] + forcing[i][1] + D*ocean_vel_y[i];
+      b0 = m_prime*v[i][0] + f[i][0] + bvector[i][0] + forcing[i][0] + D*ocean_vel[i][0];
+      b1 = m_prime*v[i][1] + f[i][1] + bvector[i][1] + forcing[i][1] + D*ocean_vel[i][1];
 
       detinv = 1.0/(a00*a11 - a01*a10);
       v[i][0] = detinv*( a11*b0 - a01*b1);
