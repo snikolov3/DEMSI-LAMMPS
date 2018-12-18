@@ -935,6 +935,10 @@ if(PKG_KOKKOS)
 
   list(APPEND LIB_SOURCES ${KOKKOS_PKG_SOURCES})
   include_directories(${KOKKOS_PKG_SOURCES_DIR})
+
+  # temporary way to deal with installing KOKKOS headers for DEMSI-LAMMPS
+  file(GLOB KOKKOS_HEADERS ${KOKKOS_PKG_SOURCES_DIR}/*.h)
+  install(FILES ${KOKKOS_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
 endif()
 
 if(PKG_OPT)

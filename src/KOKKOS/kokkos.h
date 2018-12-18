@@ -22,6 +22,7 @@ namespace LAMMPS_NS {
 
 class KokkosLMP : protected Pointers {
  public:
+  bool preinitialized;
   int kokkos_exists;
   int neighflag;
   int neighflag_qeq;
