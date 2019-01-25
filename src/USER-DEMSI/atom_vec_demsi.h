@@ -13,7 +13,7 @@
 
 #ifdef ATOM_CLASS
 
-AtomStyle(demsi,AtomVecDemsi)
+AtomStyle(demsi, AtomVecDemsi)
 
 #else
 
@@ -75,16 +75,20 @@ class AtomVecDemsi : public AtomVec {
   double **x,**v,**f;
   double *radius,*rmass;
   double **omega,**torque;
-  double **forcing;
-  double *mean_thickness;
-  double *min_thickness;
+double ** forcing;
+double * mean_thickness;
+double * min_thickness;
+double * ice_area;
+double * coriolis;
+double ** ocean_vel;
+double ** bvector;
   int radvary;
-
-  int **nspecial;
-  tagint **special;
-  int *num_bond;
-  int **bond_type;
-  tagint **bond_atom;
+int **nspecial;
+tagint **special;
+int *num_bond;
+int **bond_type;
+tagint **bond_atom
+;
 };
 
 }

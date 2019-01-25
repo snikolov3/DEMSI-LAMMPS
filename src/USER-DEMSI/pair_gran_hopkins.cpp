@@ -181,6 +181,7 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
     for (int k = 0; k < size_history; k++){
       history[k] = 0;
     }
+    delx = dely = fx = fy = 0; //for virial calculation
     //history[0] = history[4] = 1234; //for debugging
   }
   else{
@@ -248,6 +249,7 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
       fnmag = fnmag_elastic;
     else
       fnmag = fnmag_plastic;
+
     //fnmag = fnmag_elastic;
 
     fnx = fnmag*nx;
