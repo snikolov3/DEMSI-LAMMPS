@@ -39,7 +39,7 @@ class FixAddForce : public Fix {
   double compute_vector(int);
   double memory_usage();
 
- private:
+ protected:
   double xvalue,yvalue,zvalue;
   int varflag,iregion;
   char *xstr,*ystr,*zstr,*estr;

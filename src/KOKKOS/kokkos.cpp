@@ -63,6 +63,7 @@ using namespace LAMMPS_NS;
 
 KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 {
+  preinitialized = false; // boolean for Kokkos already being initialized by a calling program (if applicable)
   kokkos_exists = 1;
   lmp->kokkos = this;
 
@@ -135,6 +136,14 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
     } else error->all(FLERR,"Invalid Kokkos command-line args");
   }
 
+  // determine if Kokkos is already initialized
+  // if it has been, get the parameters needed from it
+  preinitialized = Kokkos::HostSpace::execution_space::is_initialized();
+
+  if (preinitialized) {
+    num_threads = Kokkos::HostSpace::execution_space::concurrency();
+  }
+
   // initialize Kokkos
 
   if (me == 0) {
@@ -178,8 +187,13 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   args.num_numa = numa;
   args.device_id = device;
 
-  Kokkos::initialize(args);
-
+  // if Kokkos needs initialized
+  if (!preinitialized) {
+    Kokkos::initialize(args);
+  } else {
+    printf("Kokkos already initialized before initializing LAMMPS.\n");
+  }
+  
   // default settings for package kokkos command
 
   neighflag = FULL;
@@ -208,8 +222,8 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 KokkosLMP::~KokkosLMP()
 {
   // finalize Kokkos
-
-  Kokkos::finalize();
+  if (!preinitialized) // LAMMPS initialized kokkos
+    Kokkos::finalize();
 }
 
 /* ----------------------------------------------------------------------
