@@ -28,6 +28,7 @@ FixStyle(addforce/kk/host,FixAddForceKokkos<LMPHostType>)
 #include "kokkos_few.h"
 
 namespace LAMMPS_NS {
+class DomainKokkos;
 
 struct s_double_4 {
   double values[4];
@@ -89,7 +90,11 @@ class FixAddForceKokkos : public FixAddForce {
   typename AT::t_int_1d_randomread mask;
   typename AT::t_imageint_1d_randomread image;
 
-  class DomainKokkos *domainKK;
+  DomainKokkos *domainKK;
+  // member variables of domainKK that need to be captured
+  Few<double,3> domainKK_prd;
+  Few<double,6> domainKK_h;
+  int domainKK_triclinic;
 
   Region* region;
 

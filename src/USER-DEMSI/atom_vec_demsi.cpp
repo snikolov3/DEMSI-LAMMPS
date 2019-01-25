@@ -103,8 +103,8 @@ void AtomVecDemsi::grow(int n)
   torque = memory->grow(atom->torque,nmax*comm->nthreads,3,"atom:torque");
 
   forcing = memory->grow(atom->forcing,nmax,2,"atom:forcing");
-  mean_thickness = memory->grow(atom->mean_thickness,nmax,"atom:forcing");
-  min_thickness = memory->grow(atom->min_thickness,nmax,"atom:forcing");
+  mean_thickness = memory->grow(atom->mean_thickness,nmax,"atom:mean_thickness");
+  min_thickness = memory->grow(atom->min_thickness,nmax,"atom:min_thickness");
 
   nspecial = memory->grow(atom->nspecial,nmax,3,"atom:nspecial");
     special = memory->grow(atom->special,nmax,atom->maxspecial,"atom:special");

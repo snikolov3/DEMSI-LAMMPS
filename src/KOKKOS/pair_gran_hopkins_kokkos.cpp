@@ -173,6 +173,27 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   EV_FLOAT ev; 
 
+  if (strcmp(sig_c0_type,"constant") == 0) {
+    strcmp_sig_c0_type_constant = true;
+    strcmp_sig_c0_type_KovacsSodhi = false;
+  } else if (strcmp(sig_c0_type,"KovacsSodhi") == 0) {
+    strcmp_sig_c0_type_constant = false;
+    strcmp_sig_c0_type_KovacsSodhi = true;
+  } else {
+    error->all(FLERR,"Unknown sig_c0_type");
+  }
+  if (strcmp(sig_t0_type,"constant") == 0) {
+    strcmp_sig_t0_type_constant = true;
+    strcmp_sig_t0_type_multiply_sig_c0 = false;
+  } else if (strcmp(sig_t0_type,"multiply_sig_c0") == 0) {
+    strcmp_sig_t0_type_constant = false;
+    strcmp_sig_t0_type_multiply_sig_c0 = true;
+  } else {
+    error->all(FLERR,"Unknown sig_t0_type");
+  }
+  update_dt = update->dt;
+
+
  if (lmp->kokkos->neighflag == HALF) {
     if (force->newton_pair) {
        if (historyupdate) {
@@ -346,7 +367,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
    F_FLOAT delta, delta_dot;
  
    F_FLOAT fnx, fny;
-   F_FLOAT sig_c, hmin;
+   F_FLOAT sig_c = 0, hmin;
    F_FLOAT hprime, kp, kr, ke, L, kt0;
    F_FLOAT num, denom, fnmag_plastic, fnmag_elastic, fnmag;
    F_FLOAT ncrossF;
@@ -427,8 +448,8 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
         kr = kp = hprime*sig_c;
      }
 
-     num = d_firsthistory(i,size_history*jj)/(kp*update->dt) + delta_dot*L + delta*L*ke/damp_normal + ke*kr/(damp_normal*kp);
-     denom = 1/(kp*update->dt) + 1/damp_normal*(1+ke/kp);
+     num = d_firsthistory(i,size_history*jj)/(kp*update_dt) + delta_dot*L + delta*L*ke/damp_normal + ke*kr/(damp_normal*kp);
+     denom = 1/(kp*update_dt) + 1/damp_normal*(1+ke/kp);
      fnmag_plastic = num/denom;
 
      // Elastic normal force
@@ -459,8 +480,8 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
           d_firsthistory(i,size_history*jj+2) *= scalefac;
           d_firsthistory(i,size_history*jj+3) *= scalefac;
         }
-        d_firsthistory(i,size_history*jj+2) += vtx*update->dt;
-        d_firsthistory(i,size_history*jj+3) += vty*update->dt;
+        d_firsthistory(i,size_history*jj+2) += vtx*update_dt;
+        d_firsthistory(i,size_history*jj+3) += vty*update_dt;
      }
 
      var1 = d_firsthistory(i,size_history*jj+2);
@@ -582,6 +603,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_bonded_kokkos(int i, int j, int 
   nprefac = d_firsthistory(i,size_history*jj+10)*kn0;
   sprefac = d_firsthistory(i,size_history*jj+10)*kt0;
 
+
   Fnmag = nprefac*(Dn*chidiff + Cn*chidiff2);
   Ftmag = sprefac*(Dt*chidiff + Ct*chidiff2);
   Nn = nprefac*(An*Cn*chidiff3 + (Bn*Cn+An*Dn)*chidiff2 + Bn*Dn*chidiff);
@@ -661,21 +683,18 @@ void PairGranHopkinsKokkos<DeviceType>::update_chi(F_FLOAT kn0, F_FLOAT kt0, F_F
 
   // function pointers for greater efficiency?
   F_FLOAT sig_c;
-  if (strcmp(sig_c0_type,"constant") == 0) {
+  if (strcmp_sig_c0_type_constant) {
     sig_c = sig_c0;
-  } else if (strcmp(sig_c0_type,"KovacsSodhi") == 0) {
+  } else if (strcmp_sig_c0_type_KovacsSodhi) {
     sig_c = sig_c0*pow(hmin,(2.0/3.0)) * 1000.0;
-  } else {
-    error->all(FLERR,"Unknown sig_c0_type");
-  }
+  } // else error case already handled previously
+
   F_FLOAT sig_t;
-  if (strcmp(sig_t0_type,"constant") == 0) {
+  if (strcmp_sig_t0_type_constant) {
     sig_t = sig_t0;
-  } else if (strcmp(sig_t0_type,"multiply_sig_c0") == 0) {
+  } else if (strcmp_sig_t0_type_multiply_sig_c0) {
     sig_t = sig_t0 * sig_c;
-  } else {
-    error->all(FLERR,"Unknown sig_t0_type");
-  }
+  } // else error case already handled previously
 
   F_FLOAT denom;
   sig_t = -sig_t; //Somewhat against convention, tensile load is taken to be negative

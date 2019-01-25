@@ -142,13 +142,6 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 
   if (preinitialized) {
     num_threads = Kokkos::HostSpace::execution_space::concurrency();
-#ifdef KOKKOS_HAVE_CUDA
-    // this can't be checked against local rank like above, so it is just
-    // assumed that the preinitialized kokkos set the device in a sane way
-    device = Kokkos::Cuda::execution_space::cuda_device();
-#else
-    device = 0;
-#endif
   }
 
   // initialize Kokkos

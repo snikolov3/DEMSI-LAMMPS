@@ -126,6 +126,9 @@ void FixAddForceKokkos<DeviceType>::post_force(int vflag)
 
   if (varflag == CONSTANT) {
     copymode = 1;
+    domainKK_prd = Few<double,3>(domain->prd);
+    domainKK_h = Few<double,6>(domain->h);
+    domainKK_triclinic  = domain->triclinic;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagFixAddForceConstant>(0,nlocal),*this,foriginal_kk);
     copymode = 0;
 
@@ -158,6 +161,9 @@ void FixAddForceKokkos<DeviceType>::post_force(int vflag)
     }
 
     copymode = 1;
+    domainKK_prd = Few<double,3>(domain->prd);
+    domainKK_h = Few<double,6>(domain->h);
+    domainKK_triclinic  = domain->triclinic;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagFixAddForceNonConstant>(0,nlocal),*this,foriginal_kk);
     copymode = 0;
   }
@@ -176,14 +182,11 @@ KOKKOS_INLINE_FUNCTION
 void FixAddForceKokkos<DeviceType>::operator()(TagFixAddForceConstant, const int &i, double_4& foriginal_kk) const {
   if (mask[i] & groupbit) {
     if (region && !d_match[i]) return;
-    auto prd = Few<double,3>(domain->prd);
-    auto h = Few<double,6>(domain->h);
-    auto triclinic  = domain->triclinic;
     Few<double,3> x_i;
     x_i[0] = x(i,0);
     x_i[1] = x(i,1);
     x_i[2] = x(i,2);
-    auto unwrap = domainKK->unmap(prd,h,triclinic,x_i,image(i));
+    auto unwrap = DomainKokkos::unmap(domainKK_prd,domainKK_h,domainKK_triclinic,x_i,image(i));
     foriginal_kk.values[0] -= xvalue*unwrap[0] + yvalue*unwrap[1] + zvalue*unwrap[2];
     foriginal_kk.values[1] += f(i,0);
     foriginal_kk.values[2] += f(i,1);
@@ -210,17 +213,16 @@ KOKKOS_INLINE_FUNCTION
 void FixAddForceKokkos<DeviceType>::operator()(TagFixAddForceNonConstant, const int &i, double_4& foriginal_kk) const {
   if (mask[i] & groupbit) {
     if (region && !d_match[i]) return;
-    auto prd = Few<double,3>(domain->prd);
-    auto h = Few<double,6>(domain->h);
-    auto triclinic  = domain->triclinic;
     Few<double,3> x_i;
     x_i[0] = x(i,0);
     x_i[1] = x(i,1);
     x_i[2] = x(i,2);
-    auto unwrap = domainKK->unmap(prd,h,triclinic,x_i,image(i));
+    
+    auto unwrap = DomainKokkos::unmap(domainKK_prd,domainKK_h,domainKK_triclinic,x_i,image(i));
     //if (xstyle == ATOM) xvalue = d_sforce(i,0);
     //if (ystyle == ATOM) yvalue = d_sforce(i,1);
     //if (zstyle == ATOM) zvalue = d_sforce(i,2);
+
     if (estyle == ATOM) {
        foriginal_kk.values[0] += d_sforce(i,3);
     } else {

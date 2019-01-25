@@ -320,7 +320,7 @@ void FixNeighHistoryKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
   for (int m = 0; m < h_npartner(i); m++) {
     h_partner(j,m) = h_partner(i,m);
     for (int k = 0; k < dnum; k++) {
-       h_valuepartner(j, dnum*m+k) = d_valuepartner(i, dnum*m+k);
+       h_valuepartner(j, dnum*m+k) = h_valuepartner(i, dnum*m+k);
     }
   }
 

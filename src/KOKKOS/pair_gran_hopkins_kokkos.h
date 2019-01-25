@@ -110,6 +110,14 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
+  // class storage to avoid strcmp in parallel code execution 
+  // or update->dt (ptr is not valid when update is copied to device)
+  bool strcmp_sig_c0_type_constant;
+  bool strcmp_sig_c0_type_KovacsSodhi;
+  bool strcmp_sig_t0_type_constant;
+  bool strcmp_sig_t0_type_multiply_sig_c0;
+  double update_dt;
+
   FixNeighHistoryKokkos<DeviceType> *fix_historyKK;
 
   friend void pair_virial_fdotr_compute<PairGranHopkinsKokkos>(PairGranHopkinsKokkos*);
