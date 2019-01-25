@@ -33,7 +33,7 @@ public:
   double single(int, int, int, int, double, double, double, double &);
   virtual void transfer_history(double*, double*);
   double init_one(int, int);
-private:
+protected:
   void compute_bonded(double*, int*, int, int);
   void compute_nonbonded(double*, int*, int, int);
   void update_chi(double, double, double, double, double, double, double, double&, double&);
