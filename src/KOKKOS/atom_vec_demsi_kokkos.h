@@ -120,6 +120,10 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
   double **omega,**torque;
   double **forcing;
   double *mean_thickness,*min_thickness;
+  double * ice_area;
+  double * coriolis;
+  double ** ocean_vel;
+  double ** bvector;
   int radvary;
 
   int **nspecial;
@@ -153,6 +157,14 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
   HAT::t_float_1d h_mean_thickness;
   DAT::t_float_1d d_min_thickness;
   HAT::t_float_1d h_min_thickness;
+  DAT::t_float_1d d_ice_area;
+  HAT::t_float_1d h_ice_area;
+  DAT::t_float_1d d_coriolis;
+  HAT::t_float_1d h_coriolis;
+  DAT::t_float_2d d_ocean_vel;
+  HAT::t_float_2d h_ocean_vel;
+  DAT::t_float_2d d_bvector;
+  HAT::t_float_2d h_bvector;
 
   DAT::t_int_2d d_nspecial;
   HAT::t_int_2d h_nspecial;

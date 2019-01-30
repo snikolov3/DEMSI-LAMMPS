@@ -79,6 +79,10 @@ AtomKokkos::~AtomKokkos()
   memoryKK->destroy_kokkos(k_mean_thickness,mean_thickness);
   memoryKK->destroy_kokkos(k_min_thickness,min_thickness);
   memoryKK->destroy_kokkos(k_forcing,forcing);
+  memoryKK->destroy_kokkos(k_ice_area,ice_area);
+  memoryKK->destroy_kokkos(k_coriolis,coriolis);
+  memoryKK->destroy_kokkos(k_ocean_vel,ocean_vel);
+  memoryKK->destroy_kokkos(k_bvector,bvector);
 
   // USER-DPD package
   memoryKK->destroy_kokkos(k_uCond,uCond);
