@@ -42,9 +42,9 @@ AtomVecDemsiKokkos::AtomVecDemsiKokkos(LAMMPS *lmp) : AtomVecKokkos(lmp)
 
   comm_x_only = 1;
   comm_f_only = 0;
-  size_forward = 5;
+  size_forward = 3;
   size_reverse = 6;
-  size_border = 12;
+  size_border = 18;
   size_velocity = 6;
   size_data_atom = 7;
   size_data_vel = 7;
@@ -71,8 +71,8 @@ void AtomVecDemsiKokkos::init()
   // set radvary if particle diameters are time-varying due to fix adapt
 
   radvary = 0;
-  comm_x_only = 1;
-  size_forward = 5;
+  comm_x_only = 0;
+  size_forward = 3;
 
   for (int i = 0; i < modify->nfix; i++) {
     if (strcmp(modify->fix[i]->style,"adapt") == 0) {
@@ -80,7 +80,7 @@ void AtomVecDemsiKokkos::init()
       if (fix->diamflag) {
         radvary = 1;
         comm_x_only = 0;
-        size_forward = 7;
+        size_forward = 5;
       }
     }
   }
@@ -118,7 +118,11 @@ void AtomVecDemsiKokkos::grow(int n)
 
   memoryKK->grow_kokkos(atomKK->k_forcing,atomKK->forcing,nmax,2,"atom:forcing");
   memoryKK->grow_kokkos(atomKK->k_mean_thickness,atomKK->mean_thickness,nmax,"atom:mean_thickness");
-  memoryKK->grow_kokkos(atomKK->k_min_thickness,atomKK->min_thickness,nmax,"atom:max_thickness");
+  memoryKK->grow_kokkos(atomKK->k_min_thickness,atomKK->min_thickness,nmax,"atom:min_thickness");
+  memoryKK->grow_kokkos(atomKK->k_ice_area,atomKK->ice_area,nmax,"atom:ice_area");
+  memoryKK->grow_kokkos(atomKK->k_coriolis,atomKK->coriolis,nmax,"atom:coriolis");
+  memoryKK->grow_kokkos(atomKK->k_ocean_vel,atomKK->ocean_vel,nmax,2,"atom:ocean_vel");
+  memoryKK->grow_kokkos(atomKK->k_bvector,atomKK->bvector,nmax,2,"atom:bvector");
 
   memoryKK->grow_kokkos(atomKK->k_nspecial,atomKK->nspecial,nmax,3,"atom:nspecial");
   memoryKK->grow_kokkos(atomKK->k_special,atomKK->special,nmax,atom->maxspecial,"atom:special");
@@ -190,6 +194,18 @@ void AtomVecDemsiKokkos::grow_reset()
   min_thickness = atomKK->min_thickness;
   d_min_thickness = atomKK->k_min_thickness.d_view;
   h_min_thickness = atomKK->k_min_thickness.h_view;
+  ice_area = atomKK->ice_area;
+  d_ice_area = atomKK->k_ice_area.d_view;
+  h_ice_area = atomKK->k_ice_area.h_view;
+  coriolis = atomKK->coriolis;
+  d_coriolis = atomKK->k_coriolis.d_view;
+  h_coriolis = atomKK->k_coriolis.h_view;
+  ocean_vel = atomKK->ocean_vel;
+  d_ocean_vel = atomKK->k_ocean_vel.d_view;
+  h_ocean_vel= atomKK->k_ocean_vel.h_view;
+  bvector = atomKK->bvector;
+  d_bvector = atomKK->k_bvector.d_view;
+  h_bvector= atomKK->k_bvector.h_view;
 
   nspecial = atomKK->nspecial;
   d_nspecial = atomKK->k_nspecial.d_view;
@@ -216,6 +232,12 @@ void AtomVecDemsiKokkos::grow_reset()
 
 void AtomVecDemsiKokkos::copy(int i, int j, int delflag)
 {
+/*
+  sync(Host,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
+            MASK_MASK | IMAGE_MASK | RADIUS_MASK |
+            RMASS_MASK | OMEGA_MASK | THICKNESS_MASK | 
+            FORCING_MASK | BOND_MASK | SPECIAL_MASK);
+*/
 
   h_tag[j] = h_tag[i];
   h_type[j] = h_type[i];
@@ -237,8 +259,16 @@ void AtomVecDemsiKokkos::copy(int i, int j, int delflag)
   h_forcing(j,0) = h_forcing(i,0);
   h_forcing(j,1) = h_forcing(i,1);
 
-  h_mean_thickness[j] = h_mean_thickness[i];
-  h_min_thickness[j] = h_min_thickness[i];
+  h_mean_thickness(j) = h_mean_thickness(i);
+  h_min_thickness(j) = h_min_thickness(i);
+
+  h_ice_area(j) = h_ice_area(i);
+  h_coriolis(j) = h_coriolis(i);
+
+  h_ocean_vel(j,0) = h_ocean_vel(i,0);
+  h_ocean_vel(j,1) = h_ocean_vel(i,1);
+  h_bvector(j,0) = h_bvector(i,0);
+  h_bvector(j,1) = h_bvector(i,1);
 
   h_nspecial(j,0) = h_nspecial(i,0);
   h_nspecial(j,1) = h_nspecial(i,1);
@@ -257,6 +287,13 @@ void AtomVecDemsiKokkos::copy(int i, int j, int delflag)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
       modify->fix[atom->extra_grow[iextra]]->copy_arrays(i,j,delflag);
 
+/*
+  modified(Host,X_MASK | V_MASK | TAG_MASK | TYPE_MASK |
+                MASK_MASK | IMAGE_MASK | RADIUS_MASK |
+                RMASS_MASK | OMEGA_MASK | THICKNESS_MASK | 
+                FORCING_MASK | BOND_MASK | SPECIAL_MASK);
+*/
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -266,7 +303,7 @@ struct AtomVecDemsiKokkos_PackComm {
   typedef DeviceType device_type;
 
   typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass,_mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
@@ -277,8 +314,6 @@ struct AtomVecDemsiKokkos_PackComm {
     const typename DAT::tdual_x_array &x,
     const typename DAT::tdual_float_1d &radius,
     const typename DAT::tdual_float_1d &rmass,
-    const typename DAT::tdual_float_1d &mean_thickness,
-    const typename DAT::tdual_float_1d &min_thickness,
     const typename DAT::tdual_xfloat_2d &buf,
     const typename DAT::tdual_int_2d &list,
     const int & iswap,
@@ -287,12 +322,10 @@ struct AtomVecDemsiKokkos_PackComm {
     _x(x.view<DeviceType>()),
     _radius(radius.view<DeviceType>()),
     _rmass(rmass.view<DeviceType>()),
-    _mean_thickness(mean_thickness.view<DeviceType>()),
-    _min_thickness(min_thickness.view<DeviceType>()),
     _list(list.view<DeviceType>()),_iswap(iswap),
     _xprd(xprd),_yprd(yprd),_zprd(zprd),
     _xy(xy),_xz(xz),_yz(yz) {
-    const size_t elements = 5 + 2*RADVARY;
+    const size_t elements = 3 + 2*RADVARY;
     const size_t maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
     _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_um(buf.view<DeviceType>().data(),maxsend,elements);
     _pbc[0] = pbc[0]; _pbc[1] = pbc[1]; _pbc[2] = pbc[2];
@@ -317,11 +350,9 @@ struct AtomVecDemsiKokkos_PackComm {
 	_buf(i,2) = _x(j,2) + _pbc[2]*_zprd;
       }
     }
-    _buf(i,3) = _mean_thickness(j);
-    _buf(i,4) = _min_thickness(j);
     if (RADVARY) {
-       _buf(i,5) = _radius(j);
-       _buf(i,6) = _rmass(j);
+       _buf(i,3) = _radius(j);
+       _buf(i,4) = _rmass(j);
     }
   }
 };
@@ -340,14 +371,13 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
   // Check whether to always run forward communication on the host
   // Choose correct forward PackComm kernel
   if(commKK->forward_comm_on_host) {
-    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK);
     if (radvary) {
       if(pbc_flag) {
         if(domain->triclinic) {
     	  struct AtomVecDemsiKokkos_PackComm<LMPHostType,1,1,1> f(
            atomKK->k_x,
     	   atomKK->k_radius,atomKK->k_rmass,
-	   atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	   buf,list,iswap,
 	   domain->xprd,domain->yprd,domain->zprd,
 	   domain->xy,domain->xz,domain->yz,pbc);
@@ -356,7 +386,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
   	  struct AtomVecDemsiKokkos_PackComm<LMPHostType,1,0,1> f(
           atomKK->k_x,
 	  atomKK->k_radius,atomKK->k_rmass,
-	  atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	  buf,list,iswap,
 	  domain->xprd,domain->yprd,domain->zprd,
 	  domain->xy,domain->xz,domain->yz,pbc);
@@ -367,7 +396,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
  	  struct AtomVecDemsiKokkos_PackComm<LMPHostType,0,1,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -376,7 +404,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
 	  struct AtomVecDemsiKokkos_PackComm<LMPHostType,0,0,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -389,7 +416,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
     	  struct AtomVecDemsiKokkos_PackComm<LMPHostType,1,1,0> f(
            atomKK->k_x,
     	   atomKK->k_radius,atomKK->k_rmass,
-	   atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	   buf,list,iswap,
 	   domain->xprd,domain->yprd,domain->zprd,
 	   domain->xy,domain->xz,domain->yz,pbc);
@@ -398,7 +424,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
   	  struct AtomVecDemsiKokkos_PackComm<LMPHostType,1,0,0> f(
           atomKK->k_x,
 	  atomKK->k_radius,atomKK->k_rmass,
-	  atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	  buf,list,iswap,
 	  domain->xprd,domain->yprd,domain->zprd,
 	  domain->xy,domain->xz,domain->yz,pbc);
@@ -409,7 +434,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
  	  struct AtomVecDemsiKokkos_PackComm<LMPHostType,0,1,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -418,7 +442,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
 	  struct AtomVecDemsiKokkos_PackComm<LMPHostType,0,0,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -427,14 +450,13 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
       }
     }
   } else {
-    sync(Device,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+    sync(Device,X_MASK|RADIUS_MASK|RMASS_MASK);
     if(radvary) {
       if(pbc_flag) {
         if(domain->triclinic) {
 	  struct AtomVecDemsiKokkos_PackComm<LMPDeviceType,1,1,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -443,7 +465,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
 	  struct AtomVecDemsiKokkos_PackComm<LMPDeviceType,1,0,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -454,7 +475,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
 	  struct AtomVecDemsiKokkos_PackComm<LMPDeviceType,0,1,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -463,7 +483,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
 	  struct AtomVecDemsiKokkos_PackComm<LMPDeviceType,0,0,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -476,7 +495,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
 	  struct AtomVecDemsiKokkos_PackComm<LMPDeviceType,1,1,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -485,7 +503,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
 	  struct AtomVecDemsiKokkos_PackComm<LMPDeviceType,1,0,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -496,7 +513,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
 	  struct AtomVecDemsiKokkos_PackComm<LMPDeviceType,0,1,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -505,7 +521,6 @@ int AtomVecDemsiKokkos::pack_comm_kokkos(
 	  struct AtomVecDemsiKokkos_PackComm<LMPDeviceType,0,0,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    buf,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -526,7 +541,6 @@ struct AtomVecDemsiKokkos_PackCommVel {
   typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
   typename ArrayTypes<DeviceType>::t_v_array _v, _omega;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_um _buf;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
@@ -541,8 +555,6 @@ struct AtomVecDemsiKokkos_PackCommVel {
     const typename DAT::tdual_int_1d &mask,
     const typename DAT::tdual_float_1d &radius,
     const typename DAT::tdual_float_1d &rmass,
-    const typename DAT::tdual_float_1d &mean_thickness,
-    const typename DAT::tdual_float_1d &min_thickness,
     const typename DAT::tdual_v_array &v,
     const typename DAT::tdual_v_array &omega,
     const typename DAT::tdual_xfloat_2d &buf,
@@ -556,8 +568,6 @@ struct AtomVecDemsiKokkos_PackCommVel {
     _mask(mask.view<DeviceType>()),
     _radius(radius.view<DeviceType>()),
     _rmass(rmass.view<DeviceType>()),
-    _mean_thickness(mean_thickness.view<DeviceType>()),
-    _min_thickness(min_thickness.view<DeviceType>()),
     _v(v.view<DeviceType>()),
     _omega(omega.view<DeviceType>()),
     _list(list.view<DeviceType>()),_iswap(iswap),
@@ -565,7 +575,7 @@ struct AtomVecDemsiKokkos_PackCommVel {
     _xy(xy),_xz(xz),_yz(yz),
     _deform_vremap(deform_vremap)
   {
-    const size_t elements = 11 + 2 * RADVARY;
+    const size_t elements = 9 + 2 * RADVARY;
     const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
     _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_um(buf.view<DeviceType>().data(),maxsend,elements);
     _pbc[0] = pbc[0]; _pbc[1] = pbc[1]; _pbc[2] = pbc[2];
@@ -610,11 +620,9 @@ struct AtomVecDemsiKokkos_PackCommVel {
     _buf(i,6) = _omega(j,0);
     _buf(i,7) = _omega(j,1);
     _buf(i,8) = _omega(j,2);
-    _buf(i,9) = _mean_thickness(j);
-    _buf(i,10) = _min_thickness(j);
     if (RADVARY) {
-      _buf(i,11) = _radius(j);
-      _buf(i,12) = _rmass(j);
+      _buf(i,9) = _radius(j);
+      _buf(i,10) = _rmass(j);
     }
   }
 };
@@ -630,7 +638,7 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
   const int* const pbc)
 {
  if(commKK->forward_comm_on_host) {
-    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK|V_MASK|OMEGA_MASK);
+    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK);
     if(pbc_flag) {
       if(deform_vremap) {
         if(domain->triclinic) {
@@ -638,7 +646,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,0,1,1,1> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -648,7 +655,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,1,1,1,1> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -660,7 +666,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,0,1,0,1> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -670,7 +675,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,1,1,0,1> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -684,7 +688,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,0,1,1,0> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -694,7 +697,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,1,1,1,0> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -706,7 +708,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,0,1,0,0> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -716,7 +717,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,1,1,0,0> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -731,7 +731,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
           struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,0,0,1,0> f(
             atomKK->k_x,atomKK->k_mask,
             atomKK->k_radius,atomKK->k_rmass,
-            atomKK->k_mean_thickness,atomKK->k_min_thickness,
             atomKK->k_v,atomKK->k_omega,
             buf,list,iswap,
             domain->xprd,domain->yprd,domain->zprd,
@@ -741,7 +740,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
           struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,1,0,1,0> f(
             atomKK->k_x,atomKK->k_mask,
             atomKK->k_radius,atomKK->k_rmass,
-            atomKK->k_mean_thickness,atomKK->k_min_thickness,
             atomKK->k_v,atomKK->k_omega,
             buf,list,iswap,
             domain->xprd,domain->yprd,domain->zprd,
@@ -753,7 +751,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
           struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,0,0,0,0> f(
             atomKK->k_x,atomKK->k_mask,
             atomKK->k_radius,atomKK->k_rmass,
-            atomKK->k_mean_thickness,atomKK->k_min_thickness,
             atomKK->k_v,atomKK->k_omega,
             buf,list,iswap,
             domain->xprd,domain->yprd,domain->zprd,
@@ -763,7 +760,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
           struct AtomVecDemsiKokkos_PackCommVel<LMPHostType,1,0,0,0> f(
             atomKK->k_x,atomKK->k_mask,
             atomKK->k_radius,atomKK->k_rmass,
-            atomKK->k_mean_thickness,atomKK->k_min_thickness,
             atomKK->k_v,atomKK->k_omega,
             buf,list,iswap,
             domain->xprd,domain->yprd,domain->zprd,
@@ -773,7 +769,7 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
       }
     }
   } else {
-    sync(Device,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK|V_MASK|OMEGA_MASK);
+    sync(Device,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK);
     if(pbc_flag) {
       if(deform_vremap) {
         if(domain->triclinic) {
@@ -781,7 +777,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,0,1,1,1> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -791,7 +786,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,1,1,1,1> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -803,7 +797,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,0,1,0,1> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -813,7 +806,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,1,1,0,1> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -827,7 +819,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,0,1,1,0> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -837,7 +828,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,1,1,1,0> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -849,7 +839,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,0,1,0,0> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -859,7 +848,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
             struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,1,1,0,0> f(
               atomKK->k_x,atomKK->k_mask,
               atomKK->k_radius,atomKK->k_rmass,
-              atomKK->k_mean_thickness,atomKK->k_min_thickness,
               atomKK->k_v,atomKK->k_omega,
               buf,list,iswap,
               domain->xprd,domain->yprd,domain->zprd,
@@ -874,7 +862,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
           struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,0,0,1,0> f(
             atomKK->k_x,atomKK->k_mask,
             atomKK->k_radius,atomKK->k_rmass,
-            atomKK->k_mean_thickness,atomKK->k_min_thickness,
             atomKK->k_v,atomKK->k_omega,
             buf,list,iswap,
             domain->xprd,domain->yprd,domain->zprd,
@@ -884,7 +871,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
           struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,1,0,1,0> f(
             atomKK->k_x,atomKK->k_mask,
             atomKK->k_radius,atomKK->k_rmass,
-            atomKK->k_mean_thickness,atomKK->k_min_thickness,
             atomKK->k_v,atomKK->k_omega,
             buf,list,iswap,
             domain->xprd,domain->yprd,domain->zprd,
@@ -896,7 +882,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
           struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,0,0,0,0> f(
             atomKK->k_x,atomKK->k_mask,
             atomKK->k_radius,atomKK->k_rmass,
-            atomKK->k_mean_thickness,atomKK->k_min_thickness,
             atomKK->k_v,atomKK->k_omega,
             buf,list,iswap,
             domain->xprd,domain->yprd,domain->zprd,
@@ -906,7 +891,6 @@ int AtomVecDemsiKokkos::pack_comm_vel_kokkos(
           struct AtomVecDemsiKokkos_PackCommVel<LMPDeviceType,1,0,0,0> f(
             atomKK->k_x,atomKK->k_mask,
             atomKK->k_radius,atomKK->k_rmass,
-            atomKK->k_mean_thickness,atomKK->k_min_thickness,
             atomKK->k_v,atomKK->k_omega,
             buf,list,iswap,
             domain->xprd,domain->yprd,domain->zprd,
@@ -928,7 +912,7 @@ struct AtomVecDemsiKokkos_PackCommSelf {
 
   typename ArrayTypes<DeviceType>::t_x_array_randomread _x;
   typename ArrayTypes<DeviceType>::t_x_array _xw;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass,_mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   int _nfirst;
   typename ArrayTypes<DeviceType>::t_int_2d_const _list;
   const int _iswap;
@@ -939,8 +923,6 @@ struct AtomVecDemsiKokkos_PackCommSelf {
     const typename DAT::tdual_x_array &x,
     const typename DAT::tdual_float_1d &radius,
     const typename DAT::tdual_float_1d &rmass,
-    const typename DAT::tdual_float_1d &mean_thickness,
-    const typename DAT::tdual_float_1d &min_thickness,
     const int &nfirst,
     const typename DAT::tdual_int_2d &list,
     const int & iswap,
@@ -949,8 +931,6 @@ struct AtomVecDemsiKokkos_PackCommSelf {
     _x(x.view<DeviceType>()),_xw(x.view<DeviceType>()),
     _radius(radius.view<DeviceType>()),
     _rmass(rmass.view<DeviceType>()),
-    _mean_thickness(mean_thickness.view<DeviceType>()),
-    _min_thickness(min_thickness.view<DeviceType>()),
     _nfirst(nfirst),_list(list.view<DeviceType>()),_iswap(iswap),
     _xprd(xprd),_yprd(yprd),_zprd(zprd),
     _xy(xy),_xz(xz),_yz(yz) {
@@ -976,8 +956,6 @@ struct AtomVecDemsiKokkos_PackCommSelf {
 	_xw(i+_nfirst,2) = _x(j,2) + _pbc[2]*_zprd;
       }
     }
-    _mean_thickness(i+_nfirst) = _mean_thickness(j);
-    _min_thickness(i+_nfirst) = _min_thickness(j);
     if (RADVARY) {
       _radius(i+_nfirst) = _radius(j);
       _rmass(i+_nfirst) = _rmass(j);
@@ -992,15 +970,14 @@ int AtomVecDemsiKokkos::pack_comm_self(
   const int nfirst, const int &pbc_flag, const int* const pbc) {
 
   if(commKK->forward_comm_on_host) {
-    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
-    modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK);
+    modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK);
     if(radvary) {
       if(pbc_flag) {
         if(domain->triclinic) {
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPHostType,1,1,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1009,7 +986,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPHostType,1,0,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1020,7 +996,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPHostType,0,1,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1029,7 +1004,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPHostType,0,0,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1042,7 +1016,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPHostType,1,1,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1051,7 +1024,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPHostType,1,0,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1062,7 +1034,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPHostType,0,1,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1071,7 +1042,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPHostType,0,0,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1088,7 +1058,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPDeviceType,1,1,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1097,7 +1066,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPDeviceType,1,0,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1108,7 +1076,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPDeviceType,0,1,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1117,7 +1084,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPDeviceType,0,0,1> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1130,7 +1096,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPDeviceType,1,1,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1139,7 +1104,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPDeviceType,1,0,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1150,7 +1114,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPDeviceType,0,1,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1159,7 +1122,6 @@ int AtomVecDemsiKokkos::pack_comm_self(
 	  struct AtomVecDemsiKokkos_PackCommSelf<LMPDeviceType,0,0,0> f(
             atomKK->k_x,
 	    atomKK->k_radius,atomKK->k_rmass,
-	    atomKK->k_mean_thickness,atomKK->k_min_thickness,
 	    nfirst,list,iswap,
 	    domain->xprd,domain->yprd,domain->zprd,
 	    domain->xy,domain->xz,domain->yz,pbc);
@@ -1178,7 +1140,7 @@ struct AtomVecDemsiKokkos_UnpackComm {
   typedef DeviceType device_type;
 
   typename ArrayTypes<DeviceType>::t_x_array _x;
-  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass,_mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_const _buf;
   int _first;
 
@@ -1186,15 +1148,11 @@ struct AtomVecDemsiKokkos_UnpackComm {
     const typename DAT::tdual_x_array &x,
     const typename DAT::tdual_float_1d &radius,
     const typename DAT::tdual_float_1d &rmass,
-    const typename DAT::tdual_float_1d &mean_thickness,
-    const typename DAT::tdual_float_1d &min_thickness,
     const typename DAT::tdual_xfloat_2d &buf,
     const int& first):
     _x(x.view<DeviceType>()),
     _radius(radius.view<DeviceType>()),
     _rmass(rmass.view<DeviceType>()),
-    _mean_thickness(mean_thickness.view<DeviceType>()),
-    _min_thickness(min_thickness.view<DeviceType>()),
     _buf(buf.view<DeviceType>()),
     _first(first) {
     const size_t elements = 5 + 2 * RADVARY;
@@ -1207,11 +1165,9 @@ struct AtomVecDemsiKokkos_UnpackComm {
     _x(i+_first,0) = _buf(i,0);
     _x(i+_first,1) = _buf(i,1);
     _x(i+_first,2) = _buf(i,2);
-    _mean_thickness(i+_first) = _buf(i,3);
-    _min_thickness(i+_first) = _buf(i,4);
     if (RADVARY){
-      _radius(i+_first) = _buf(i,5);
-      _rmass(i+_first) = _buf(i,6);
+      _radius(i+_first) = _buf(i,3);
+      _rmass(i+_first) = _buf(i,4);
     }
   }
 };
@@ -1223,37 +1179,33 @@ void AtomVecDemsiKokkos::unpack_comm_kokkos(
   const DAT::tdual_xfloat_2d &buf ) {
   if(commKK->forward_comm_on_host) {
     if (radvary) {
-      modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+      modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK);
       struct AtomVecDemsiKokkos_UnpackComm<LMPHostType,1> f(
         atomKK->k_x,
         atomKK->k_radius,atomKK->k_rmass,
-        atomKK->k_mean_thickness,atomKK->k_min_thickness,
         buf,first);
       Kokkos::parallel_for(n,f);
     } else {
-      modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+      modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK);
       struct AtomVecDemsiKokkos_UnpackComm<LMPHostType,0> f(
         atomKK->k_x,
         atomKK->k_radius,atomKK->k_rmass,
-        atomKK->k_mean_thickness,atomKK->k_min_thickness,
         buf,first);
       Kokkos::parallel_for(n,f);
     }
   } else {
     if (radvary) {
-      modified(Device,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+      modified(Device,X_MASK|RADIUS_MASK|RMASS_MASK);
       struct AtomVecDemsiKokkos_UnpackComm<LMPDeviceType,1> f(
         atomKK->k_x,
         atomKK->k_radius,atomKK->k_rmass,
-        atomKK->k_mean_thickness,atomKK->k_min_thickness,
         buf,first);
       Kokkos::parallel_for(n,f);
     } else {
-      modified(Device,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+      modified(Device,X_MASK|RADIUS_MASK|RMASS_MASK);
       struct AtomVecDemsiKokkos_UnpackComm<LMPDeviceType,0> f(
         atomKK->k_x,
         atomKK->k_radius,atomKK->k_rmass,
-        atomKK->k_mean_thickness,atomKK->k_min_thickness,
         buf,first);
       Kokkos::parallel_for(n,f);
     }
@@ -1268,7 +1220,6 @@ struct AtomVecDemsiKokkos_UnpackCommVel {
 
   typename ArrayTypes<DeviceType>::t_x_array _x;
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
   typename ArrayTypes<DeviceType>::t_v_array _v, _omega;
   typename ArrayTypes<DeviceType>::t_xfloat_2d_const _buf;
   int _first;
@@ -1277,8 +1228,6 @@ struct AtomVecDemsiKokkos_UnpackCommVel {
     const typename DAT::tdual_x_array &x,
     const typename DAT::tdual_float_1d &radius,
     const typename DAT::tdual_float_1d &rmass,
-    const typename DAT::tdual_float_1d &mean_thickness,
-    const typename DAT::tdual_float_1d &min_thickness,
     const typename DAT::tdual_v_array &v,
     const typename DAT::tdual_v_array &omega,
     const typename DAT::tdual_xfloat_2d &buf,
@@ -1286,13 +1235,11 @@ struct AtomVecDemsiKokkos_UnpackCommVel {
     _x(x.view<DeviceType>()),
     _radius(radius.view<DeviceType>()),
     _rmass(rmass.view<DeviceType>()),
-    _mean_thickness(mean_thickness.view<DeviceType>()),
-    _min_thickness(min_thickness.view<DeviceType>()),
     _v(v.view<DeviceType>()),
     _omega(omega.view<DeviceType>()),
     _first(first)
   {
-    const size_t elements = 11 + 2 * RADVARY;
+    const size_t elements = 9 + 2 * RADVARY;
     const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
     buffer_view<DeviceType>(_buf,buf,maxsend,elements);
   };
@@ -1308,11 +1255,9 @@ struct AtomVecDemsiKokkos_UnpackCommVel {
     _omega(i+_first,0) = _buf(i,6);
     _omega(i+_first,1) = _buf(i,7);
     _omega(i+_first,2) = _buf(i,8);
-    _mean_thickness(i+_first) = _buf(i,9);
-    _min_thickness(i+_first) = _buf(i,10);
     if (RADVARY) {
-      _radius(i+_first) = _buf(i,11);
-      _rmass(i+_first) = _buf(i,12);
+      _radius(i+_first) = _buf(i,9);
+      _rmass(i+_first) = _buf(i,10);
     }
   }
 };
@@ -1323,12 +1268,11 @@ void AtomVecDemsiKokkos::unpack_comm_vel_kokkos(
   const int &n, const int &first,
   const DAT::tdual_xfloat_2d &buf ) {
   if(commKK->forward_comm_on_host) {
-    modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK|V_MASK|OMEGA_MASK);
+    modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK);
     if (radvary == 0) {
       struct AtomVecDemsiKokkos_UnpackCommVel<LMPHostType,0> f(
         atomKK->k_x,
         atomKK->k_radius,atomKK->k_rmass,
-        atomKK->k_mean_thickness,atomKK->k_min_thickness,
         atomKK->k_v,atomKK->k_omega,
         buf,first);
       Kokkos::parallel_for(n,f);
@@ -1336,18 +1280,16 @@ void AtomVecDemsiKokkos::unpack_comm_vel_kokkos(
       struct AtomVecDemsiKokkos_UnpackCommVel<LMPHostType,1> f(
         atomKK->k_x,
         atomKK->k_radius,atomKK->k_rmass,
-        atomKK->k_mean_thickness,atomKK->k_min_thickness,
         atomKK->k_v,atomKK->k_omega,
         buf,first);
       Kokkos::parallel_for(n,f);
     }
   } else {
-    modified(Device,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK|V_MASK|OMEGA_MASK);
+    modified(Device,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK);
     if (radvary == 0) {
       struct AtomVecDemsiKokkos_UnpackCommVel<LMPDeviceType,0> f(
         atomKK->k_x,
         atomKK->k_radius,atomKK->k_rmass,
-        atomKK->k_mean_thickness,atomKK->k_min_thickness,
         atomKK->k_v,atomKK->k_omega,
         buf,first);
       Kokkos::parallel_for(n,f);
@@ -1355,7 +1297,6 @@ void AtomVecDemsiKokkos::unpack_comm_vel_kokkos(
       struct AtomVecDemsiKokkos_UnpackCommVel<LMPDeviceType,1> f(
         atomKK->k_x,
         atomKK->k_radius,atomKK->k_rmass,
-        atomKK->k_mean_thickness,atomKK->k_min_thickness,
         atomKK->k_v,atomKK->k_omega,
         buf,first);
       Kokkos::parallel_for(n,f);
@@ -1374,7 +1315,7 @@ int AtomVecDemsiKokkos::pack_comm(int n, int *list, double *buf,
 
   if (radvary == 0) {
     // Not sure if we need to call sync for X here
-    sync(Host,X_MASK|THICKNESS_MASK);
+    sync(Host,X_MASK);
     m = 0;
     if (pbc_flag == 0) {
       for (i = 0; i < n; i++) {
@@ -1382,8 +1323,6 @@ int AtomVecDemsiKokkos::pack_comm(int n, int *list, double *buf,
         buf[m++] = h_x(j,0);
         buf[m++] = h_x(j,1);
         buf[m++] = h_x(j,2);
-        buf[m++] = h_mean_thickness[j];
-        buf[m++] = h_min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -1400,12 +1339,10 @@ int AtomVecDemsiKokkos::pack_comm(int n, int *list, double *buf,
         buf[m++] = h_x(j,0) + dx;
         buf[m++] = h_x(j,1) + dy;
         buf[m++] = h_x(j,2) + dz;
-        buf[m++] = h_mean_thickness[j];
-        buf[m++] = h_min_thickness[j];
       }
     }
   } else {
-    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK);
     m = 0;
     if (pbc_flag == 0) {
       for (i = 0; i < n; i++) {
@@ -1415,8 +1352,6 @@ int AtomVecDemsiKokkos::pack_comm(int n, int *list, double *buf,
         buf[m++] = h_x(j,2);
         buf[m++] = h_radius[j];
         buf[m++] = h_rmass[j];
-        buf[m++] = h_mean_thickness[j];
-        buf[m++] = h_min_thickness[j];
       }
     } else {
       if (domain->triclinic == 0) {
@@ -1435,8 +1370,6 @@ int AtomVecDemsiKokkos::pack_comm(int n, int *list, double *buf,
         buf[m++] = h_x(j,2) + dz;
         buf[m++] = h_radius[j];
         buf[m++] = h_rmass[j];
-        buf[m++] = h_mean_thickness[j];
-        buf[m++] = h_min_thickness[j];
       }
     }
   }
@@ -1453,7 +1386,7 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
   double dx,dy,dz,dvx,dvy,dvz;
 
   if (radvary == 0) {
-    sync(Host,X_MASK|V_MASK|OMEGA_MASK|THICKNESS_MASK);
+    sync(Host,X_MASK|V_MASK|OMEGA_MASK);
     m = 0;
     if (pbc_flag == 0) {
       for (i = 0; i < n; i++) {
@@ -1467,8 +1400,6 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
         buf[m++] = h_omega(j,0);
         buf[m++] = h_omega(j,1);
         buf[m++] = h_omega(j,2);
-        buf[m++] = h_mean_thickness(j);
-        buf[m++] = h_min_thickness(j);
       }
     } else {
       if (domain->triclinic == 0) {
@@ -1492,8 +1423,6 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = h_omega(j,0);
           buf[m++] = h_omega(j,1);
           buf[m++] = h_omega(j,2);
-          buf[m++] = h_mean_thickness(j);
-          buf[m++] = h_min_thickness(j);
         }
       } else {
         dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -1516,14 +1445,12 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = h_omega(j,0);
           buf[m++] = h_omega(j,1);
           buf[m++] = h_omega(j,2);
-          buf[m++] = h_mean_thickness(j);
-          buf[m++] = h_min_thickness(j);
         }
       }
     }
 
   } else {
-    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK|THICKNESS_MASK);
+    sync(Host,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK);
     m = 0;
     if (pbc_flag == 0) {
       for (i = 0; i < n; i++) {
@@ -1539,8 +1466,6 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
         buf[m++] = h_omega(j,0);
         buf[m++] = h_omega(j,1);
         buf[m++] = h_omega(j,2);
-        buf[m++] = h_mean_thickness(j);
-        buf[m++] = h_min_thickness(j);
       }
     } else {
       if (domain->triclinic == 0) {
@@ -1566,8 +1491,6 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = h_omega(j,0);
           buf[m++] = h_omega(j,1);
           buf[m++] = h_omega(j,2);
-          buf[m++] = h_mean_thickness(j);
-          buf[m++] = h_min_thickness(j);
         }
       } else {
         dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -1592,8 +1515,6 @@ int AtomVecDemsiKokkos::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = h_omega(j,0);
           buf[m++] = h_omega(j,1);
           buf[m++] = h_omega(j,2);
-          buf[m++] = h_mean_thickness(j);
-          buf[m++] = h_min_thickness(j);
         }
       }
     }
@@ -1608,21 +1529,15 @@ int AtomVecDemsiKokkos::pack_comm_hybrid(int n, int *list, double *buf)
 {
   int m = 0;
   if (radvary == 0) {
-    sync(Host,THICKNESS_MASK);
-    for (int i = 0; i < n; i++) {
-      const int j = list[i];
-      buf[m++] = h_mean_thickness[j];
-      buf[m++] = h_min_thickness[j];
-    }
+ 
+     return 0;
      
   } else {
-    sync(Host,RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+    sync(Host,RADIUS_MASK|RMASS_MASK);
     for (int i = 0; i < n; i++) {
       const int j = list[i];
       buf[m++] = h_radius[j];
       buf[m++] = h_rmass[j];
-      buf[m++] = h_mean_thickness[j];
-      buf[m++] = h_min_thickness[j];
     }
   }
 
@@ -1640,10 +1555,8 @@ void AtomVecDemsiKokkos::unpack_comm(int n, int first, double *buf)
       h_x(i,0) = buf[m++];
       h_x(i,1) = buf[m++];
       h_x(i,2) = buf[m++];
-      h_mean_thickness(i) = buf[m++];
-      h_min_thickness(i) = buf[m++];
     }
-    modified(Host,X_MASK|THICKNESS_MASK);
+    modified(Host,X_MASK);
   } else {
     int m = 0;
     const int last = first + n;
@@ -1653,10 +1566,8 @@ void AtomVecDemsiKokkos::unpack_comm(int n, int first, double *buf)
       h_x(i,2) = buf[m++];
       h_radius(i) = buf[m++];
       h_rmass(i) = buf[m++];
-      h_mean_thickness(i) = buf[m++];
-      h_min_thickness(i) = buf[m++];
     }
-    modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+    modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK);
   }
 }
 
@@ -1677,10 +1588,8 @@ void AtomVecDemsiKokkos::unpack_comm_vel(int n, int first, double *buf)
       h_omega(i,0) = buf[m++];
       h_omega(i,1) = buf[m++];
       h_omega(i,2) = buf[m++];
-      h_mean_thickness(i) = buf[m++];
-      h_min_thickness(i) = buf[m++];
     }
-    modified(Host,X_MASK|V_MASK|OMEGA_MASK|THICKNESS_MASK);
+    modified(Host,X_MASK|V_MASK|OMEGA_MASK);
   } else {
     int m = 0;
     const int last = first + n;
@@ -1696,10 +1605,8 @@ void AtomVecDemsiKokkos::unpack_comm_vel(int n, int first, double *buf)
       h_omega(i,0) = buf[m++];
       h_omega(i,1) = buf[m++];
       h_omega(i,2) = buf[m++];
-      h_mean_thickness(i) = buf[m++];
-      h_min_thickness(i) = buf[m++];
     }
-    modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK|THICKNESS_MASK);
+    modified(Host,X_MASK|RADIUS_MASK|RMASS_MASK|V_MASK|OMEGA_MASK);
   }
 }
 
@@ -1713,20 +1620,14 @@ int AtomVecDemsiKokkos::unpack_comm_hybrid(int n, int first, double *buf)
   const int last = first + n;
 
   if (radvary == 0) {
-     for (int i = first; i < last; i++) {
-        h_mean_thickness(i) = buf[m++];
-        h_min_thickness(i) = buf[m++];
-     }
-     modified(Host,THICKNESS_MASK);
+     return 0;
   }
   else {
      for (int i = first; i < last; i++) {
         h_radius(i) = buf[m++];
         h_rmass(i) = buf[m++];
-        h_mean_thickness(i) = buf[m++];
-        h_min_thickness(i) = buf[m++];
      }
-     modified(Host,RADIUS_MASK|RMASS_MASK|THICKNESS_MASK);
+     modified(Host,RADIUS_MASK|RMASS_MASK);
   }
   return m;
 }
@@ -1822,6 +1723,8 @@ struct AtomVecDemsiKokkos_PackBorder {
   const typename ArrayTypes<DeviceType>::t_float_2d _forcing;
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ice_area,_coriolis;
+  typename ArrayTypes<DeviceType>::t_float_2d _ocean_vel,_bvector;
   X_FLOAT _dx,_dy,_dz;
 
   AtomVecDemsiKokkos_PackBorder(const typename ArrayTypes<DeviceType>::t_xfloat_2d &buf,
@@ -1836,6 +1739,10 @@ struct AtomVecDemsiKokkos_PackBorder {
 			      const typename ArrayTypes<DeviceType>::t_float_2d &forcing,
 			      const typename ArrayTypes<DeviceType>::t_float_1d &mean_thickness,
 			      const typename ArrayTypes<DeviceType>::t_float_1d &min_thickness,
+			      const typename ArrayTypes<DeviceType>::t_float_1d &ice_area,
+			      const typename ArrayTypes<DeviceType>::t_float_1d &coriolis,
+			      const typename ArrayTypes<DeviceType>::t_float_2d &ocean_vel,
+			      const typename ArrayTypes<DeviceType>::t_float_2d &bvector,
 			      const X_FLOAT &dx, const X_FLOAT &dy, const X_FLOAT &dz):
     _buf(buf),_list(list),_iswap(iswap),
     _x(x),_tag(tag),_type(type),_mask(mask),
@@ -1843,6 +1750,8 @@ struct AtomVecDemsiKokkos_PackBorder {
     _rmass(rmass),
     _forcing(forcing),
     _mean_thickness(mean_thickness), _min_thickness(min_thickness),
+    _ice_area(ice_area), _coriolis(coriolis),
+    _ocean_vel(ocean_vel), _bvector(bvector),
     _dx(dx),_dy(dy),_dz(dz) {}
   
   KOKKOS_INLINE_FUNCTION
@@ -1866,6 +1775,12 @@ struct AtomVecDemsiKokkos_PackBorder {
     _buf(i,9)  = _forcing(j,1);
     _buf(i,10) = _mean_thickness(j);
     _buf(i,11) = _min_thickness(j);
+    _buf(i,12) = _ice_area(j);
+    _buf(i,13) = _coriolis(j);
+    _buf(i,14) = _ocean_vel(j,0);
+    _buf(i,15) = _ocean_vel(j,1);
+    _buf(i,16) = _bvector(j,0);
+    _buf(i,17) = _bvector(j,1);
   }
 };
 
@@ -1893,14 +1808,14 @@ int AtomVecDemsiKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist, 
         buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
         iswap,h_x,h_tag,h_type,h_mask,
         h_radius,h_rmass,h_forcing,h_mean_thickness,h_min_thickness,
-        dx,dy,dz);
+        h_ice_area,h_coriolis,h_ocean_vel,h_bvector,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     } else {
       AtomVecDemsiKokkos_PackBorder<LMPDeviceType,1> f(
         buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
         iswap,d_x,d_tag,d_type,d_mask,
         d_radius,d_rmass,d_forcing,d_mean_thickness,d_min_thickness,
-        dx,dy,dz);
+        d_ice_area,d_coriolis,d_ocean_vel,d_bvector,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     }
   } else {
@@ -1910,14 +1825,14 @@ int AtomVecDemsiKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist, 
         buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
         iswap,h_x,h_tag,h_type,h_mask,
         h_radius,h_rmass,h_forcing,h_mean_thickness,h_min_thickness,
-        dx,dy,dz);
+        h_ice_area,h_coriolis,h_ocean_vel,h_bvector,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     } else {
       AtomVecDemsiKokkos_PackBorder<LMPDeviceType,0> f(
         buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
         iswap,d_x,d_tag,d_type,d_mask,
         d_radius,d_rmass,d_forcing,d_mean_thickness,d_min_thickness,
-        dx,dy,dz);
+        d_ice_area,d_coriolis,d_ocean_vel,d_bvector,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     }
   }
@@ -1952,6 +1867,12 @@ int AtomVecDemsiKokkos::pack_border(int n, int *list, double *buf,
       buf[m++] = h_forcing(j,1);
       buf[m++] = h_mean_thickness(j);
       buf[m++] = h_min_thickness(j);
+      buf[m++] = h_ice_area(j);
+      buf[m++] = h_coriolis(j);
+      buf[m++] = h_ocean_vel(j,0);
+      buf[m++] = h_ocean_vel(j,1);
+      buf[m++] = h_bvector(j,0);
+      buf[m++] = h_bvector(j,1);
     }
   } else {
     if (domain->triclinic == 0) {
@@ -1977,6 +1898,12 @@ int AtomVecDemsiKokkos::pack_border(int n, int *list, double *buf,
       buf[m++] = h_forcing(j,1);
       buf[m++] = h_mean_thickness(j);
       buf[m++] = h_min_thickness(j);
+      buf[m++] = h_ice_area(j);
+      buf[m++] = h_coriolis(j);
+      buf[m++] = h_ocean_vel(j,0);
+      buf[m++] = h_ocean_vel(j,1);
+      buf[m++] = h_bvector(j,0);
+      buf[m++] = h_bvector(j,1);
     }
   }
 
@@ -2003,6 +1930,8 @@ struct AtomVecDemsiKokkos_PackBorderVel {
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
   typename ArrayTypes<DeviceType>::t_float_2d _forcing;
+  typename ArrayTypes<DeviceType>::t_float_1d _ice_area,_coriolis;
+  typename ArrayTypes<DeviceType>::t_float_2d _ocean_vel,_bvector;
   typename ArrayTypes<DeviceType>::t_v_array _v, _omega;
   X_FLOAT _dx,_dy,_dz, _dvx, _dvy, _dvz;
   const int _deform_groupbit;
@@ -2017,9 +1946,13 @@ struct AtomVecDemsiKokkos_PackBorderVel {
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
     const typename ArrayTypes<DeviceType>::t_float_1d &radius,
     const typename ArrayTypes<DeviceType>::t_float_1d &rmass,
+    const typename ArrayTypes<DeviceType>::t_float_2d &forcing,
     const typename ArrayTypes<DeviceType>::t_float_1d &mean_thickness,
     const typename ArrayTypes<DeviceType>::t_float_1d &min_thickness,
-    const typename ArrayTypes<DeviceType>::t_float_2d &forcing,
+    const typename ArrayTypes<DeviceType>::t_float_1d &ice_area,
+    const typename ArrayTypes<DeviceType>::t_float_1d &coriolis,
+    const typename ArrayTypes<DeviceType>::t_float_2d &ocean_vel,
+    const typename ArrayTypes<DeviceType>::t_float_2d &bvector,
     const typename ArrayTypes<DeviceType>::t_v_array &v,
     const typename ArrayTypes<DeviceType>::t_v_array &omega,
     const X_FLOAT &dx, const X_FLOAT &dy, const X_FLOAT &dz,
@@ -2029,15 +1962,19 @@ struct AtomVecDemsiKokkos_PackBorderVel {
     _x(x),_tag(tag),_type(type),_mask(mask),
     _radius(radius),
     _rmass(rmass),
+    _forcing(forcing),
     _mean_thickness(mean_thickness),
     _min_thickness(min_thickness),
-    _forcing(forcing),
+    _ice_area(ice_area), 
+    _coriolis(coriolis),
+    _ocean_vel(ocean_vel), 
+    _bvector(bvector),
     _v(v), _omega(omega),
     _dx(dx),_dy(dy),_dz(dz),
     _dvx(dvx),_dvy(dvy),_dvz(dvz),
     _deform_groupbit(deform_groupbit)
   {
-    const size_t elements = 18;
+    const size_t elements = 24;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
     _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_um(buf.data(),maxsend,elements);
   }
@@ -2059,25 +1996,31 @@ struct AtomVecDemsiKokkos_PackBorderVel {
     _buf(i,5) = d_ubuf(_mask(j)).d;
     _buf(i,6) = _radius(j);
     _buf(i,7) = _rmass(j);
+    _buf(i,8) = _forcing(j,0);
+    _buf(i,9) = _forcing(j,1);
+    _buf(i,10) = _mean_thickness(j);
+    _buf(i,11) = _min_thickness(j);
+    _buf(i,12) = _ice_area(j);
+    _buf(i,13) = _coriolis(j);
+    _buf(i,14) = _ocean_vel(j,0);
+    _buf(i,15) = _ocean_vel(j,1);
+    _buf(i,16) = _bvector(j,0);
+    _buf(i,17) = _bvector(j,1);
     if (DEFORM_VREMAP) {
       if (_mask(i) & _deform_groupbit) {
-        _buf(i,8) = _v(j,0) + _dvx;
-        _buf(i,9) = _v(j,1) + _dvy;
-        _buf(i,10) = _v(j,2) + _dvz;
+        _buf(i,18) = _v(j,0) + _dvx;
+        _buf(i,19) = _v(j,1) + _dvy;
+        _buf(i,20) = _v(j,2) + _dvz;
       }
     }
     else {
-      _buf(i,8) = _v(j,0);
-      _buf(i,9) = _v(j,1);
-      _buf(i,10) = _v(j,2);
+      _buf(i,18) = _v(j,0);
+      _buf(i,19) = _v(j,1);
+      _buf(i,20) = _v(j,2);
     }
-    _buf(i,11) = _omega(j,0);
-    _buf(i,12) = _omega(j,1);
-    _buf(i,13) = _omega(j,2);
-    _buf(i,14) = _forcing(j,0);
-    _buf(i,15) = _forcing(j,1);
-    _buf(i,16) = _mean_thickness(j);
-    _buf(i,17) = _min_thickness(j);
+    _buf(i,21) = _omega(j,0);
+    _buf(i,22) = _omega(j,1);
+    _buf(i,23) = _omega(j,2);
   }
 };
 
@@ -2108,8 +2051,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
           buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
           iswap,h_x,h_tag,h_type,h_mask,
           h_radius,h_rmass,
-          h_mean_thickness, h_min_thickness,
           h_forcing,
+          h_mean_thickness, h_min_thickness,
+          h_ice_area, h_coriolis,
+          h_ocean_vel, h_bvector,
           h_v, h_omega,
           dx,dy,dz,dvx,dvy,dvz,
           deform_groupbit);
@@ -2119,8 +2064,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
           buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
           iswap,d_x,d_tag,d_type,d_mask,
           d_radius,d_rmass,
-          d_mean_thickness, d_min_thickness,
           d_forcing,
+          d_mean_thickness, d_min_thickness,
+          d_ice_area, d_coriolis,
+          d_ocean_vel, d_bvector,
           d_v, d_omega,
           dx,dy,dz,dvx,dvy,dvz,
           deform_groupbit);
@@ -2136,8 +2083,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
           buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
           iswap,h_x,h_tag,h_type,h_mask,
           h_radius,h_rmass,
-          h_mean_thickness, h_min_thickness,
           h_forcing,
+          h_mean_thickness, h_min_thickness,
+          h_ice_area, h_coriolis,
+          h_ocean_vel, h_bvector,
           h_v, h_omega,
           dx,dy,dz,dvx,dvy,dvz,
           deform_groupbit);
@@ -2147,8 +2096,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
           buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
           iswap,d_x,d_tag,d_type,d_mask,
           d_radius,d_rmass,
-          d_mean_thickness, d_min_thickness,
           d_forcing,
+          d_mean_thickness, d_min_thickness,
+          d_ice_area, d_coriolis,
+          d_ocean_vel, d_bvector,
           d_v, d_omega,
           dx,dy,dz,dvx,dvy,dvz,
           deform_groupbit);
@@ -2161,8 +2112,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
         buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
         iswap,h_x,h_tag,h_type,h_mask,
         h_radius,h_rmass,
-        h_mean_thickness, h_min_thickness,
         h_forcing,
+        h_mean_thickness, h_min_thickness,
+        h_ice_area, h_coriolis,
+        h_ocean_vel, h_bvector,
         h_v, h_omega,
         dx,dy,dz,dvx,dvy,dvz,
         deform_groupbit);
@@ -2172,8 +2125,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
         buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
         iswap,d_x,d_tag,d_type,d_mask,
         d_radius,d_rmass,
-        d_mean_thickness, d_min_thickness,
         d_forcing,
+        d_mean_thickness, d_min_thickness,
+        d_ice_area, d_coriolis,
+        d_ocean_vel, d_bvector,
         d_v, d_omega,
         dx,dy,dz,dvx,dvy,dvz,
         deform_groupbit);
@@ -2206,16 +2161,22 @@ int AtomVecDemsiKokkos::pack_border_vel(int n, int *list, double *buf,
       buf[m++] = ubuf(h_mask(j)).d;
       buf[m++] = h_radius(j);
       buf[m++] = h_rmass(j);
+      buf[m++] = h_forcing(j,0);
+      buf[m++] = h_forcing(j,1);
+      buf[m++] = h_mean_thickness(j);
+      buf[m++] = h_min_thickness(j);
+      buf[m++] = h_ice_area(j);
+      buf[m++] = h_coriolis(j);
+      buf[m++] = h_ocean_vel(j,0);
+      buf[m++] = h_ocean_vel(j,1);
+      buf[m++] = h_bvector(j,0);
+      buf[m++] = h_bvector(j,1);
       buf[m++] = h_v(j,0);
       buf[m++] = h_v(j,1);
       buf[m++] = h_v(j,2);
       buf[m++] = h_omega(j,0);
       buf[m++] = h_omega(j,1);
       buf[m++] = h_omega(j,2);
-      buf[m++] = h_forcing(j,0);
-      buf[m++] = h_forcing(j,1);
-      buf[m++] = h_mean_thickness(j);
-      buf[m++] = h_min_thickness(j);
     }
   } else {
     if (domain->triclinic == 0) {
@@ -2238,16 +2199,22 @@ int AtomVecDemsiKokkos::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = ubuf(h_mask(j)).d;
         buf[m++] = h_radius(j);
         buf[m++] = h_rmass(j);
+        buf[m++] = h_forcing(j,0);
+        buf[m++] = h_forcing(j,1);
+        buf[m++] = h_mean_thickness(j);
+        buf[m++] = h_min_thickness(j);
+        buf[m++] = h_ice_area(j);
+        buf[m++] = h_coriolis(j);
+        buf[m++] = h_ocean_vel(j,0);
+        buf[m++] = h_ocean_vel(j,1);
+        buf[m++] = h_bvector(j,0);
+        buf[m++] = h_bvector(j,1);
         buf[m++] = h_v(j,0);
         buf[m++] = h_v(j,1);
         buf[m++] = h_v(j,2);
         buf[m++] = h_omega(j,0);
         buf[m++] = h_omega(j,1);
         buf[m++] = h_omega(j,2);
-        buf[m++] = h_forcing(j,0);
-        buf[m++] = h_forcing(j,1);
-        buf[m++] = h_mean_thickness(j);
-        buf[m++] = h_min_thickness(j);
       }
     } else {
       dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -2263,6 +2230,16 @@ int AtomVecDemsiKokkos::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = ubuf(h_mask[j]).d;
         buf[m++] = h_radius[j];
         buf[m++] = h_rmass[j];
+        buf[m++] = h_forcing(j,0);
+        buf[m++] = h_forcing(j,1);
+        buf[m++] = h_mean_thickness(j);
+        buf[m++] = h_min_thickness(j);
+        buf[m++] = h_ice_area(j);
+        buf[m++] = h_coriolis(j);
+        buf[m++] = h_ocean_vel(j,0);
+        buf[m++] = h_ocean_vel(j,1);
+        buf[m++] = h_bvector(j,0);
+        buf[m++] = h_bvector(j,1);
         if (mask[i] & deform_groupbit) {
           buf[m++] = h_v(j,0) + dvx;
           buf[m++] = h_v(j,1) + dvy;
@@ -2275,10 +2252,6 @@ int AtomVecDemsiKokkos::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = h_omega(j,0);
         buf[m++] = h_omega(j,1);
         buf[m++] = h_omega(j,2);
-        buf[m++] = h_forcing(j,0);
-        buf[m++] = h_forcing(j,1);
-        buf[m++] = h_mean_thickness(j);
-        buf[m++] = h_min_thickness(j);
       }
     }
   }
@@ -2294,17 +2267,13 @@ int AtomVecDemsiKokkos::pack_border_vel(int n, int *list, double *buf,
 
 int AtomVecDemsiKokkos::pack_border_hybrid(int n, int *list, double *buf)
 {
-  sync(Host,RADIUS_MASK|RMASS_MASK|FORCING_MASK|THICKNESS_MASK);
+  sync(Host,RADIUS_MASK|RMASS_MASK);
 
   int m = 0;
   for (int i = 0; i < n; i++) {
     const int j = list[i];
     buf[m++] = h_radius(j);
     buf[m++] = h_rmass(j);
-    buf[m++] = h_forcing(j,0);
-    buf[m++] = h_forcing(j,1);
-    buf[m++] = h_mean_thickness(j);
-    buf[m++] = h_min_thickness(j);
   }
   return m;
 }
@@ -2323,6 +2292,8 @@ struct AtomVecDemsiKokkos_UnpackBorder {
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   typename ArrayTypes<DeviceType>::t_float_2d _forcing;
   typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ice_area,_coriolis;
+  typename ArrayTypes<DeviceType>::t_float_2d _ocean_vel,_bvector;
   int _first;
 
   AtomVecDemsiKokkos_UnpackBorder(
@@ -2336,11 +2307,17 @@ struct AtomVecDemsiKokkos_UnpackBorder {
     typename ArrayTypes<DeviceType>::t_float_2d &forcing,
     typename ArrayTypes<DeviceType>::t_float_1d &mean_thickness,
     typename ArrayTypes<DeviceType>::t_float_1d &min_thickness,
+    typename ArrayTypes<DeviceType>::t_float_1d &ice_area,
+    typename ArrayTypes<DeviceType>::t_float_1d &coriolis,
+    typename ArrayTypes<DeviceType>::t_float_2d &ocean_vel,
+    typename ArrayTypes<DeviceType>::t_float_2d &bvector,
     const int& first):
     _buf(buf),_x(x),_tag(tag),_type(type),_mask(mask),
     _radius(radius),
     _rmass(rmass),_forcing(forcing),
     _mean_thickness(mean_thickness),_min_thickness(min_thickness),
+    _ice_area(ice_area),_coriolis(coriolis),
+    _ocean_vel(ocean_vel),_bvector(bvector),
     _first(first) {};
 
   KOKKOS_INLINE_FUNCTION
@@ -2357,6 +2334,12 @@ struct AtomVecDemsiKokkos_UnpackBorder {
     _forcing(i+_first,1) = _buf(i,9);
     _mean_thickness(i+_first) = _buf(i,10);
     _min_thickness(i+_first) = _buf(i,11);
+    _ice_area(i+_first) = _buf(i,12);
+    _coriolis(i+_first) = _buf(i,13);
+    _ocean_vel(i+_first,0) = _buf(i,14);
+    _ocean_vel(i+_first,1) = _buf(i,15);
+    _bvector(i+_first,0) = _buf(i,16);
+    _bvector(i+_first,1) = _buf(i,17);
   }
 };
 
@@ -2371,13 +2354,13 @@ void AtomVecDemsiKokkos::unpack_border_kokkos(const int &n, const int &first,
     struct AtomVecDemsiKokkos_UnpackBorder<LMPHostType> f(buf.view<LMPHostType>(),
       h_x,h_tag,h_type,h_mask,
       h_radius,h_rmass,h_forcing,h_mean_thickness,h_min_thickness,
-      first);
+      h_ice_area,h_coriolis,h_ocean_vel,h_bvector,first);
     Kokkos::parallel_for(n,f);
   } else {
     struct AtomVecDemsiKokkos_UnpackBorder<LMPDeviceType> f(buf.view<LMPDeviceType>(),
       d_x,d_tag,d_type,d_mask,
       d_radius,d_rmass,d_forcing,d_mean_thickness,d_min_thickness,
-      first);
+      d_ice_area,d_coriolis,d_ocean_vel,d_bvector,first);
     Kokkos::parallel_for(n,f);
   }
 
@@ -2406,6 +2389,12 @@ void AtomVecDemsiKokkos::unpack_border(int n, int first, double *buf)
     h_forcing(i,1) = buf[m++];
     h_mean_thickness(i) = buf[m++];
     h_min_thickness(i) = buf[m++];
+    h_ice_area(i) = buf[m++];
+    h_coriolis(i) = buf[m++];
+    h_ocean_vel(i,0) = buf[m++];
+    h_ocean_vel(i,1) = buf[m++];
+    h_bvector(i,0) = buf[m++];
+    h_bvector(i,1) = buf[m++];
   }
 
   if (atom->nextra_border)
@@ -2429,12 +2418,13 @@ struct AtomVecDemsiKokkos_UnpackBorderVel {
   typename ArrayTypes<DeviceType>::t_int_1d _type;
   typename ArrayTypes<DeviceType>::t_int_1d _mask;
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
-  typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
   typename ArrayTypes<DeviceType>::t_float_2d _forcing;
+  typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ice_area,_coriolis;
+  typename ArrayTypes<DeviceType>::t_float_2d _ocean_vel,_bvector;
   typename ArrayTypes<DeviceType>::t_v_array _v;
   typename ArrayTypes<DeviceType>::t_v_array _omega;
   int _first;
-
 
   AtomVecDemsiKokkos_UnpackBorderVel(
     const typename ArrayTypes<DeviceType>::t_xfloat_2d_const &buf,
@@ -2444,22 +2434,30 @@ struct AtomVecDemsiKokkos_UnpackBorderVel {
     const typename ArrayTypes<DeviceType>::t_int_1d &mask,
     const typename ArrayTypes<DeviceType>::t_float_1d &radius,
     const typename ArrayTypes<DeviceType>::t_float_1d &rmass,
-    const typename ArrayTypes<DeviceType>::t_v_array &v,
-    const typename ArrayTypes<DeviceType>::t_v_array &omega,
     const typename ArrayTypes<DeviceType>::t_float_2d &forcing,
     const typename ArrayTypes<DeviceType>::t_float_1d &mean_thickness,
     const typename ArrayTypes<DeviceType>::t_float_1d &min_thickness,
+    const typename ArrayTypes<DeviceType>::t_float_1d &ice_area,
+    const typename ArrayTypes<DeviceType>::t_float_1d &coriolis,
+    const typename ArrayTypes<DeviceType>::t_float_2d &ocean_vel,
+    const typename ArrayTypes<DeviceType>::t_float_2d &bvector,
+    const typename ArrayTypes<DeviceType>::t_v_array &v,
+    const typename ArrayTypes<DeviceType>::t_v_array &omega,
     const int& first):
     _buf(buf),_x(x),_tag(tag),_type(type),_mask(mask),
     _radius(radius),
     _rmass(rmass),
-    _v(v), _omega(omega),
     _forcing(forcing),
     _mean_thickness(mean_thickness),
     _min_thickness(min_thickness),
+    _ice_area(ice_area),
+    _coriolis(coriolis),
+    _ocean_vel(ocean_vel),
+    _bvector(bvector),
+    _v(v), _omega(omega),
     _first(first)
   {
-    const size_t elements = 18;
+    const size_t elements = 24;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
     _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um(buf.data(),maxsend,elements);
   };
@@ -2474,16 +2472,22 @@ struct AtomVecDemsiKokkos_UnpackBorderVel {
     _mask(i+_first) = static_cast<int>  (d_ubuf(_buf(i,5)).i);
     _radius(i+_first) = _buf(i,6);
     _rmass(i+_first) = _buf(i,7);
-    _v(i+_first,0) = _buf(i,8);
-    _v(i+_first,1) = _buf(i,9);
-    _v(i+_first,2) = _buf(i,10);
-    _omega(i+_first,0) = _buf(i,11);
-    _omega(i+_first,1) = _buf(i,12);
-    _omega(i+_first,2) = _buf(i,13);
-    _forcing(i+_first,0) = _buf(i,14);
-    _forcing(i+_first,1) = _buf(i,15);
-    _mean_thickness(i+_first) = _buf(i,16);
-    _min_thickness(i+_first) = _buf(i,17);
+    _forcing(i+_first,0) = _buf(i,8);
+    _forcing(i+_first,1) = _buf(i,9);
+    _mean_thickness(i+_first) = _buf(i,10);
+    _min_thickness(i+_first) = _buf(i,11);
+    _ice_area(i+_first) = _buf(i,12);
+    _coriolis(i+_first) = _buf(i,13);
+    _ocean_vel(i+_first,0) = _buf(i,14);
+    _ocean_vel(i+_first,1) = _buf(i,15);
+    _bvector(i+_first,0) = _buf(i,16);
+    _bvector(i+_first,1) = _buf(i,17);
+    _v(i+_first,0) = _buf(i,18);
+    _v(i+_first,1) = _buf(i,19);
+    _v(i+_first,2) = _buf(i,20);
+    _omega(i+_first,0) = _buf(i,21);
+    _omega(i+_first,1) = _buf(i,22);
+    _omega(i+_first,2) = _buf(i,23);
   }
 };
 
@@ -2497,18 +2501,22 @@ void AtomVecDemsiKokkos::unpack_border_vel_kokkos(
     struct AtomVecDemsiKokkos_UnpackBorderVel<LMPHostType> f(buf.view<LMPHostType>(),
       h_x,h_tag,h_type,h_mask,
       h_radius,h_rmass,
-      h_v, h_omega,
       h_forcing,
       h_mean_thickness,h_min_thickness,
+      h_ice_area,h_coriolis,
+      h_ocean_vel,h_bvector,
+      h_v, h_omega,
       first);
     Kokkos::parallel_for(n,f);
   } else {
     struct AtomVecDemsiKokkos_UnpackBorderVel<LMPDeviceType> f(buf.view<LMPDeviceType>(),
       d_x,d_tag,d_type,d_mask,
       d_radius,d_rmass,
-      d_v, d_omega,
       d_forcing,
       d_mean_thickness,d_min_thickness,
+      d_ice_area,d_coriolis,
+      d_ocean_vel,d_bvector,
+      d_v, d_omega,
       first);
     Kokkos::parallel_for(n,f);
   }
@@ -2534,16 +2542,22 @@ void AtomVecDemsiKokkos::unpack_border_vel(int n, int first, double *buf)
     h_mask(i) = (int) ubuf(buf[m++]).i;
     h_radius(i) = buf[m++];
     h_rmass(i) = buf[m++];
+    h_forcing(i,0) = buf[m++];
+    h_forcing(i,1) = buf[m++];
+    h_mean_thickness(i) = buf[m++];
+    h_min_thickness(i) = buf[m++];
+    h_ice_area(i) = buf[m++];
+    h_coriolis(i) = buf[m++];
+    h_ocean_vel(i,0) = buf[m++];
+    h_ocean_vel(i,1) = buf[m++];
+    h_coriolis(i,0) = buf[m++];
+    h_coriolis(i,1) = buf[m++];
     h_v(i,0) = buf[m++];
     h_v(i,1) = buf[m++];
     h_v(i,2) = buf[m++];
     h_omega(i,0) = buf[m++];
     h_omega(i,1) = buf[m++];
     h_omega(i,2) = buf[m++];
-    h_forcing(i,0) = buf[m++];
-    h_forcing(i,1) = buf[m++];
-    h_mean_thickness(i) = buf[m++];
-    h_min_thickness(i) = buf[m++];
   }
 
   if (atom->nextra_border)
@@ -2567,12 +2581,8 @@ int AtomVecDemsiKokkos::unpack_border_hybrid(int n, int first, double *buf)
   for (int i = first; i < last; i++) {
     h_radius(i) = buf[m++];
     h_rmass(i) = buf[m++];
-    h_forcing(i,0) = buf[m++];
-    h_forcing(i,1) = buf[m++];
-    h_mean_thickness(i) = buf[m++];
-    h_min_thickness(i) = buf[m++];
   }
-  modified(Host,RADIUS_MASK|RMASS_MASK|FORCING_MASK|THICKNESS_MASK);
+  modified(Host,RADIUS_MASK|RMASS_MASK);
   return m;
 }
 
@@ -2592,6 +2602,8 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
   typename AT::t_v_array_randomread _omega;
   typename AT::t_float_2d_randomread _forcing;
   typename AT::t_float_1d_randomread _mean_thickness,_min_thickness;
+  typename AT::t_float_1d_randomread _ice_area,_coriolis;
+  typename AT::t_float_2d_randomread _ocean_vel,_bvector;
   typename AT::t_int_1d_randomread _num_bond;
   typename AT::t_int_2d_randomread _bond_type;
   typename AT::t_tagint_2d_randomread _bond_atom;
@@ -2607,6 +2619,8 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
   typename AT::t_v_array _omegaw;
   typename AT::t_float_2d _forcingw;
   typename AT::t_float_1d _mean_thicknessw,_min_thicknessw;
+  typename AT::t_float_1d _ice_areaw,_coriolisw;
+  typename AT::t_float_2d _ocean_velw,_bvectorw;
   typename AT::t_int_1d _num_bondw;
   typename AT::t_int_2d _bond_typew;
   typename AT::t_tagint_2d _bond_atomw;
@@ -2636,6 +2650,10 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
     _forcing(atom->k_forcing.view<DeviceType>()),
     _mean_thickness(atom->k_mean_thickness.view<DeviceType>()),
     _min_thickness(atom->k_min_thickness.view<DeviceType>()),
+    _ice_area(atom->k_ice_area.view<DeviceType>()),
+    _coriolis(atom->k_coriolis.view<DeviceType>()),
+    _ocean_vel(atom->k_ocean_vel.view<DeviceType>()),
+    _bvector(atom->k_bvector.view<DeviceType>()),
     _num_bond(atom->k_num_bond.view<DeviceType>()),
     _bond_type(atom->k_bond_type.view<DeviceType>()),
     _bond_atom(atom->k_bond_atom.view<DeviceType>()),
@@ -2653,6 +2671,10 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
     _forcingw(atom->k_forcing.view<DeviceType>()),
     _mean_thicknessw(atom->k_mean_thickness.view<DeviceType>()),
     _min_thicknessw(atom->k_min_thickness.view<DeviceType>()),
+    _ice_areaw(atom->k_ice_area.view<DeviceType>()),
+    _coriolisw(atom->k_coriolis.view<DeviceType>()),
+    _ocean_velw(atom->k_ocean_vel.view<DeviceType>()),
+    _bvectorw(atom->k_bvector.view<DeviceType>()),
     _num_bondw(atom->k_num_bond.view<DeviceType>()),
     _bond_typew(atom->k_bond_type.view<DeviceType>()),
     _bond_atomw(atom->k_bond_atom.view<DeviceType>()),
@@ -2662,7 +2684,7 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
     _copylist(copylist.template view<DeviceType>()),
     _nlocal(nlocal),_dim(dim),
     _lo(lo),_hi(hi){
-    elements = 24+atom->maxspecial+2*atom->bond_per_atom;
+    elements = 30+atom->maxspecial+2*atom->bond_per_atom;
     const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
     _buf = typename AT::t_xfloat_2d_um(buf.template view<DeviceType>().data(),maxsend,elements);
   }
@@ -2691,6 +2713,12 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
     _buf(mysend,m++) = _forcing(i,1);
     _buf(mysend,m++) = _mean_thickness(i);
     _buf(mysend,m++) = _min_thickness(i);
+    _buf(mysend,m++) = _ice_area(i);
+    _buf(mysend,m++) = _coriolis(i);
+    _buf(mysend,m++) = _ocean_vel(i,0);
+    _buf(mysend,m++) = _ocean_vel(i,1);
+    _buf(mysend,m++) = _bvector(i,0);
+    _buf(mysend,m++) = _bvector(i,1);
     _buf(mysend,m++) = d_ubuf(_num_bond(i)).d;
     for (int k = 0; k < _num_bond(i); k++) {
       _buf(mysend,m++) = d_ubuf(_bond_type(i,k)).d;
@@ -2724,6 +2752,12 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
       _forcingw(i,1) = _forcing(j,1);
       _mean_thicknessw(i) = _mean_thickness(j);
       _min_thicknessw(i) = _min_thickness(j);
+      _ice_areaw(i) = _ice_area(j);
+      _coriolisw(i) = _coriolis(j);
+      _ocean_velw(i,0) = _ocean_vel(j,0);
+      _ocean_velw(i,1) = _ocean_vel(j,1);
+      _bvectorw(i,0) = _bvector(j,0);
+      _bvectorw(i,1) = _bvector(j,1);
       _num_bondw(i) = _num_bond(j);
       for (int k = 0; k < _num_bond(j); k++) {
         _bond_typew(i,k) = _bond_type(j,k);
@@ -2746,7 +2780,7 @@ int AtomVecDemsiKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_
 {
 
 
-  const int elements = 24+atom->maxspecial+2*atom->bond_per_atom;
+  const int elements = 30+atom->maxspecial+2*atom->bond_per_atom;
 
   if(nsend > (int) (k_buf.view<LMPHostType>().extent(0)*k_buf.view<LMPHostType>().extent(1))/elements) {
     int newsize = nsend*elements/k_buf.view<LMPHostType>().extent(1)+1;
@@ -2804,6 +2838,12 @@ int AtomVecDemsiKokkos::pack_exchange(int i, double *buf)
   buf[m++] = h_forcing(i,1);
   buf[m++] = h_mean_thickness(i);
   buf[m++] = h_min_thickness(i);
+  buf[m++] = h_ice_area(i);
+  buf[m++] = h_coriolis(i);
+  buf[m++] = h_ocean_vel(i,0);
+  buf[m++] = h_ocean_vel(i,1);
+  buf[m++] = h_bvector(i,0);
+  buf[m++] = h_bvector(i,1);
 
   buf[m++] = ubuf(h_num_bond(i)).d;
   for (int k = 0; k < h_num_bond(i); k++) {
@@ -2843,6 +2883,10 @@ struct AtomVecDemsiKokkos_UnpackExchangeFunctor {
   typename AT::t_float_2d _forcing;
   typename AT::t_float_1d _mean_thickness;
   typename AT::t_float_1d _min_thickness;
+  typename AT::t_float_1d _ice_area;
+  typename AT::t_float_1d _coriolis;
+  typename AT::t_float_2d _ocean_vel;
+  typename AT::t_float_2d _bvector;
   typename AT::t_int_1d _num_bond;
   typename AT::t_int_2d _bond_type;
   typename AT::t_tagint_2d _bond_atom;
@@ -2872,6 +2916,10 @@ struct AtomVecDemsiKokkos_UnpackExchangeFunctor {
     _forcing(atom->k_forcing.view<DeviceType>()),
     _mean_thickness(atom->k_mean_thickness.view<DeviceType>()),
     _min_thickness(atom->k_min_thickness.view<DeviceType>()),
+    _ice_area(atom->k_ice_area.view<DeviceType>()),
+    _coriolis(atom->k_coriolis.view<DeviceType>()),
+    _ocean_vel(atom->k_ocean_vel.view<DeviceType>()),
+    _bvector(atom->k_bvector.view<DeviceType>()),
     _num_bond(atom->k_num_bond.view<DeviceType>()),
     _bond_type(atom->k_bond_type.view<DeviceType>()),
     _bond_atom(atom->k_bond_atom.view<DeviceType>()),
@@ -2879,7 +2927,7 @@ struct AtomVecDemsiKokkos_UnpackExchangeFunctor {
     _special(atom->k_special.view<DeviceType>()),
     _nlocal(nlocal.template view<DeviceType>()),_dim(dim),
     _lo(lo),_hi(hi){
-    elements = 24+atom->maxspecial+2*atom->bond_per_atom;
+    elements = 30+atom->maxspecial+2*atom->bond_per_atom;
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
 
     buffer_view<DeviceType>(_buf,buf,maxsendlist,elements);
@@ -2910,6 +2958,12 @@ struct AtomVecDemsiKokkos_UnpackExchangeFunctor {
       _forcing(i,1) = _buf(myrecv,m++);
       _mean_thickness(i) = _buf(myrecv,m++);
       _min_thickness(i) = _buf(myrecv,m++);
+      _ice_area(i) = _buf(myrecv,m++);
+      _coriolis(i) = _buf(myrecv,m++);
+      _ocean_vel(i,0) = _buf(myrecv,m++);
+      _ocean_vel(i,1) = _buf(myrecv,m++);
+      _bvector(i,0) = _buf(myrecv,m++);
+      _bvector(i,1) = _buf(myrecv,m++);
       _num_bond(i) = (int) d_ubuf(_buf(myrecv,m++)).i;
       int k;
       for (k = 0; k < _num_bond(i); k++) {
@@ -2932,7 +2986,7 @@ int AtomVecDemsiKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int n
                                                ExecutionSpace space) {
 
 
-  const size_t elements = 24+atom->maxspecial+2*atom->bond_per_atom;
+  const size_t elements = 30+atom->maxspecial+2*atom->bond_per_atom;
   if(space == Host) {
     k_count.h_view(0) = nlocal;
     AtomVecDemsiKokkos_UnpackExchangeFunctor<LMPHostType> f(atomKK,k_buf,k_count,dim,lo,hi);
@@ -2988,6 +3042,12 @@ int AtomVecDemsiKokkos::unpack_exchange(double *buf)
   h_forcing(nlocal,1) = buf[m++];
   h_mean_thickness(nlocal) = buf[m++];
   h_min_thickness(nlocal) = buf[m++];
+  h_ice_area(nlocal) = buf[m++];
+  h_coriolis(nlocal) = buf[m++];
+  h_ocean_vel(nlocal,0) = buf[m++];
+  h_ocean_vel(nlocal,1) = buf[m++];
+  h_bvector(nlocal,0) = buf[m++];
+  h_bvector(nlocal,1) = buf[m++];
 
   h_num_bond(nlocal) = (int) ubuf(buf[m++]).i;
   for (int k = 0; k < h_num_bond(nlocal); k++) {
@@ -3072,6 +3132,12 @@ int AtomVecDemsiKokkos::pack_restart(int i, double *buf)
   buf[m++] = h_forcing(i,1);
   buf[m++] = h_mean_thickness(i);
   buf[m++] = h_min_thickness(i);
+  buf[m++] = h_ice_area(i);
+  buf[m++] = h_coriolis(i);
+  buf[m++] = h_ocean_vel(i,0);
+  buf[m++] = h_ocean_vel(i,1);
+  buf[m++] = h_bvector(i,0);
+  buf[m++] = h_bvector(i,1);
 
   buf[m++] = ubuf(h_num_bond(i)).d;
   for (int k = 0; k < h_num_bond(i); k++) {
@@ -3128,6 +3194,12 @@ int AtomVecDemsiKokkos::unpack_restart(double *buf)
   h_forcing(nlocal,1) = buf[m++];
   h_mean_thickness(nlocal) = buf[m++];
   h_min_thickness(nlocal) = buf[m++];
+  h_ice_area(nlocal) = buf[m++];
+  h_coriolis(nlocal) = buf[m++];
+  h_ocean_vel(nlocal,0) = buf[m++];
+  h_ocean_vel(nlocal,1) = buf[m++];
+  h_bvector(nlocal,0) = buf[m++];
+  h_bvector(nlocal,1) = buf[m++];
 
   h_num_bond(nlocal) = (int) ubuf(buf[m++]).i;
   for (int k = 0; k < h_num_bond(nlocal); k++) {
@@ -3174,7 +3246,7 @@ void AtomVecDemsiKokkos::create_atom(int itype, double *coord)
   h_v(nlocal,2) = 0.0;
 
   h_radius(nlocal) = 0.5;
-  h_rmass(nlocal) = 4.0*MY_PI/3 * h_radius(nlocal)*h_radius(nlocal)*h_radius(nlocal);
+  h_rmass(nlocal) = MY_PI*h_radius(nlocal)*h_radius(nlocal);
   h_omega(nlocal,0) = 0.0;
   h_omega(nlocal,1) = 0.0;
   h_omega(nlocal,2) = 0.0;
@@ -3183,6 +3255,12 @@ void AtomVecDemsiKokkos::create_atom(int itype, double *coord)
   h_forcing(nlocal,1) = 0.0;
   h_mean_thickness(nlocal) = 0.0;
   h_min_thickness(nlocal) = 0.0;
+  h_ice_area(nlocal) = 0.0;
+  h_coriolis(nlocal) = 0.0;
+  h_ocean_vel(nlocal,0) = 0.0;
+  h_ocean_vel(nlocal,1) = 0.0;
+  h_bvector(nlocal,0) = 0.0;
+  h_bvector(nlocal,1) = 0.0;
 
   h_num_bond[nlocal] = 0;
   h_nspecial(nlocal,0) = h_nspecial(nlocal,1) = h_nspecial(nlocal,2) = 0;
@@ -3216,7 +3294,7 @@ void AtomVecDemsiKokkos::data_atom(double *coord, imageint imagetmp, char **valu
 
   if (h_radius(nlocal) == 0.0) h_rmass(nlocal) = density;
   else
-    h_rmass(nlocal) = MY_PI * h_radius(nlocal)*h_radius(nlocal) * density;
+    h_rmass(nlocal) = MY_PI * h_radius(nlocal)*h_radius(nlocal);
 
   h_x(nlocal,0) = coord[0];
   h_x(nlocal,1) = coord[1];
@@ -3259,7 +3337,7 @@ int AtomVecDemsiKokkos::data_atom_hybrid(int nlocal, char **values)
 
   if (radius[nlocal] == 0.0) rmass[nlocal] = density;
   else
-    rmass[nlocal] = MY_PI * radius[nlocal]*radius[nlocal] * density;
+    rmass[nlocal] = MY_PI * radius[nlocal]*radius[nlocal];
 
   atomKK->modified(Host,RADIUS_MASK|RMASS_MASK);
 
@@ -3443,6 +3521,10 @@ bigint AtomVecDemsiKokkos::memory_usage()
   if (atom->memcheck("forcing")) bytes += memory->usage(forcing,nmax,2);
   if (atom->memcheck("mean_thickness")) bytes += memory->usage(mean_thickness,nmax);
   if (atom->memcheck("min_thickness")) bytes += memory->usage(min_thickness,nmax);
+  if (atom->memcheck("ice_area")) bytes += memory->usage(ice_area,nmax);
+  if (atom->memcheck("coriolis")) bytes += memory->usage(coriolis,nmax);
+  if (atom->memcheck("ocean_vel")) bytes += memory->usage(ocean_vel,nmax,2);
+  if (atom->memcheck("bvector")) bytes += memory->usage(bvector,nmax,2);
 
   if (atom->memcheck("num_bond")) bytes += memory->usage(num_bond,nmax);
   if (atom->memcheck("bond_type"))
@@ -3476,6 +3558,10 @@ void AtomVecDemsiKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.sync<LMPDeviceType>();
         atomKK->k_min_thickness.sync<LMPDeviceType>();
+        atomKK->k_ice_area.sync<LMPDeviceType>();
+        atomKK->k_coriolis.sync<LMPDeviceType>();
+        atomKK->k_ocean_vel.sync<LMPDeviceType>();
+        atomKK->k_bvector.sync<LMPDeviceType>();
     }
     if (mask & BOND_MASK) {
         atomKK->k_num_bond.sync<LMPDeviceType>();
@@ -3501,6 +3587,10 @@ void AtomVecDemsiKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.sync<LMPHostType>();
         atomKK->k_min_thickness.sync<LMPHostType>();
+        atomKK->k_ice_area.sync<LMPHostType>();
+        atomKK->k_coriolis.sync<LMPHostType>();
+        atomKK->k_ocean_vel.sync<LMPHostType>();
+        atomKK->k_bvector.sync<LMPHostType>();
     }
     if (mask & BOND_MASK) {
         atomKK->k_num_bond.sync<LMPHostType>();
@@ -3548,6 +3638,14 @@ void AtomVecDemsiKokkos::sync_overlapping_device(ExecutionSpace space, unsigned 
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_mean_thickness,space);
         if (atomKK->k_min_thickness.need_sync<LMPDeviceType>())
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_min_thickness,space);
+        if (atomKK->k_ice_area.need_sync<LMPDeviceType>())
+           perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ice_area,space);
+        if (atomKK->k_coriolis.need_sync<LMPDeviceType>())
+           perform_async_copy<DAT::tdual_float_1d>(atomKK->k_coriolis,space);
+        if (atomKK->k_ocean_vel.need_sync<LMPDeviceType>())
+           perform_async_copy<DAT::tdual_float_2d>(atomKK->k_ocean_vel,space);
+        if (atomKK->k_bvector.need_sync<LMPDeviceType>())
+           perform_async_copy<DAT::tdual_float_2d>(atomKK->k_bvector,space);
     }
     if (mask & SPECIAL_MASK) {
       if (atomKK->k_nspecial.need_sync<LMPDeviceType>())
@@ -3593,6 +3691,14 @@ void AtomVecDemsiKokkos::sync_overlapping_device(ExecutionSpace space, unsigned 
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_mean_thickness,space);
         if (atomKK->k_min_thickness.need_sync<LMPHostType>())
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_min_thickness,space);
+        if (atomKK->k_ice_area.need_sync<LMPHostType>())
+           perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ice_area,space);
+        if (atomKK->k_coriolis.need_sync<LMPHostType>())
+           perform_async_copy<DAT::tdual_float_1d>(atomKK->k_coriolis,space);
+        if (atomKK->k_ocean_vel.need_sync<LMPHostType>())
+           perform_async_copy<DAT::tdual_float_2d>(atomKK->k_ocean_vel,space);
+        if (atomKK->k_bvector.need_sync<LMPHostType>())
+           perform_async_copy<DAT::tdual_float_2d>(atomKK->k_bvector,space);
     }
     if (mask & SPECIAL_MASK) {
       if (atomKK->k_nspecial.need_sync<LMPHostType>())
@@ -3631,6 +3737,10 @@ void AtomVecDemsiKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.modify<LMPDeviceType>();
         atomKK->k_min_thickness.modify<LMPDeviceType>();
+        atomKK->k_ice_area.modify<LMPDeviceType>();
+        atomKK->k_coriolis.modify<LMPDeviceType>();
+        atomKK->k_ocean_vel.modify<LMPDeviceType>();
+        atomKK->k_bvector.modify<LMPDeviceType>();
     }
     if (mask & BOND_MASK) {
         atomKK->k_num_bond.modify<LMPDeviceType>();
@@ -3657,6 +3767,10 @@ void AtomVecDemsiKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.modify<LMPHostType>();
         atomKK->k_min_thickness.modify<LMPHostType>();
+        atomKK->k_ice_area.modify<LMPHostType>();
+        atomKK->k_coriolis.modify<LMPHostType>();
+        atomKK->k_ocean_vel.modify<LMPHostType>();
+        atomKK->k_bvector.modify<LMPHostType>();
     }
     if (mask & BOND_MASK) {
         atomKK->k_num_bond.modify<LMPHostType>();
