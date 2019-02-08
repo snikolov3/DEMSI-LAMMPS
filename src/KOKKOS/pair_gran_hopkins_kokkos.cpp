@@ -388,6 +388,8 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
      for (int k = 0; k < size_history; k++) {
         d_firsthistory(i,size_history*jj+k) = 0;
      }
+     fx = fy = 0;
+     torque_i = torque_j = 0;
    }
    else{
      if (!d_firsttouch(i,jj)){ //If this is first contact
@@ -459,7 +461,6 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
        fnmag = fnmag_elastic;
      else
        fnmag = fnmag_plastic;
-    // fnmag = fnmag_elastic;
 
      fnx = fnmag*nx;
      fny = fnmag*ny;
@@ -511,8 +512,12 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
 
     //Torque
     ncrossF = nx*fty - ny*ftx;
-    torque_i = -radius[i]*ncrossF;
-    torque_j = -radius[j]*ncrossF;
+    torque_i = -radius(i)*ncrossF;
+
+    torque_j = 0;
+    if (NEWTON_PAIR || j < nlocal){
+      torque_j = -radius(j)*ncrossF;
+    }
 
   } // rsq < radsum*radsum
 }
