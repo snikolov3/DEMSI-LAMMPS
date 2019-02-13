@@ -236,6 +236,7 @@ void FixNeighHistoryKokkos<DeviceType>::post_neighbor_item(const int &ii) const
     int rflag = j >> SBBITS & 3;
     if (beyond_contact) rflag = 1;
     j &= NEIGHMASK;
+    d_neighbors(i,jj) = j; 
 
     int m;
     if (rflag) {
@@ -341,9 +342,9 @@ int FixNeighHistoryKokkos<DeviceType>::pack_exchange(int i, double *buf)
   k_valuepartner.template sync<LMPHostType>();
 
   int n = 0;
-  buf[n++] = npartner[i];
-  for (int m = 0; m < npartner[i]; m++) buf[n++] = partner[i][m];
-  for (int m = 0; m < dnum*npartner[i]; m++) buf[n++] = valuepartner[i][m];
+  buf[n++] = h_npartner(i);
+  for (int m = 0; m < h_npartner(i); m++) buf[n++] = h_partner(i,m);
+  for (int m = 0; m < dnum*h_npartner(i); m++) buf[n++] = h_valuepartner(i,m);
 
   return n;
 }
@@ -356,9 +357,9 @@ template<class DeviceType>
 int FixNeighHistoryKokkos<DeviceType>::unpack_exchange(int nlocal, double *buf)
 {
   int n = 0;
-  npartner[nlocal] = static_cast<int>(buf[n++]);
-  for (int m = 0; m < npartner[nlocal]; m++) partner[nlocal][m] = static_cast<int>(buf[n++]);
-  for (int m = 0; m < dnum*npartner[nlocal]; m++) valuepartner[nlocal][m] = buf[n++];
+  h_npartner(nlocal) = static_cast<int>(buf[n++]);
+  for (int m = 0; m < h_npartner(nlocal); m++) h_partner(nlocal,m) = static_cast<int>(buf[n++]);
+  for (int m = 0; m < dnum*h_npartner(nlocal); m++) h_valuepartner(nlocal,m) = buf[n++];
 
   k_npartner.template modify<LMPHostType>();
   k_partner.template modify<LMPHostType>();
