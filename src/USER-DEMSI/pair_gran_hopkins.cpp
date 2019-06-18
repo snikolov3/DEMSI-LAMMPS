@@ -122,6 +122,7 @@ void PairGranHopkins::compute(int eflag, int vflag)
       // history[2,3]: accumulated tangential displacement at contact, x and y
       // history[4] : contact thickness h
       // history[5] : delta_0
+      // history[6] : flag for whether plastic deformation has occurred
 
       if (history[8] >= history[9]){ // Un-bonded, chi1 >= chi2
         compute_nonbonded(history, &firsttouch[i][jj], i, j);
@@ -245,10 +246,14 @@ void PairGranHopkins::compute_nonbonded(double *history, int* touch, int i, int 
     // Elastic normal force
     fnmag_elastic = ke*delta*L + damp_normal*delta_dot*L;
 
-    if (fabs(fnmag_elastic) < fabs(fnmag_plastic))
+    if (fabs(fnmag_elastic) < fabs(fnmag_plastic)){
       fnmag = fnmag_elastic;
-    else
+      history[6] = 0;
+    }
+    else{
       fnmag = fnmag_plastic;
+      history[6] = 1;
+    }
 
     //fnmag = fnmag_elastic;
 
