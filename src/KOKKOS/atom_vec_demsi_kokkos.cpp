@@ -119,6 +119,10 @@ void AtomVecDemsiKokkos::grow(int n)
   memoryKK->grow_kokkos(atomKK->k_forcing,atomKK->forcing,nmax,2,"atom:forcing");
   memoryKK->grow_kokkos(atomKK->k_mean_thickness,atomKK->mean_thickness,nmax,"atom:mean_thickness");
   memoryKK->grow_kokkos(atomKK->k_min_thickness,atomKK->min_thickness,nmax,"atom:min_thickness");
+  memoryKK->grow_kokkos(atomKK->k_ridgingIceThickness,atomKK->ridgingIceThickness,nmax,"atom:ridgingIceThickness");
+  memoryKK->grow_kokkos(atomKK->k_ridgingIceThicknessWeight,atomKK->ridgingIceThicknessWeight,nmax,"atom:ridgingIceThicknessWeight");
+  memoryKK->grow_kokkos(atomKK->k_netToGrossClosingRatio,atomKK->netToGrossClosingRatio,nmax,"atom:netToGrossClosingRatio");
+  memoryKK->grow_kokkos(atomKK->k_changeEffectiveElementArea,atomKK->changeEffectiveElementArea,nmax,"atom:changeEffectiveElementArea");
   memoryKK->grow_kokkos(atomKK->k_ice_area,atomKK->ice_area,nmax,"atom:ice_area");
   memoryKK->grow_kokkos(atomKK->k_coriolis,atomKK->coriolis,nmax,"atom:coriolis");
   memoryKK->grow_kokkos(atomKK->k_ocean_vel,atomKK->ocean_vel,nmax,2,"atom:ocean_vel");
@@ -194,6 +198,18 @@ void AtomVecDemsiKokkos::grow_reset()
   min_thickness = atomKK->min_thickness;
   d_min_thickness = atomKK->k_min_thickness.d_view;
   h_min_thickness = atomKK->k_min_thickness.h_view;
+  ridgingIceThickness = atomKK->ridgingIceThickness;
+  d_ridgingIceThickness = atomKK->k_ridgingIceThickness.d_view;
+  h_ridgingIceThickness = atomKK->k_ridgingIceThickness.h_view;
+  ridgingIceThicknessWeight = atomKK->ridgingIceThicknessWeight;
+  d_ridgingIceThicknessWeight = atomKK->k_ridgingIceThicknessWeight.d_view;
+  h_ridgingIceThicknessWeight = atomKK->k_ridgingIceThicknessWeight.h_view;
+  netToGrossClosingRatio = atomKK->netToGrossClosingRatio;
+  d_netToGrossClosingRatio = atomKK->k_netToGrossClosingRatio.d_view;
+  h_netToGrossClosingRatio = atomKK->k_netToGrossClosingRatio.h_view;
+  changeEffectiveElementArea = atomKK->changeEffectiveElementArea;
+  d_changeEffectiveElementArea = atomKK->k_changeEffectiveElementArea.d_view;
+  h_changeEffectiveElementArea = atomKK->k_changeEffectiveElementArea.h_view;
   ice_area = atomKK->ice_area;
   d_ice_area = atomKK->k_ice_area.d_view;
   h_ice_area = atomKK->k_ice_area.h_view;
@@ -261,6 +277,10 @@ void AtomVecDemsiKokkos::copy(int i, int j, int delflag)
 
   h_mean_thickness(j) = h_mean_thickness(i);
   h_min_thickness(j) = h_min_thickness(i);
+  h_ridgingIceThickness(j) = h_ridgingIceThickness(i);
+  h_ridgingIceThicknessWeight(j) = h_ridgingIceThicknessWeight(i);
+  h_netToGrossClosingRatio(j) = h_netToGrossClosingRatio(i);
+  h_changeEffectiveElementArea(j) = h_changeEffectiveElementArea(i);
 
   h_ice_area(j) = h_ice_area(i);
   h_coriolis(j) = h_coriolis(i);
@@ -1723,6 +1743,10 @@ struct AtomVecDemsiKokkos_PackBorder {
   const typename ArrayTypes<DeviceType>::t_float_2d _forcing;
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ridgingIceThickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ridgingIceThicknessWeight;
+  typename ArrayTypes<DeviceType>::t_float_1d _netToGrossClosingRatio;
+  typename ArrayTypes<DeviceType>::t_float_1d _changeEffectiveElementArea;
   typename ArrayTypes<DeviceType>::t_float_1d _ice_area,_coriolis;
   typename ArrayTypes<DeviceType>::t_float_2d _ocean_vel,_bvector;
   X_FLOAT _dx,_dy,_dz;
@@ -1739,6 +1763,10 @@ struct AtomVecDemsiKokkos_PackBorder {
 			      const typename ArrayTypes<DeviceType>::t_float_2d &forcing,
 			      const typename ArrayTypes<DeviceType>::t_float_1d &mean_thickness,
 			      const typename ArrayTypes<DeviceType>::t_float_1d &min_thickness,
+			      const typename ArrayTypes<DeviceType>::t_float_1d &ridgingIceThickness,
+			      const typename ArrayTypes<DeviceType>::t_float_1d &ridgingIceThicknessWeight,
+			      const typename ArrayTypes<DeviceType>::t_float_1d &netToGrossClosingRatio,
+			      const typename ArrayTypes<DeviceType>::t_float_1d &changeEffectiveElementArea,
 			      const typename ArrayTypes<DeviceType>::t_float_1d &ice_area,
 			      const typename ArrayTypes<DeviceType>::t_float_1d &coriolis,
 			      const typename ArrayTypes<DeviceType>::t_float_2d &ocean_vel,
@@ -1750,6 +1778,10 @@ struct AtomVecDemsiKokkos_PackBorder {
     _rmass(rmass),
     _forcing(forcing),
     _mean_thickness(mean_thickness), _min_thickness(min_thickness),
+    _ridgingIceThickness(ridgingIceThickness),
+    _ridgingIceThicknessWeight(ridgingIceThicknessWeight),
+    _netToGrossClosingRatio(netToGrossClosingRatio),
+    _changeEffectiveElementArea(changeEffectiveElementArea),
     _ice_area(ice_area), _coriolis(coriolis),
     _ocean_vel(ocean_vel), _bvector(bvector),
     _dx(dx),_dy(dy),_dz(dz) {}
@@ -1775,12 +1807,16 @@ struct AtomVecDemsiKokkos_PackBorder {
     _buf(i,9)  = _forcing(j,1);
     _buf(i,10) = _mean_thickness(j);
     _buf(i,11) = _min_thickness(j);
-    _buf(i,12) = _ice_area(j);
-    _buf(i,13) = _coriolis(j);
-    _buf(i,14) = _ocean_vel(j,0);
-    _buf(i,15) = _ocean_vel(j,1);
-    _buf(i,16) = _bvector(j,0);
-    _buf(i,17) = _bvector(j,1);
+    _buf(i,12) = _ridgingIceThickness(j);
+    _buf(i,13) = _ridgingIceThicknessWeight(j);
+    _buf(i,14) = _netToGrossClosingRatio(j);
+    _buf(i,15) = _changeEffectiveElementArea(j);
+    _buf(i,16) = _ice_area(j);
+    _buf(i,17) = _coriolis(j);
+    _buf(i,18) = _ocean_vel(j,0);
+    _buf(i,19) = _ocean_vel(j,1);
+    _buf(i,20) = _bvector(j,0);
+    _buf(i,21) = _bvector(j,1);
   }
 };
 
@@ -1808,6 +1844,7 @@ int AtomVecDemsiKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist, 
         buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
         iswap,h_x,h_tag,h_type,h_mask,
         h_radius,h_rmass,h_forcing,h_mean_thickness,h_min_thickness,
+	h_ridgingIceThickness,h_ridgingIceThicknessWeight,h_netToGrossClosingRatio,h_changeEffectiveElementArea,
         h_ice_area,h_coriolis,h_ocean_vel,h_bvector,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     } else {
@@ -1815,6 +1852,7 @@ int AtomVecDemsiKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist, 
         buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
         iswap,d_x,d_tag,d_type,d_mask,
         d_radius,d_rmass,d_forcing,d_mean_thickness,d_min_thickness,
+	d_ridgingIceThickness,d_ridgingIceThicknessWeight,d_netToGrossClosingRatio,d_changeEffectiveElementArea,
         d_ice_area,d_coriolis,d_ocean_vel,d_bvector,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     }
@@ -1825,6 +1863,7 @@ int AtomVecDemsiKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist, 
         buf.view<LMPHostType>(), k_sendlist.view<LMPHostType>(),
         iswap,h_x,h_tag,h_type,h_mask,
         h_radius,h_rmass,h_forcing,h_mean_thickness,h_min_thickness,
+	h_ridgingIceThickness,h_ridgingIceThicknessWeight,h_netToGrossClosingRatio,h_changeEffectiveElementArea,
         h_ice_area,h_coriolis,h_ocean_vel,h_bvector,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     } else {
@@ -1832,6 +1871,7 @@ int AtomVecDemsiKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist, 
         buf.view<LMPDeviceType>(), k_sendlist.view<LMPDeviceType>(),
         iswap,d_x,d_tag,d_type,d_mask,
         d_radius,d_rmass,d_forcing,d_mean_thickness,d_min_thickness,
+	d_ridgingIceThickness,d_ridgingIceThicknessWeight,d_netToGrossClosingRatio,d_changeEffectiveElementArea,
         d_ice_area,d_coriolis,d_ocean_vel,d_bvector,dx,dy,dz);
       Kokkos::parallel_for(n,f);
     }
@@ -1867,6 +1907,10 @@ int AtomVecDemsiKokkos::pack_border(int n, int *list, double *buf,
       buf[m++] = h_forcing(j,1);
       buf[m++] = h_mean_thickness(j);
       buf[m++] = h_min_thickness(j);
+      buf[m++] = h_ridgingIceThickness(j);
+      buf[m++] = h_ridgingIceThicknessWeight(j);
+      buf[m++] = h_netToGrossClosingRatio(j);
+      buf[m++] = h_changeEffectiveElementArea(j);
       buf[m++] = h_ice_area(j);
       buf[m++] = h_coriolis(j);
       buf[m++] = h_ocean_vel(j,0);
@@ -1898,6 +1942,10 @@ int AtomVecDemsiKokkos::pack_border(int n, int *list, double *buf,
       buf[m++] = h_forcing(j,1);
       buf[m++] = h_mean_thickness(j);
       buf[m++] = h_min_thickness(j);
+      buf[m++] = h_ridgingIceThickness(j);
+      buf[m++] = h_ridgingIceThicknessWeight(j);
+      buf[m++] = h_netToGrossClosingRatio(j);
+      buf[m++] = h_changeEffectiveElementArea(j);
       buf[m++] = h_ice_area(j);
       buf[m++] = h_coriolis(j);
       buf[m++] = h_ocean_vel(j,0);
@@ -1929,6 +1977,10 @@ struct AtomVecDemsiKokkos_PackBorderVel {
   const typename ArrayTypes<DeviceType>::t_int_1d _mask;
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ridgingIceThickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ridgingIceThicknessWeight;
+  typename ArrayTypes<DeviceType>::t_float_1d _netToGrossClosingRatio;
+  typename ArrayTypes<DeviceType>::t_float_1d _changeEffectiveElementArea;
   typename ArrayTypes<DeviceType>::t_float_2d _forcing;
   typename ArrayTypes<DeviceType>::t_float_1d _ice_area,_coriolis;
   typename ArrayTypes<DeviceType>::t_float_2d _ocean_vel,_bvector;
@@ -1949,6 +2001,10 @@ struct AtomVecDemsiKokkos_PackBorderVel {
     const typename ArrayTypes<DeviceType>::t_float_2d &forcing,
     const typename ArrayTypes<DeviceType>::t_float_1d &mean_thickness,
     const typename ArrayTypes<DeviceType>::t_float_1d &min_thickness,
+    const typename ArrayTypes<DeviceType>::t_float_1d &ridgingIceThickness,
+    const typename ArrayTypes<DeviceType>::t_float_1d &ridgingIceThicknessWeight,
+    const typename ArrayTypes<DeviceType>::t_float_1d &netToGrossClosingRatio,
+    const typename ArrayTypes<DeviceType>::t_float_1d &changeEffectiveElementArea,
     const typename ArrayTypes<DeviceType>::t_float_1d &ice_area,
     const typename ArrayTypes<DeviceType>::t_float_1d &coriolis,
     const typename ArrayTypes<DeviceType>::t_float_2d &ocean_vel,
@@ -1965,6 +2021,10 @@ struct AtomVecDemsiKokkos_PackBorderVel {
     _forcing(forcing),
     _mean_thickness(mean_thickness),
     _min_thickness(min_thickness),
+    _ridgingIceThickness(ridgingIceThickness),
+    _ridgingIceThicknessWeight(ridgingIceThicknessWeight),
+    _netToGrossClosingRatio(netToGrossClosingRatio),
+    _changeEffectiveElementArea(changeEffectiveElementArea),
     _ice_area(ice_area), 
     _coriolis(coriolis),
     _ocean_vel(ocean_vel), 
@@ -2000,27 +2060,31 @@ struct AtomVecDemsiKokkos_PackBorderVel {
     _buf(i,9) = _forcing(j,1);
     _buf(i,10) = _mean_thickness(j);
     _buf(i,11) = _min_thickness(j);
-    _buf(i,12) = _ice_area(j);
-    _buf(i,13) = _coriolis(j);
-    _buf(i,14) = _ocean_vel(j,0);
-    _buf(i,15) = _ocean_vel(j,1);
-    _buf(i,16) = _bvector(j,0);
-    _buf(i,17) = _bvector(j,1);
+    _buf(i,12) = _ridgingIceThickness(j);
+    _buf(i,13) = _ridgingIceThicknessWeight(j);
+    _buf(i,14) = _netToGrossClosingRatio(j);
+    _buf(i,15) = _changeEffectiveElementArea(j);
+    _buf(i,16) = _ice_area(j);
+    _buf(i,17) = _coriolis(j);
+    _buf(i,18) = _ocean_vel(j,0);
+    _buf(i,19) = _ocean_vel(j,1);
+    _buf(i,20) = _bvector(j,0);
+    _buf(i,21) = _bvector(j,1);
     if (DEFORM_VREMAP) {
       if (_mask(i) & _deform_groupbit) {
-        _buf(i,18) = _v(j,0) + _dvx;
-        _buf(i,19) = _v(j,1) + _dvy;
-        _buf(i,20) = _v(j,2) + _dvz;
+        _buf(i,22) = _v(j,0) + _dvx;
+        _buf(i,23) = _v(j,1) + _dvy;
+        _buf(i,24) = _v(j,2) + _dvz;
       }
     }
     else {
-      _buf(i,18) = _v(j,0);
-      _buf(i,19) = _v(j,1);
-      _buf(i,20) = _v(j,2);
+      _buf(i,22) = _v(j,0);
+      _buf(i,23) = _v(j,1);
+      _buf(i,24) = _v(j,2);
     }
-    _buf(i,21) = _omega(j,0);
-    _buf(i,22) = _omega(j,1);
-    _buf(i,23) = _omega(j,2);
+    _buf(i,25) = _omega(j,0);
+    _buf(i,26) = _omega(j,1);
+    _buf(i,27) = _omega(j,2);
   }
 };
 
@@ -2053,6 +2117,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
           h_radius,h_rmass,
           h_forcing,
           h_mean_thickness, h_min_thickness,
+	  h_ridgingIceThickness,
+	  h_ridgingIceThicknessWeight,
+	  h_netToGrossClosingRatio,
+	  h_changeEffectiveElementArea,
           h_ice_area, h_coriolis,
           h_ocean_vel, h_bvector,
           h_v, h_omega,
@@ -2066,6 +2134,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
           d_radius,d_rmass,
           d_forcing,
           d_mean_thickness, d_min_thickness,
+	  d_ridgingIceThickness,
+	  d_ridgingIceThicknessWeight,
+	  d_netToGrossClosingRatio,
+	  d_changeEffectiveElementArea,
           d_ice_area, d_coriolis,
           d_ocean_vel, d_bvector,
           d_v, d_omega,
@@ -2085,6 +2157,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
           h_radius,h_rmass,
           h_forcing,
           h_mean_thickness, h_min_thickness,
+	  h_ridgingIceThickness,
+	  h_ridgingIceThicknessWeight,
+	  h_netToGrossClosingRatio,
+	  h_changeEffectiveElementArea,
           h_ice_area, h_coriolis,
           h_ocean_vel, h_bvector,
           h_v, h_omega,
@@ -2098,6 +2174,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
           d_radius,d_rmass,
           d_forcing,
           d_mean_thickness, d_min_thickness,
+	  d_ridgingIceThickness,
+	  d_ridgingIceThicknessWeight,
+	  d_netToGrossClosingRatio,
+	  d_changeEffectiveElementArea,
           d_ice_area, d_coriolis,
           d_ocean_vel, d_bvector,
           d_v, d_omega,
@@ -2114,6 +2194,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
         h_radius,h_rmass,
         h_forcing,
         h_mean_thickness, h_min_thickness,
+	h_ridgingIceThickness,
+	h_ridgingIceThicknessWeight,
+	h_netToGrossClosingRatio,
+	h_changeEffectiveElementArea,
         h_ice_area, h_coriolis,
         h_ocean_vel, h_bvector,
         h_v, h_omega,
@@ -2127,6 +2211,10 @@ int AtomVecDemsiKokkos::pack_border_vel_kokkos(
         d_radius,d_rmass,
         d_forcing,
         d_mean_thickness, d_min_thickness,
+	d_ridgingIceThickness,
+	d_ridgingIceThicknessWeight,
+	d_netToGrossClosingRatio,
+	d_changeEffectiveElementArea,
         d_ice_area, d_coriolis,
         d_ocean_vel, d_bvector,
         d_v, d_omega,
@@ -2165,6 +2253,10 @@ int AtomVecDemsiKokkos::pack_border_vel(int n, int *list, double *buf,
       buf[m++] = h_forcing(j,1);
       buf[m++] = h_mean_thickness(j);
       buf[m++] = h_min_thickness(j);
+      buf[m++] = h_ridgingIceThickness(j);
+      buf[m++] = h_ridgingIceThicknessWeight(j);
+      buf[m++] = h_netToGrossClosingRatio(j);
+      buf[m++] = h_changeEffectiveElementArea(j);
       buf[m++] = h_ice_area(j);
       buf[m++] = h_coriolis(j);
       buf[m++] = h_ocean_vel(j,0);
@@ -2203,6 +2295,10 @@ int AtomVecDemsiKokkos::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = h_forcing(j,1);
         buf[m++] = h_mean_thickness(j);
         buf[m++] = h_min_thickness(j);
+	buf[m++] = h_ridgingIceThickness(j);
+	buf[m++] = h_ridgingIceThicknessWeight(j);
+	buf[m++] = h_netToGrossClosingRatio(j);
+	buf[m++] = h_changeEffectiveElementArea(j);
         buf[m++] = h_ice_area(j);
         buf[m++] = h_coriolis(j);
         buf[m++] = h_ocean_vel(j,0);
@@ -2234,6 +2330,10 @@ int AtomVecDemsiKokkos::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = h_forcing(j,1);
         buf[m++] = h_mean_thickness(j);
         buf[m++] = h_min_thickness(j);
+	buf[m++] = h_ridgingIceThickness(j);
+	buf[m++] = h_ridgingIceThicknessWeight(j);
+	buf[m++] = h_netToGrossClosingRatio(j);
+	buf[m++] = h_changeEffectiveElementArea(j);
         buf[m++] = h_ice_area(j);
         buf[m++] = h_coriolis(j);
         buf[m++] = h_ocean_vel(j,0);
@@ -2292,6 +2392,10 @@ struct AtomVecDemsiKokkos_UnpackBorder {
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   typename ArrayTypes<DeviceType>::t_float_2d _forcing;
   typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ridgingIceThickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ridgingIceThicknessWeight;
+  typename ArrayTypes<DeviceType>::t_float_1d _netToGrossClosingRatio;
+  typename ArrayTypes<DeviceType>::t_float_1d _changeEffectiveElementArea;
   typename ArrayTypes<DeviceType>::t_float_1d _ice_area,_coriolis;
   typename ArrayTypes<DeviceType>::t_float_2d _ocean_vel,_bvector;
   int _first;
@@ -2307,6 +2411,10 @@ struct AtomVecDemsiKokkos_UnpackBorder {
     typename ArrayTypes<DeviceType>::t_float_2d &forcing,
     typename ArrayTypes<DeviceType>::t_float_1d &mean_thickness,
     typename ArrayTypes<DeviceType>::t_float_1d &min_thickness,
+    typename ArrayTypes<DeviceType>::t_float_1d &ridgingIceThickness,
+    typename ArrayTypes<DeviceType>::t_float_1d &ridgingIceThicknessWeight,
+    typename ArrayTypes<DeviceType>::t_float_1d &netToGrossClosingRatio,
+    typename ArrayTypes<DeviceType>::t_float_1d &changeEffectiveElementArea,
     typename ArrayTypes<DeviceType>::t_float_1d &ice_area,
     typename ArrayTypes<DeviceType>::t_float_1d &coriolis,
     typename ArrayTypes<DeviceType>::t_float_2d &ocean_vel,
@@ -2316,6 +2424,10 @@ struct AtomVecDemsiKokkos_UnpackBorder {
     _radius(radius),
     _rmass(rmass),_forcing(forcing),
     _mean_thickness(mean_thickness),_min_thickness(min_thickness),
+    _ridgingIceThickness(ridgingIceThickness),
+    _ridgingIceThicknessWeight(ridgingIceThicknessWeight),
+    _netToGrossClosingRatio(netToGrossClosingRatio),
+    _changeEffectiveElementArea(changeEffectiveElementArea),
     _ice_area(ice_area),_coriolis(coriolis),
     _ocean_vel(ocean_vel),_bvector(bvector),
     _first(first) {};
@@ -2334,12 +2446,16 @@ struct AtomVecDemsiKokkos_UnpackBorder {
     _forcing(i+_first,1) = _buf(i,9);
     _mean_thickness(i+_first) = _buf(i,10);
     _min_thickness(i+_first) = _buf(i,11);
-    _ice_area(i+_first) = _buf(i,12);
-    _coriolis(i+_first) = _buf(i,13);
-    _ocean_vel(i+_first,0) = _buf(i,14);
-    _ocean_vel(i+_first,1) = _buf(i,15);
-    _bvector(i+_first,0) = _buf(i,16);
-    _bvector(i+_first,1) = _buf(i,17);
+    _ridgingIceThickness(i+_first) = _buf(i,12);
+    _ridgingIceThicknessWeight(i+_first) = _buf(i,13);
+    _netToGrossClosingRatio(i+_first) = _buf(i,14);
+    _changeEffectiveElementArea(i+_first) = _buf(i,15);
+    _ice_area(i+_first) = _buf(i,16);
+    _coriolis(i+_first) = _buf(i,17);
+    _ocean_vel(i+_first,0) = _buf(i,18);
+    _ocean_vel(i+_first,1) = _buf(i,19);
+    _bvector(i+_first,0) = _buf(i,20);
+    _bvector(i+_first,1) = _buf(i,21);
   }
 };
 
@@ -2354,12 +2470,14 @@ void AtomVecDemsiKokkos::unpack_border_kokkos(const int &n, const int &first,
     struct AtomVecDemsiKokkos_UnpackBorder<LMPHostType> f(buf.view<LMPHostType>(),
       h_x,h_tag,h_type,h_mask,
       h_radius,h_rmass,h_forcing,h_mean_thickness,h_min_thickness,
+      h_ridgingIceThickness,h_ridgingIceThicknessWeight,h_netToGrossClosingRatio,h_changeEffectiveElementArea,						  
       h_ice_area,h_coriolis,h_ocean_vel,h_bvector,first);
     Kokkos::parallel_for(n,f);
   } else {
     struct AtomVecDemsiKokkos_UnpackBorder<LMPDeviceType> f(buf.view<LMPDeviceType>(),
       d_x,d_tag,d_type,d_mask,
       d_radius,d_rmass,d_forcing,d_mean_thickness,d_min_thickness,
+      d_ridgingIceThickness,d_ridgingIceThicknessWeight,d_netToGrossClosingRatio,d_changeEffectiveElementArea,						   
       d_ice_area,d_coriolis,d_ocean_vel,d_bvector,first);
     Kokkos::parallel_for(n,f);
   }
@@ -2389,6 +2507,10 @@ void AtomVecDemsiKokkos::unpack_border(int n, int first, double *buf)
     h_forcing(i,1) = buf[m++];
     h_mean_thickness(i) = buf[m++];
     h_min_thickness(i) = buf[m++];
+    h_ridgingIceThickness(i) = buf[m++];
+    h_ridgingIceThicknessWeight(i) = buf[m++];
+    h_netToGrossClosingRatio(i) = buf[m++];
+    h_changeEffectiveElementArea(i) = buf[m++];
     h_ice_area(i) = buf[m++];
     h_coriolis(i) = buf[m++];
     h_ocean_vel(i,0) = buf[m++];
@@ -2420,6 +2542,10 @@ struct AtomVecDemsiKokkos_UnpackBorderVel {
   typename ArrayTypes<DeviceType>::t_float_1d _radius,_rmass;
   typename ArrayTypes<DeviceType>::t_float_2d _forcing;
   typename ArrayTypes<DeviceType>::t_float_1d _mean_thickness,_min_thickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ridgingIceThickness;
+  typename ArrayTypes<DeviceType>::t_float_1d _ridgingIceThicknessWeight;
+  typename ArrayTypes<DeviceType>::t_float_1d _netToGrossClosingRatio;
+  typename ArrayTypes<DeviceType>::t_float_1d _changeEffectiveElementArea;
   typename ArrayTypes<DeviceType>::t_float_1d _ice_area,_coriolis;
   typename ArrayTypes<DeviceType>::t_float_2d _ocean_vel,_bvector;
   typename ArrayTypes<DeviceType>::t_v_array _v;
@@ -2437,6 +2563,10 @@ struct AtomVecDemsiKokkos_UnpackBorderVel {
     const typename ArrayTypes<DeviceType>::t_float_2d &forcing,
     const typename ArrayTypes<DeviceType>::t_float_1d &mean_thickness,
     const typename ArrayTypes<DeviceType>::t_float_1d &min_thickness,
+    const typename ArrayTypes<DeviceType>::t_float_1d &ridgingIceThickness,
+    const typename ArrayTypes<DeviceType>::t_float_1d &ridgingIceThicknessWeight,
+    const typename ArrayTypes<DeviceType>::t_float_1d &netToGrossClosingRatio,
+    const typename ArrayTypes<DeviceType>::t_float_1d &changeEffectiveElementArea,
     const typename ArrayTypes<DeviceType>::t_float_1d &ice_area,
     const typename ArrayTypes<DeviceType>::t_float_1d &coriolis,
     const typename ArrayTypes<DeviceType>::t_float_2d &ocean_vel,
@@ -2450,6 +2580,10 @@ struct AtomVecDemsiKokkos_UnpackBorderVel {
     _forcing(forcing),
     _mean_thickness(mean_thickness),
     _min_thickness(min_thickness),
+    _ridgingIceThickness(ridgingIceThickness),
+    _ridgingIceThicknessWeight(ridgingIceThicknessWeight),
+    _netToGrossClosingRatio(netToGrossClosingRatio),
+    _changeEffectiveElementArea(changeEffectiveElementArea),
     _ice_area(ice_area),
     _coriolis(coriolis),
     _ocean_vel(ocean_vel),
@@ -2476,18 +2610,22 @@ struct AtomVecDemsiKokkos_UnpackBorderVel {
     _forcing(i+_first,1) = _buf(i,9);
     _mean_thickness(i+_first) = _buf(i,10);
     _min_thickness(i+_first) = _buf(i,11);
-    _ice_area(i+_first) = _buf(i,12);
-    _coriolis(i+_first) = _buf(i,13);
-    _ocean_vel(i+_first,0) = _buf(i,14);
-    _ocean_vel(i+_first,1) = _buf(i,15);
-    _bvector(i+_first,0) = _buf(i,16);
-    _bvector(i+_first,1) = _buf(i,17);
-    _v(i+_first,0) = _buf(i,18);
-    _v(i+_first,1) = _buf(i,19);
-    _v(i+_first,2) = _buf(i,20);
-    _omega(i+_first,0) = _buf(i,21);
-    _omega(i+_first,1) = _buf(i,22);
-    _omega(i+_first,2) = _buf(i,23);
+    _ridgingIceThickness(i+_first) = _buf(i,12);
+    _ridgingIceThicknessWeight(i+_first) = _buf(i,13);
+    _netToGrossClosingRatio(i+_first) = _buf(i,14);
+    _changeEffectiveElementArea(i+_first) = _buf(i,15);
+    _ice_area(i+_first) = _buf(i,16);
+    _coriolis(i+_first) = _buf(i,17);
+    _ocean_vel(i+_first,0) = _buf(i,18);
+    _ocean_vel(i+_first,1) = _buf(i,19);
+    _bvector(i+_first,0) = _buf(i,20);
+    _bvector(i+_first,1) = _buf(i,21);
+    _v(i+_first,0) = _buf(i,22);
+    _v(i+_first,1) = _buf(i,23);
+    _v(i+_first,2) = _buf(i,24);
+    _omega(i+_first,0) = _buf(i,25);
+    _omega(i+_first,1) = _buf(i,26);
+    _omega(i+_first,2) = _buf(i,27);
   }
 };
 
@@ -2503,6 +2641,7 @@ void AtomVecDemsiKokkos::unpack_border_vel_kokkos(
       h_radius,h_rmass,
       h_forcing,
       h_mean_thickness,h_min_thickness,
+      h_ridgingIceThickness,h_ridgingIceThicknessWeight,h_netToGrossClosingRatio,h_changeEffectiveElementArea,
       h_ice_area,h_coriolis,
       h_ocean_vel,h_bvector,
       h_v, h_omega,
@@ -2514,6 +2653,7 @@ void AtomVecDemsiKokkos::unpack_border_vel_kokkos(
       d_radius,d_rmass,
       d_forcing,
       d_mean_thickness,d_min_thickness,
+      d_ridgingIceThickness,d_ridgingIceThicknessWeight,d_netToGrossClosingRatio,d_changeEffectiveElementArea,
       d_ice_area,d_coriolis,
       d_ocean_vel,d_bvector,
       d_v, d_omega,
@@ -2546,6 +2686,10 @@ void AtomVecDemsiKokkos::unpack_border_vel(int n, int first, double *buf)
     h_forcing(i,1) = buf[m++];
     h_mean_thickness(i) = buf[m++];
     h_min_thickness(i) = buf[m++];
+    h_ridgingIceThickness(i) = buf[m++];
+    h_ridgingIceThicknessWeight(i) = buf[m++];
+    h_netToGrossClosingRatio(i) = buf[m++];
+    h_changeEffectiveElementArea(i) = buf[m++];
     h_ice_area(i) = buf[m++];
     h_coriolis(i) = buf[m++];
     h_ocean_vel(i,0) = buf[m++];
@@ -2602,6 +2746,10 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
   typename AT::t_v_array_randomread _omega;
   typename AT::t_float_2d_randomread _forcing;
   typename AT::t_float_1d_randomread _mean_thickness,_min_thickness;
+  typename AT::t_float_1d_randomread _ridgingIceThickness;
+  typename AT::t_float_1d_randomread _ridgingIceThicknessWeight;
+  typename AT::t_float_1d_randomread _netToGrossClosingRatio;
+  typename AT::t_float_1d_randomread _changeEffectiveElementArea;
   typename AT::t_float_1d_randomread _ice_area,_coriolis;
   typename AT::t_float_2d_randomread _ocean_vel,_bvector;
   typename AT::t_int_1d_randomread _num_bond;
@@ -2619,6 +2767,10 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
   typename AT::t_v_array _omegaw;
   typename AT::t_float_2d _forcingw;
   typename AT::t_float_1d _mean_thicknessw,_min_thicknessw;
+  typename AT::t_float_1d _ridgingIceThicknessw;
+  typename AT::t_float_1d _ridgingIceThicknessWeightw;
+  typename AT::t_float_1d _netToGrossClosingRatiow;
+  typename AT::t_float_1d _changeEffectiveElementAreaw;
   typename AT::t_float_1d _ice_areaw,_coriolisw;
   typename AT::t_float_2d _ocean_velw,_bvectorw;
   typename AT::t_int_1d _num_bondw;
@@ -2650,6 +2802,10 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
     _forcing(atom->k_forcing.view<DeviceType>()),
     _mean_thickness(atom->k_mean_thickness.view<DeviceType>()),
     _min_thickness(atom->k_min_thickness.view<DeviceType>()),
+    _ridgingIceThickness(atom->k_ridgingIceThickness.view<DeviceType>()),
+    _ridgingIceThicknessWeight(atom->k_ridgingIceThicknessWeight.view<DeviceType>()),
+    _netToGrossClosingRatio(atom->k_netToGrossClosingRatio.view<DeviceType>()),
+    _changeEffectiveElementArea(atom->k_changeEffectiveElementArea.view<DeviceType>()),
     _ice_area(atom->k_ice_area.view<DeviceType>()),
     _coriolis(atom->k_coriolis.view<DeviceType>()),
     _ocean_vel(atom->k_ocean_vel.view<DeviceType>()),
@@ -2671,6 +2827,10 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
     _forcingw(atom->k_forcing.view<DeviceType>()),
     _mean_thicknessw(atom->k_mean_thickness.view<DeviceType>()),
     _min_thicknessw(atom->k_min_thickness.view<DeviceType>()),
+    _ridgingIceThicknessw(atom->k_ridgingIceThickness.view<DeviceType>()),
+    _ridgingIceThicknessWeightw(atom->k_ridgingIceThicknessWeight.view<DeviceType>()),
+    _netToGrossClosingRatiow(atom->k_netToGrossClosingRatio.view<DeviceType>()),
+    _changeEffectiveElementAreaw(atom->k_changeEffectiveElementArea.view<DeviceType>()),
     _ice_areaw(atom->k_ice_area.view<DeviceType>()),
     _coriolisw(atom->k_coriolis.view<DeviceType>()),
     _ocean_velw(atom->k_ocean_vel.view<DeviceType>()),
@@ -2713,6 +2873,10 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
     _buf(mysend,m++) = _forcing(i,1);
     _buf(mysend,m++) = _mean_thickness(i);
     _buf(mysend,m++) = _min_thickness(i);
+    _buf(mysend,m++) = _ridgingIceThickness(i);
+    _buf(mysend,m++) = _ridgingIceThicknessWeight(i);
+    _buf(mysend,m++) = _netToGrossClosingRatio(i);
+    _buf(mysend,m++) = _changeEffectiveElementArea(i);
     _buf(mysend,m++) = _ice_area(i);
     _buf(mysend,m++) = _coriolis(i);
     _buf(mysend,m++) = _ocean_vel(i,0);
@@ -2752,6 +2916,10 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
       _forcingw(i,1) = _forcing(j,1);
       _mean_thicknessw(i) = _mean_thickness(j);
       _min_thicknessw(i) = _min_thickness(j);
+      _ridgingIceThicknessw(i) = _ridgingIceThickness(j);
+      _ridgingIceThicknessWeightw(i) = _ridgingIceThicknessWeight(j);
+      _netToGrossClosingRatiow(i) = _netToGrossClosingRatio(j);
+      _changeEffectiveElementAreaw(i) = _changeEffectiveElementArea(j);
       _ice_areaw(i) = _ice_area(j);
       _coriolisw(i) = _coriolis(j);
       _ocean_velw(i,0) = _ocean_vel(j,0);
@@ -2838,6 +3006,10 @@ int AtomVecDemsiKokkos::pack_exchange(int i, double *buf)
   buf[m++] = h_forcing(i,1);
   buf[m++] = h_mean_thickness(i);
   buf[m++] = h_min_thickness(i);
+  buf[m++] = h_ridgingIceThickness(i);
+  buf[m++] = h_ridgingIceThicknessWeight(i);
+  buf[m++] = h_netToGrossClosingRatio(i);
+  buf[m++] = h_changeEffectiveElementArea(i);
   buf[m++] = h_ice_area(i);
   buf[m++] = h_coriolis(i);
   buf[m++] = h_ocean_vel(i,0);
@@ -2883,6 +3055,10 @@ struct AtomVecDemsiKokkos_UnpackExchangeFunctor {
   typename AT::t_float_2d _forcing;
   typename AT::t_float_1d _mean_thickness;
   typename AT::t_float_1d _min_thickness;
+  typename AT::t_float_1d _ridgingIceThickness;
+  typename AT::t_float_1d _ridgingIceThicknessWeight;
+  typename AT::t_float_1d _netToGrossClosingRatio;
+  typename AT::t_float_1d _changeEffectiveElementArea;
   typename AT::t_float_1d _ice_area;
   typename AT::t_float_1d _coriolis;
   typename AT::t_float_2d _ocean_vel;
@@ -2916,6 +3092,10 @@ struct AtomVecDemsiKokkos_UnpackExchangeFunctor {
     _forcing(atom->k_forcing.view<DeviceType>()),
     _mean_thickness(atom->k_mean_thickness.view<DeviceType>()),
     _min_thickness(atom->k_min_thickness.view<DeviceType>()),
+    _ridgingIceThickness(atom->k_ridgingIceThickness.view<DeviceType>()),
+    _ridgingIceThicknessWeight(atom->k_ridgingIceThicknessWeight.view<DeviceType>()),
+    _netToGrossClosingRatio(atom->k_netToGrossClosingRatio.view<DeviceType>()),
+    _changeEffectiveElementArea(atom->k_changeEffectiveElementArea.view<DeviceType>()),
     _ice_area(atom->k_ice_area.view<DeviceType>()),
     _coriolis(atom->k_coriolis.view<DeviceType>()),
     _ocean_vel(atom->k_ocean_vel.view<DeviceType>()),
@@ -2958,6 +3138,10 @@ struct AtomVecDemsiKokkos_UnpackExchangeFunctor {
       _forcing(i,1) = _buf(myrecv,m++);
       _mean_thickness(i) = _buf(myrecv,m++);
       _min_thickness(i) = _buf(myrecv,m++);
+      _ridgingIceThickness(i) = _buf(myrecv,m++);
+      _ridgingIceThicknessWeight(i) = _buf(myrecv,m++);
+      _netToGrossClosingRatio(i) = _buf(myrecv,m++);
+      _changeEffectiveElementArea(i) = _buf(myrecv,m++);
       _ice_area(i) = _buf(myrecv,m++);
       _coriolis(i) = _buf(myrecv,m++);
       _ocean_vel(i,0) = _buf(myrecv,m++);
@@ -3042,6 +3226,10 @@ int AtomVecDemsiKokkos::unpack_exchange(double *buf)
   h_forcing(nlocal,1) = buf[m++];
   h_mean_thickness(nlocal) = buf[m++];
   h_min_thickness(nlocal) = buf[m++];
+  h_ridgingIceThickness(nlocal) = buf[m++];
+  h_ridgingIceThicknessWeight(nlocal) = buf[m++];
+  h_netToGrossClosingRatio(nlocal) = buf[m++];
+  h_changeEffectiveElementArea(nlocal) = buf[m++];
   h_ice_area(nlocal) = buf[m++];
   h_coriolis(nlocal) = buf[m++];
   h_ocean_vel(nlocal,0) = buf[m++];
@@ -3132,6 +3320,10 @@ int AtomVecDemsiKokkos::pack_restart(int i, double *buf)
   buf[m++] = h_forcing(i,1);
   buf[m++] = h_mean_thickness(i);
   buf[m++] = h_min_thickness(i);
+  buf[m++] = h_ridgingIceThickness(i);
+  buf[m++] = h_ridgingIceThicknessWeight(i);
+  buf[m++] = h_netToGrossClosingRatio(i);
+  buf[m++] = h_changeEffectiveElementArea(i);
   buf[m++] = h_ice_area(i);
   buf[m++] = h_coriolis(i);
   buf[m++] = h_ocean_vel(i,0);
@@ -3194,6 +3386,10 @@ int AtomVecDemsiKokkos::unpack_restart(double *buf)
   h_forcing(nlocal,1) = buf[m++];
   h_mean_thickness(nlocal) = buf[m++];
   h_min_thickness(nlocal) = buf[m++];
+  h_ridgingIceThickness(nlocal) = buf[m++];
+  h_ridgingIceThicknessWeight(nlocal) = buf[m++];
+  h_netToGrossClosingRatio(nlocal) = buf[m++];
+  h_changeEffectiveElementArea(nlocal) = buf[m++];
   h_ice_area(nlocal) = buf[m++];
   h_coriolis(nlocal) = buf[m++];
   h_ocean_vel(nlocal,0) = buf[m++];
@@ -3255,6 +3451,10 @@ void AtomVecDemsiKokkos::create_atom(int itype, double *coord)
   h_forcing(nlocal,1) = 0.0;
   h_mean_thickness(nlocal) = 0.0;
   h_min_thickness(nlocal) = 0.0;
+  h_ridgingIceThickness(nlocal) = 0.0;
+  h_ridgingIceThicknessWeight(nlocal) = 0.0;
+  h_netToGrossClosingRatio(nlocal) = 0.0;
+  h_changeEffectiveElementArea(nlocal) = 0.0;
   h_ice_area(nlocal) = 0.0;
   h_coriolis(nlocal) = 0.0;
   h_ocean_vel(nlocal,0) = 0.0;
@@ -3314,6 +3514,10 @@ void AtomVecDemsiKokkos::data_atom(double *coord, imageint imagetmp, char **valu
   h_forcing(nlocal,1) = 0.0;
   h_mean_thickness(nlocal) = 0.0;
   h_min_thickness(nlocal) = 0.0;
+  h_ridgingIceThickness(nlocal) = 0.0;
+  h_ridgingIceThicknessWeight(nlocal) = 0.0;
+  h_netToGrossClosingRatio(nlocal) = 0.0;
+  h_changeEffectiveElementArea(nlocal) = 0.0;
 
   h_num_bond(nlocal) = 0.0;
 
@@ -3521,6 +3725,10 @@ bigint AtomVecDemsiKokkos::memory_usage()
   if (atom->memcheck("forcing")) bytes += memory->usage(forcing,nmax,2);
   if (atom->memcheck("mean_thickness")) bytes += memory->usage(mean_thickness,nmax);
   if (atom->memcheck("min_thickness")) bytes += memory->usage(min_thickness,nmax);
+  if (atom->memcheck("ridgingIceThickness")) bytes += memory->usage(ridgingIceThickness,nmax);
+  if (atom->memcheck("ridgingIceThicknessWeight")) bytes += memory->usage(ridgingIceThicknessWeight,nmax);
+  if (atom->memcheck("netToGrossClosingRatio")) bytes += memory->usage(netToGrossClosingRatio,nmax);
+  if (atom->memcheck("changeEffectiveElementArea")) bytes += memory->usage(changeEffectiveElementArea,nmax);
   if (atom->memcheck("ice_area")) bytes += memory->usage(ice_area,nmax);
   if (atom->memcheck("coriolis")) bytes += memory->usage(coriolis,nmax);
   if (atom->memcheck("ocean_vel")) bytes += memory->usage(ocean_vel,nmax,2);
@@ -3558,6 +3766,10 @@ void AtomVecDemsiKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.sync<LMPDeviceType>();
         atomKK->k_min_thickness.sync<LMPDeviceType>();
+	atomKK->k_ridgingIceThickness.sync<LMPDeviceType>();
+	atomKK->k_ridgingIceThicknessWeight.sync<LMPDeviceType>();
+	atomKK->k_netToGrossClosingRatio.sync<LMPDeviceType>();
+	atomKK->k_changeEffectiveElementArea.sync<LMPDeviceType>();
         atomKK->k_ice_area.sync<LMPDeviceType>();
         atomKK->k_coriolis.sync<LMPDeviceType>();
         atomKK->k_ocean_vel.sync<LMPDeviceType>();
@@ -3587,6 +3799,10 @@ void AtomVecDemsiKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.sync<LMPHostType>();
         atomKK->k_min_thickness.sync<LMPHostType>();
+	atomKK->k_ridgingIceThickness.sync<LMPHostType>();
+	atomKK->k_ridgingIceThicknessWeight.sync<LMPHostType>();
+	atomKK->k_netToGrossClosingRatio.sync<LMPHostType>();
+	atomKK->k_changeEffectiveElementArea.sync<LMPHostType>();
         atomKK->k_ice_area.sync<LMPHostType>();
         atomKK->k_coriolis.sync<LMPHostType>();
         atomKK->k_ocean_vel.sync<LMPHostType>();
@@ -3638,6 +3854,14 @@ void AtomVecDemsiKokkos::sync_overlapping_device(ExecutionSpace space, unsigned 
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_mean_thickness,space);
         if (atomKK->k_min_thickness.need_sync<LMPDeviceType>())
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_min_thickness,space);
+	if (atomKK->k_ridgingIceThickness.need_sync<LMPDeviceType>())
+	   perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ridgingIceThickness,space);
+	if (atomKK->k_ridgingIceThicknessWeight.need_sync<LMPDeviceType>())
+	   perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ridgingIceThicknessWeight,space);
+	if (atomKK->k_netToGrossClosingRatio.need_sync<LMPDeviceType>())
+	   perform_async_copy<DAT::tdual_float_1d>(atomKK->k_netToGrossClosingRatio,space);
+	if (atomKK->k_changeEffectiveElementArea.need_sync<LMPDeviceType>())
+	   perform_async_copy<DAT::tdual_float_1d>(atomKK->k_changeEffectiveElementArea,space);
         if (atomKK->k_ice_area.need_sync<LMPDeviceType>())
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ice_area,space);
         if (atomKK->k_coriolis.need_sync<LMPDeviceType>())
@@ -3691,6 +3915,14 @@ void AtomVecDemsiKokkos::sync_overlapping_device(ExecutionSpace space, unsigned 
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_mean_thickness,space);
         if (atomKK->k_min_thickness.need_sync<LMPHostType>())
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_min_thickness,space);
+	if (atomKK->k_ridgingIceThickness.need_sync<LMPHostType>())
+	   perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ridgingIceThickness,space);
+	if (atomKK->k_ridgingIceThicknessWeight.need_sync<LMPHostType>())
+	   perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ridgingIceThicknessWeight,space);
+	if (atomKK->k_netToGrossClosingRatio.need_sync<LMPHostType>())
+	   perform_async_copy<DAT::tdual_float_1d>(atomKK->k_netToGrossClosingRatio,space);
+	if (atomKK->k_changeEffectiveElementArea.need_sync<LMPHostType>())
+	   perform_async_copy<DAT::tdual_float_1d>(atomKK->k_changeEffectiveElementArea,space);
         if (atomKK->k_ice_area.need_sync<LMPHostType>())
            perform_async_copy<DAT::tdual_float_1d>(atomKK->k_ice_area,space);
         if (atomKK->k_coriolis.need_sync<LMPHostType>())
@@ -3737,7 +3969,11 @@ void AtomVecDemsiKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.modify<LMPDeviceType>();
         atomKK->k_min_thickness.modify<LMPDeviceType>();
-        atomKK->k_ice_area.modify<LMPDeviceType>();
+	atomKK->k_ridgingIceThickness.modify<LMPDeviceType>();
+	atomKK->k_ridgingIceThicknessWeight.modify<LMPDeviceType>();
+	atomKK->k_netToGrossClosingRatio.modify<LMPDeviceType>();
+	atomKK->k_changeEffectiveElementArea.modify<LMPDeviceType>();
+	atomKK->k_ice_area.modify<LMPDeviceType>();
         atomKK->k_coriolis.modify<LMPDeviceType>();
         atomKK->k_ocean_vel.modify<LMPDeviceType>();
         atomKK->k_bvector.modify<LMPDeviceType>();
@@ -3767,6 +4003,10 @@ void AtomVecDemsiKokkos::modified(ExecutionSpace space, unsigned int mask)
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.modify<LMPHostType>();
         atomKK->k_min_thickness.modify<LMPHostType>();
+	atomKK->k_ridgingIceThickness.modify<LMPHostType>();
+	atomKK->k_ridgingIceThicknessWeight.modify<LMPHostType>();
+	atomKK->k_netToGrossClosingRatio.modify<LMPHostType>();
+	atomKK->k_changeEffectiveElementArea.modify<LMPHostType>();
         atomKK->k_ice_area.modify<LMPHostType>();
         atomKK->k_coriolis.modify<LMPHostType>();
         atomKK->k_ocean_vel.modify<LMPHostType>();

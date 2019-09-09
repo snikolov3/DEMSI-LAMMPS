@@ -115,6 +115,10 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   forcing = NULL;
   mean_thickness = NULL;
   min_thickness = NULL;
+  ridgingIceThickness = NULL;
+  ridgingIceThicknessWeight = NULL;
+  netToGrossClosingRatio = NULL;
+  changeEffectiveElementArea = NULL;
   ice_area = NULL;
   coriolis = NULL;
   ocean_vel = NULL;

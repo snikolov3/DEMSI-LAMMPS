@@ -82,6 +82,10 @@ void ComputeDEMSIAtom::compute_peratom()
 	  demsi_info[i][1] = atom->forcing[i][1];
 	  demsi_info[i][2] = atom->mean_thickness[i];
 	  demsi_info[i][3] = atom->min_thickness[i];
+	  demsi_info[i][4] = atom->ridgingIceThickness[i];
+	  demsi_info[i][5] = atom->ridgingIceThicknessWeight[i];
+	  demsi_info[i][6] = atom->netToGrossClosingRatio[i];
+	  demsi_info[i][7] = atom->changeEffectiveElementArea[i];
       }
   }
 }

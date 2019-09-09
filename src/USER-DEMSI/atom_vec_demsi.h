@@ -78,6 +78,10 @@ class AtomVecDemsi : public AtomVec {
 double ** forcing;
 double * mean_thickness;
 double * min_thickness;
+double * ridgingIceThickness;
+double * ridgingIceThicknessWeight;
+double * netToGrossClosingRatio;
+double * changeEffectiveElementArea;
 double * ice_area;
 double * coriolis;
 double ** ocean_vel;
