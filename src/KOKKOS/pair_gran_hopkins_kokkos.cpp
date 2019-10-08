@@ -655,7 +655,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
      radmin = MIN(radius[i],radius[j]); 
 
      //L = 2*radmin*(1+(abs(radius[i] - radius[j])/r));
-     L = (2.0 * radius[i] * radius[j]) / (radius[i] + radius[j])
+     L = (2.0 * radius[i] * radius[j]) / (radius[i] + radius[j]);
 
      // relative translational velocity
      V_FLOAT vrx = v(i,0) - v(j,0);
@@ -690,6 +690,10 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
 
      double contactForce;
 
+     double previousForce = d_firsthistory(i,size_history*jj+7);
+     double ridgeSlip     = d_firsthistory(i,size_history*jj+10);
+     double ridgeSlipUsed = d_firsthistory(i,size_history*jj+11);
+
      hopkins_ridging_model(delta,
 			   delta_dot,
 			   update_dt,
@@ -714,7 +718,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
 			   &ridgeSlip,
 			   &ridgeSlipUsed,
 			   &previousForce,
-			   &contactForce)
+			   &contactForce);
 
      // Compute plastic normal force
      /*hprime = d_firsthistory(i,size_history*jj+4);
@@ -761,6 +765,10 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
         }
         d_firsthistory(i,size_history*jj+2) += vtx*update_dt;
         d_firsthistory(i,size_history*jj+3) += vty*update_dt;
+
+	d_firsthistory(i,size_history*jj+7)  = previousForce;
+	d_firsthistory(i,size_history*jj+10) = ridgeSlip;
+	d_firsthistory(i,size_history*jj+11) = ridgeSlipUsed;
      }
 
      var1 = d_firsthistory(i,size_history*jj+2);
