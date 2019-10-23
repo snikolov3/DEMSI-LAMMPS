@@ -361,112 +361,118 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
 
 //-----------------------------------------------------------------------------
 
-void elastic_stiffness(const double elasticModulus,
-		       const double meanIceThickness1,
-		       const double meanIceThickness2,
-		       double *elasticStiffness,
-		       const double r1,
-		       const double r2) {
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairGranHopkinsKokkos<DeviceType>::elastic_stiffness(F_FLOAT meanIceThickness1,
+							  F_FLOAT meanIceThickness2,
+							  F_FLOAT radius1,
+							  F_FLOAT radius2,
+							  F_FLOAT &elasticStiffness) const {
 
-  double stiffness1 = (elasticModulus * meanIceThickness1) / (2.0 * r1);
-  double stiffness2 = (elasticModulus * meanIceThickness2) / (2.0 * r2);
-  *elasticStiffness = 1.0 / ((1.0 / stiffness1) + (1.0 / stiffness2));
+  F_FLOAT stiffness1 = (Emod * meanIceThickness1) / (2.0 * radius1);
+  F_FLOAT stiffness2 = (Emod * meanIceThickness2) / (2.0 * radius2);
+  elasticStiffness = 1.0 / ((1.0 / stiffness1) + (1.0 / stiffness2));
 
 }
 
 //-----------------------------------------------------------------------------
 
-void plastic_parameters(const double particleRadius,
-			const double plasticFrictionCoefficient,
-			const double plasticHardeningCoefficient,
-			const double ridgingIceThickness1,
-			const double ridgingIceThickness2,
-			const double ridgingIceThicknessWeight1,
-			const double ridgingIceThicknessWeight2,
-			double *plasticFriction,
-			double *plasticHardeningStiffness,
-			const double r1,
-			const double r2) {
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairGranHopkinsKokkos<DeviceType>::plastic_parameters(F_FLOAT particleRadius,
+							   F_FLOAT plasticFrictionCoefficient,
+							   F_FLOAT plasticHardeningCoefficient,
+							   F_FLOAT ridgingIceThickness1,
+							   F_FLOAT ridgingIceThickness2,
+							   F_FLOAT ridgingIceThicknessWeight1,
+							   F_FLOAT ridgingIceThicknessWeight2,
+							   F_FLOAT radius1,
+							   F_FLOAT radius2,
+							   F_FLOAT &plasticFriction,
+							   F_FLOAT &plasticHardeningStiffness) const {
 
-  double ridgingThickness =
+  F_FLOAT ridgingThickness =
     (ridgingIceThickness1       + ridgingIceThickness2      ) /
     (ridgingIceThicknessWeight1 + ridgingIceThicknessWeight2);
 
-  double resolutionScaling = 10000.0 / (2.0*particleRadius);
+  F_FLOAT resolutionScaling = 10000.0 / (2.0*particleRadius);
 
-  *plasticFriction           = plasticFrictionCoefficient  * ridgingThickness;
-  *plasticHardeningStiffness = plasticHardeningCoefficient * ridgingThickness*ridgingThickness * resolutionScaling;
+  plasticFriction           = plasticFrictionCoefficient  * ridgingThickness;
+  plasticHardeningStiffness = plasticHardeningCoefficient * ridgingThickness*ridgingThickness * resolutionScaling;
 
 }
 
 //-----------------------------------------------------------------------------
 
-void elastic_plastic_model(const double bondLength,
-			   const double previousForce,
-			   const double overlap,
-			   const double convergence,
-			   const double elasticStiffness,
-			   const double plasticFriction,
-			   const double plasticHardeningStiffness,
-			   const double viscosity,
-			   const double timeStepDynamics,
-			   double* ridgingForce,
-			   double* elasticOverlap,
-			   double* plasticOverlap,
-			   double* elasticConvergence,
-			   double* plasticConvergence) {
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairGranHopkinsKokkos<DeviceType>::elastic_plastic_model(F_FLOAT bondLength,
+                                                              F_FLOAT previousForce,
+                                                              F_FLOAT overlap,
+                                                              F_FLOAT convergence,
+                                                              F_FLOAT elasticStiffness,
+                                                              F_FLOAT plasticFriction,
+                                                              F_FLOAT plasticHardeningStiffness,
+                                                              F_FLOAT &ridgingForce,
+                                                              F_FLOAT &elasticOverlap,
+                                                              F_FLOAT &plasticOverlap,
+                                                              F_FLOAT &elasticConvergence,
+                                                              F_FLOAT &plasticConvergence)  const{
 
   // pressure ridging
-  double A = 1.0 / (plasticHardeningStiffness * timeStepDynamics);
-  double B = 1.0;
-  double C = (elasticStiffness * bondLength) / viscosity;
-  double D = (elasticStiffness * plasticFriction * bondLength) / (viscosity * plasticHardeningStiffness);
-  double denominator = (A + (1.0 + (elasticStiffness / plasticHardeningStiffness)) / viscosity);
+  F_FLOAT A = 1.0 / (plasticHardeningStiffness * update_dt);
+  F_FLOAT B = 1.0;
+  F_FLOAT C = (elasticStiffness * bondLength) / damp_normal;
+  F_FLOAT D = (elasticStiffness * plasticFriction * bondLength) / (damp_normal * plasticHardeningStiffness);
+  F_FLOAT denominator = (A + (1.0 + (elasticStiffness / plasticHardeningStiffness)) / damp_normal);
 
-  *ridgingForce = (A * previousForce + B * convergence * bondLength + C * overlap + D) / denominator;
+  ridgingForce = (A * previousForce + B * convergence * bondLength + C * overlap + D) / denominator;
 
-  *plasticOverlap = (*ridgingForce - plasticFriction * bondLength) / (plasticHardeningStiffness * bondLength);
-  *elasticOverlap = overlap - *plasticOverlap;
+  plasticOverlap = (ridgingForce - plasticFriction * bondLength) / (plasticHardeningStiffness * bondLength);
+  elasticOverlap = overlap - plasticOverlap;
 
-  *elasticConvergence = (*ridgingForce - elasticStiffness * bondLength * *elasticOverlap) / (viscosity * bondLength);
-  *plasticConvergence = convergence - *elasticConvergence;
-
-}
-
-//-----------------------------------------------------------------------------
-
-void elastic_model(const double bondLength,
-		   const double viscosity,
-		   const double elasticOverlap,
-		   const double elasticConvergence,
-		   const double elasticStiffness,
-		   double* elasticForce) {
-
-  *elasticForce = (elasticStiffness * elasticOverlap + viscosity * elasticConvergence) * bondLength;
+  elasticConvergence = (ridgingForce - elasticStiffness * bondLength * elasticOverlap) / (damp_normal * bondLength);
+  plasticConvergence = convergence - elasticConvergence;
 
 }
 
 //-----------------------------------------------------------------------------
 
-void geometry_change(const double bondLength,
-		     double* ridgeSlip,
-		     double* ridgeSlipUsed,
-		     const double netToGrossClosingRatio1,
-		     const double netToGrossClosingRatio2,
-		     double* changeEffectiveElementArea1,
-		     double* changeEffectiveElementArea2) {
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairGranHopkinsKokkos<DeviceType>::elastic_model(F_FLOAT bondLength,
+                                                      F_FLOAT elasticOverlap,
+						      F_FLOAT elasticConvergence,
+                                                      F_FLOAT elasticStiffness,
+						      F_FLOAT &elasticForce) const {
 
-  if (*ridgeSlip > *ridgeSlipUsed) {
+  elasticForce = (elasticStiffness * elasticOverlap + damp_normal * elasticConvergence) * bondLength;
 
-    double weight1 = netToGrossClosingRatio1 / (netToGrossClosingRatio1 + netToGrossClosingRatio2);
-    double weight2 = netToGrossClosingRatio2 / (netToGrossClosingRatio1 + netToGrossClosingRatio2);
+}
 
-    double areaDecrease = bondLength * (*ridgeSlip - *ridgeSlipUsed);
+//-----------------------------------------------------------------------------
 
-    *changeEffectiveElementArea1 = *changeEffectiveElementArea1 - weight1 * areaDecrease;
-    *changeEffectiveElementArea2 = *changeEffectiveElementArea2 - weight2 * areaDecrease;
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairGranHopkinsKokkos<DeviceType>::geometry_change(F_FLOAT bondLength,
+                                                        F_FLOAT netToGrossClosingRatio1,
+                                                        F_FLOAT netToGrossClosingRatio2,
+                                                        F_FLOAT ridgeSlip,
+							F_FLOAT &ridgeSlipUsed,
+                                                        F_FLOAT &changeEffectiveElementArea1,
+                                                        F_FLOAT &changeEffectiveElementArea2) const {
 
-    *ridgeSlipUsed = *ridgeSlip;
+  if (ridgeSlip > ridgeSlipUsed) {
+
+    F_FLOAT weight1 = netToGrossClosingRatio1 / (netToGrossClosingRatio1 + netToGrossClosingRatio2);
+    F_FLOAT weight2 = netToGrossClosingRatio2 / (netToGrossClosingRatio1 + netToGrossClosingRatio2);
+
+    F_FLOAT areaDecrease = bondLength * (ridgeSlip - ridgeSlipUsed);
+
+    changeEffectiveElementArea1 = changeEffectiveElementArea1 - weight1 * areaDecrease;
+    changeEffectiveElementArea2 = changeEffectiveElementArea2 - weight2 * areaDecrease;
+
+    ridgeSlipUsed = ridgeSlip;
 
   }
 
@@ -474,51 +480,50 @@ void geometry_change(const double bondLength,
 
 //-----------------------------------------------------------------------------
 
-void hopkins_ridging_model(const double overlap,
-			   const double convergence,
-			   const double timeStepDynamics,
-			   const double elasticModulus,
-			   const double viscosity,
-			   const double particleRadius,
-			   const double plasticFrictionCoefficient,
-			   const double plasticHardeningCoefficient,
-			   const double r1,
-			   const double r2,
-			   const double meanIceThickness1,
-			   const double meanIceThickness2,
-			   const double ridgingIceThickness1,
-			   const double ridgingIceThickness2,
-			   const double ridgingIceThicknessWeight1,
-			   const double ridgingIceThicknessWeight2,
-			   const double netToGrossClosingRatio1,
-			   const double netToGrossClosingRatio2,
-			   double* changeEffectiveElementArea1,
-			   double* changeEffectiveElementArea2,
-			   const double bondLength,
-			   double* ridgeSlip,
-			   double* ridgeSlipUsed,
-			   double* previousForce,
-			   double* contactForce) {
+template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
+void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(F_FLOAT overlap,
+							      F_FLOAT convergence,
+							      F_FLOAT meanIceThickness1,
+							      F_FLOAT meanIceThickness2,
+							      F_FLOAT radius1,
+							      F_FLOAT radius2,
+							      F_FLOAT ridgingIceThickness1,
+							      F_FLOAT ridgingIceThickness2,
+							      F_FLOAT ridgingIceThicknessWeight1,
+							      F_FLOAT ridgingIceThicknessWeight2,
+							      F_FLOAT netToGrossClosingRatio1,
+							      F_FLOAT netToGrossClosingRatio2,
+							      F_FLOAT &changeEffectiveElementArea1,
+							      F_FLOAT &changeEffectiveElementArea2,
+							      F_FLOAT particleRadius,
+							      F_FLOAT plasticFrictionCoefficient,
+							      F_FLOAT plasticHardeningCoefficient,
+							      F_FLOAT bondLength,
+							      F_FLOAT &ridgeSlip,
+							      F_FLOAT &ridgeSlipUsed,
+							      F_FLOAT &previousForce,
+							      F_FLOAT &contactForce) const {
 
   // overlaps
-  double totalOverlap = overlap;
-  double elasticOverlap = overlap - *ridgeSlip;
-  double plasticOverlap = *ridgeSlip;
+  F_FLOAT totalOverlap = overlap;
+  F_FLOAT elasticOverlap = overlap - ridgeSlip;
+  F_FLOAT plasticOverlap = ridgeSlip;
 
   // only have contact force if overlap after plastic slip taken into account
   if (elasticOverlap > 0.0) {
 
     // elastic stiffness
-    double elasticStiffness;
-    elastic_stiffness(elasticModulus,
-		      meanIceThickness1,
+    F_FLOAT elasticStiffness;
+    elastic_stiffness(meanIceThickness1,
 		      meanIceThickness2,
-		      &elasticStiffness,
-		      r1, r2);
+		      radius1,
+		      radius2,
+		      elasticStiffness);
 
     // plastic parameters
-    double plasticFriction;
-    double  plasticHardeningStiffness;
+    F_FLOAT plasticFriction;
+    F_FLOAT plasticHardeningStiffness;
     plastic_parameters(particleRadius,
 		       plasticFrictionCoefficient,
 		       plasticHardeningCoefficient,
@@ -526,42 +531,40 @@ void hopkins_ridging_model(const double overlap,
 		       ridgingIceThickness2,
 		       ridgingIceThicknessWeight1,
 		       ridgingIceThicknessWeight2,
-		       &plasticFriction,
-		       &plasticHardeningStiffness,
-		       r1, r2);
+		       radius1,
+		       radius2,
+		       plasticFriction,
+		       plasticHardeningStiffness);
 
     // ridging force
-    double ridgingForce;
-    double elasticOverlapRidging;
-    double plasticOverlapRidging;
-    double elasticConvergenceRidging;
-    double plasticConvergenceRidging;
+    F_FLOAT ridgingForce;
+    F_FLOAT elasticOverlapRidging;
+    F_FLOAT plasticOverlapRidging;
+    F_FLOAT elasticConvergenceRidging;
+    F_FLOAT plasticConvergenceRidging;
     elastic_plastic_model(bondLength,
-			  *previousForce,
+			  previousForce,
 			  totalOverlap,
 			  convergence,
 			  elasticStiffness,
 			  plasticFriction,
 			  plasticHardeningStiffness,
-			  viscosity,
-			  timeStepDynamics,
-			  &ridgingForce,
-			  &elasticOverlapRidging,
-			  &plasticOverlapRidging,
-			  &elasticConvergenceRidging,
-			  &plasticConvergenceRidging);
+			  ridgingForce,
+			  elasticOverlapRidging,
+			  plasticOverlapRidging,
+			  elasticConvergenceRidging,
+			  plasticConvergenceRidging);
 
     // previous force for ridging
-    *previousForce = ridgingForce;
+    previousForce = ridgingForce;
 
     // elastic force
-    double elasticForce;
+    F_FLOAT elasticForce;
     elastic_model(bondLength,
-		  viscosity,
 		  elasticOverlap,
 		  convergence,
 		  elasticStiffness,
-		  &elasticForce);
+		  elasticForce);
 
     // use elastic/plastic force if elastic/plastic force is less than elastic
     // force and ridging is positive and converging
@@ -570,31 +573,31 @@ void hopkins_ridging_model(const double overlap,
 	plasticConvergenceRidging > 0.0) {
 
       // use ridging force
-      *ridgeSlip = plasticOverlapRidging;
+      ridgeSlip = plasticOverlapRidging;
 
-      *contactForce = ridgingForce;
+      contactForce = ridgingForce;
 
     } else {
 
       // use elastic force
-      *contactForce = elasticForce;
+      contactForce = elasticForce;
 
     }
 
   } else {
 
     // no element overlap so no interaction
-    *contactForce = 0.0;
-    *previousForce = 0.0;
+    contactForce = 0.0;
+    previousForce = 0.0;
 
   }
 
   // change the element geometry
   geometry_change(bondLength,
-		  ridgeSlip,
-		  ridgeSlipUsed,
 		  netToGrossClosingRatio1,
 		  netToGrossClosingRatio2,
+		  ridgeSlip,
+		  ridgeSlipUsed,
 		  changeEffectiveElementArea1,
 		  changeEffectiveElementArea2);
 
@@ -655,7 +658,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
      radmin = MIN(radius[i],radius[j]); 
 
      //L = 2*radmin*(1+(abs(radius[i] - radius[j])/r));
-     L = (2.0 * radius[i] * radius[j]) / (radius[i] + radius[j]);
+     L = (4.0 * radius[i] * radius[j]) / (radius[i] + radius[j]);
 
      // relative translational velocity
      V_FLOAT vrx = v(i,0) - v(j,0);
@@ -684,41 +687,40 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
 
      delta_dot = -vnnr;
 
-     double particleRadius = 10000.0;
-     double plasticFrictionCoefficient = 26126.0;
-     double plasticHardeningCoefficient = 9.28;
+     F_FLOAT particleRadius = 5000.0;
+     F_FLOAT plasticFrictionCoefficient = 26126.0;
+     F_FLOAT plasticHardeningCoefficient = 9.28;
 
-     double contactForce;
+     F_FLOAT contactForce;
 
-     double previousForce = d_firsthistory(i,size_history*jj+7);
-     double ridgeSlip     = d_firsthistory(i,size_history*jj+10);
-     double ridgeSlipUsed = d_firsthistory(i,size_history*jj+11);
+     F_FLOAT previousForce = d_firsthistory(i,size_history*jj+7);
+     F_FLOAT ridgeSlip     = d_firsthistory(i,size_history*jj+10);
+     F_FLOAT ridgeSlipUsed = d_firsthistory(i,size_history*jj+11);
 
      hopkins_ridging_model(delta,
 			   delta_dot,
-			   update_dt,
-			   Emod,
-			   damp_normal,
+			   mean_thickness(i),
+			   mean_thickness(j),
+			   radius(i),
+			   radius(j),
+			   ridgingIceThickness(i),
+			   ridgingIceThickness(j),
+			   ridgingIceThicknessWeight(i),
+			   ridgingIceThicknessWeight(j),
+			   netToGrossClosingRatio(i),
+			   netToGrossClosingRatio(j),
+			   changeEffectiveElementArea(i),
+			   changeEffectiveElementArea(j),
 			   particleRadius,
 			   plasticFrictionCoefficient,
 			   plasticHardeningCoefficient,
-			   radius[i],
-			   radius[j],
-			   mean_thickness[i],
-			   mean_thickness[j],
-			   ridgingIceThickness[i],
-			   ridgingIceThickness[j],
-			   ridgingIceThicknessWeight[i],
-			   ridgingIceThicknessWeight[j],
-			   netToGrossClosingRatio[i],
-			   netToGrossClosingRatio[j],
-			   &changeEffectiveElementArea[i],
-			   &changeEffectiveElementArea[j],
 			   L,
-			   &ridgeSlip,
-			   &ridgeSlipUsed,
-			   &previousForce,
-			   &contactForce);
+			   ridgeSlip,
+			   ridgeSlipUsed,
+			   previousForce,
+			   contactForce);
+
+     //std::cout << ridgeSlip << std::endl;
 
      // Compute plastic normal force
      /*hprime = d_firsthistory(i,size_history*jj+4);

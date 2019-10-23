@@ -30,7 +30,7 @@ namespace LAMMPS_NS {
 
 template <class DeviceType>
 class FixNeighHistoryKokkos;
-  
+
 template<int NEIGHFLAG, int NEWTON_PAIR, int HISTORYUPDATE, int EVFLAG>
 struct TagPairGranHopkinsCompute {};
 
@@ -60,7 +60,6 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
   void compute_bonded_kokkos(int i, int j, int jj, F_FLOAT &fx, F_FLOAT &fy,
 	                     F_FLOAT &torque_i, F_FLOAT &torque_j) const;
 
-
   KOKKOS_INLINE_FUNCTION
   void update_chi(F_FLOAT kn0, F_FLOAT kt0, F_FLOAT Dn, F_FLOAT Cn,
                   F_FLOAT Dt, F_FLOAT Ct, F_FLOAT hmin, F_FLOAT &chi1,
@@ -78,7 +77,51 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
 			 F_FLOAT fx, F_FLOAT fy, F_FLOAT fz,
 			 X_FLOAT delx, X_FLOAT dely, X_FLOAT delz) const;
 
-    
+  KOKKOS_INLINE_FUNCTION
+  void elastic_stiffness(F_FLOAT meanIceThickness1, F_FLOAT meanIceThickness2,
+                         F_FLOAT r1, F_FLOAT r2, F_FLOAT &elasticStiffness) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void plastic_parameters(F_FLOAT particleRadius, F_FLOAT plasticFrictionCoefficient, F_FLOAT plasticHardeningCoefficient,
+                          F_FLOAT ridgingIceThickness1, F_FLOAT ridgingIceThickness2, F_FLOAT ridgingIceThicknessWeight1,
+                          F_FLOAT ridgingIceThicknessWeight2, F_FLOAT r1, F_FLOAT r2, F_FLOAT &plasticFriction,
+                          F_FLOAT &plasticHardeningStiffness) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void elastic_plastic_model(F_FLOAT bondLength, F_FLOAT previousForce, F_FLOAT overlap, F_FLOAT convergence,
+                             F_FLOAT elasticStiffness, F_FLOAT plasticFriction, F_FLOAT plasticHardeningStiffness,
+                             F_FLOAT &ridgingForce,
+                             F_FLOAT &elasticOverlap, F_FLOAT &plasticOverlap, F_FLOAT &elasticConvergence,
+                             F_FLOAT &plasticConvergence) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void elastic_model(F_FLOAT bondLength, F_FLOAT elasticOverlap, F_FLOAT elasticConvergence,
+                     F_FLOAT elasticStiffness, F_FLOAT &elasticForce) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void geometry_change(F_FLOAT bondLength, F_FLOAT netToGrossClosingRatio1, F_FLOAT netToGrossClosingRatio2,
+                       F_FLOAT ridgeSlip, F_FLOAT &ridgeSlipUsed, F_FLOAT &changeEffectiveElementArea1,
+                       F_FLOAT &changeEffectiveElementArea2) const;
+
+  KOKKOS_INLINE_FUNCTION
+  void hopkins_ridging_model(F_FLOAT overlap, F_FLOAT convergence,
+			     F_FLOAT meanIceThickness1,
+			     F_FLOAT meanIceThickness2,
+			     F_FLOAT r1,
+			     F_FLOAT r2,
+			     F_FLOAT ridgingIceThickness1,
+			     F_FLOAT ridgingIceThickness2,
+			     F_FLOAT ridgingIceThicknessWeight1,
+			     F_FLOAT ridgingIceThicknessWeight2,
+			     F_FLOAT netToGrossClosingRatio1,
+			     F_FLOAT netToGrossClosingRatio2,
+			     F_FLOAT &changeEffectiveElementArea1,
+			     F_FLOAT &changeEffectiveElementArea2,
+			     F_FLOAT particleRadius,
+                             F_FLOAT plasticFrictionCoefficient, F_FLOAT plasticHardeningCoefficient, F_FLOAT bondLength,
+                             F_FLOAT &ridgeSlip, F_FLOAT &ridgeSlipUsed, F_FLOAT &previousForce, F_FLOAT &contactForce) const;
+
+
  protected:
   typename AT::t_x_array_randomread x;
   typename AT::t_v_array_randomread v;
@@ -94,7 +137,7 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
   typename AT::t_float_1d_randomread ridgingIceThickness;
   typename AT::t_float_1d_randomread ridgingIceThicknessWeight;
   typename AT::t_float_1d_randomread netToGrossClosingRatio;
-  typename AT::t_float_1d_randomread changeEffectiveElementArea;
+  typename AT::t_float_1d changeEffectiveElementArea;
 
   DAT::tdual_efloat_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
@@ -114,7 +157,7 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
-  // class storage to avoid strcmp in parallel code execution 
+  // class storage to avoid strcmp in parallel code execution
   // or update->dt (ptr is not valid when update is copied to device)
   bool strcmp_sig_c0_type_constant;
   bool strcmp_sig_c0_type_KovacsSodhi;
