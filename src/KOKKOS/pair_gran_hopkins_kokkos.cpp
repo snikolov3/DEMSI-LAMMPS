@@ -88,8 +88,6 @@ void PairGranHopkinsKokkos<DeviceType>::init_style()
     fix_history = (FixNeighHistory *) modify->fix[modify->nfix-1];
     fix_history->pair = this;
     fix_historyKK = (FixNeighHistoryKokkos<DeviceType> *)fix_history;
-   // int fix_history_index = modify->find_fix_by_style("NEIGH_HISTORY");
-    int fix_history_index = modify->find_fix_by_style(fixarg[2]);
   }
 
   // PairGranHopkins uses PairGranHookeHistory::init_style

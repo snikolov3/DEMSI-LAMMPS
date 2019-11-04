@@ -44,7 +44,7 @@ AtomVecDemsiKokkos::AtomVecDemsiKokkos(LAMMPS *lmp) : AtomVecKokkos(lmp)
   comm_f_only = 0;
   size_forward = 3;
   size_reverse = 6;
-  size_border = 18;
+  size_border = 22;
   size_velocity = 6;
   size_data_atom = 7;
   size_data_vel = 7;
@@ -1175,7 +1175,7 @@ struct AtomVecDemsiKokkos_UnpackComm {
     _rmass(rmass.view<DeviceType>()),
     _buf(buf.view<DeviceType>()),
     _first(first) {
-    const size_t elements = 5 + 2 * RADVARY;
+    const size_t elements = 3 + 2 * RADVARY;
     const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
     buffer_view<DeviceType>(_buf,buf,maxsend,elements);
    };
@@ -2034,7 +2034,7 @@ struct AtomVecDemsiKokkos_PackBorderVel {
     _dvx(dvx),_dvy(dvy),_dvz(dvz),
     _deform_groupbit(deform_groupbit)
   {
-    const size_t elements = 24;
+    const size_t elements = 28;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
     _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_um(buf.data(),maxsend,elements);
   }
@@ -2591,7 +2591,7 @@ struct AtomVecDemsiKokkos_UnpackBorderVel {
     _v(v), _omega(omega),
     _first(first)
   {
-    const size_t elements = 24;
+    const size_t elements = 28;
     const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
     _buf = typename ArrayTypes<DeviceType>::t_xfloat_2d_const_um(buf.data(),maxsend,elements);
   };
@@ -2844,7 +2844,7 @@ struct AtomVecDemsiKokkos_PackExchangeFunctor {
     _copylist(copylist.template view<DeviceType>()),
     _nlocal(nlocal),_dim(dim),
     _lo(lo),_hi(hi){
-    elements = 30+atom->maxspecial+2*atom->bond_per_atom;
+    elements = 33+atom->maxspecial+2*atom->bond_per_atom;
     const int maxsend = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
     _buf = typename AT::t_xfloat_2d_um(buf.template view<DeviceType>().data(),maxsend,elements);
   }
@@ -2948,7 +2948,7 @@ int AtomVecDemsiKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_
 {
 
 
-  const int elements = 30+atom->maxspecial+2*atom->bond_per_atom;
+  const int elements = 33+atom->maxspecial+2*atom->bond_per_atom;
 
   if(nsend > (int) (k_buf.view<LMPHostType>().extent(0)*k_buf.view<LMPHostType>().extent(1))/elements) {
     int newsize = nsend*elements/k_buf.view<LMPHostType>().extent(1)+1;
@@ -3107,7 +3107,7 @@ struct AtomVecDemsiKokkos_UnpackExchangeFunctor {
     _special(atom->k_special.view<DeviceType>()),
     _nlocal(nlocal.template view<DeviceType>()),_dim(dim),
     _lo(lo),_hi(hi){
-    elements = 30+atom->maxspecial+2*atom->bond_per_atom;
+    elements = 33+atom->maxspecial+2*atom->bond_per_atom;
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*buf.template view<DeviceType>().extent(1))/elements;
 
     buffer_view<DeviceType>(_buf,buf,maxsendlist,elements);
@@ -3170,7 +3170,7 @@ int AtomVecDemsiKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int n
                                                ExecutionSpace space) {
 
 
-  const size_t elements = 30+atom->maxspecial+2*atom->bond_per_atom;
+  const size_t elements = 33+atom->maxspecial+2*atom->bond_per_atom;
   if(space == Host) {
     k_count.h_view(0) = nlocal;
     AtomVecDemsiKokkos_UnpackExchangeFunctor<LMPHostType> f(atomKK,k_buf,k_count,dim,lo,hi);
