@@ -78,6 +78,10 @@ AtomKokkos::~AtomKokkos()
   // USER-DEMSI package
   memoryKK->destroy_kokkos(k_mean_thickness,mean_thickness);
   memoryKK->destroy_kokkos(k_min_thickness,min_thickness);
+  memoryKK->destroy_kokkos(k_ridgingIceThickness,ridgingIceThickness);
+  memoryKK->destroy_kokkos(k_ridgingIceThicknessWeight,ridgingIceThicknessWeight);
+  memoryKK->destroy_kokkos(k_netToGrossClosingRatio,netToGrossClosingRatio);
+  memoryKK->destroy_kokkos(k_changeEffectiveElementArea,changeEffectiveElementArea);
   memoryKK->destroy_kokkos(k_forcing,forcing);
   memoryKK->destroy_kokkos(k_ice_area,ice_area);
   memoryKK->destroy_kokkos(k_coriolis,coriolis);
