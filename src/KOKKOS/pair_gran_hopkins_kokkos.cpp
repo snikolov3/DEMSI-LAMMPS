@@ -690,40 +690,57 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
 
      delta_dot = -vnnr;
 
-     F_FLOAT particleRadius = 5000.0;
-     F_FLOAT plasticFrictionCoefficient = 26126.0;
-     F_FLOAT plasticHardeningCoefficient = 9.28;
-
      F_FLOAT contactForce;
 
-     F_FLOAT previousForce = d_firsthistory(i,size_history*jj+7);
-     F_FLOAT ridgeSlip     = d_firsthistory(i,size_history*jj+10);
-     F_FLOAT ridgeSlipUsed = d_firsthistory(i,size_history*jj+11);
+     if (type(i) == 2 || type(j) == 2){
+       F_FLOAT stiffness;
+       int iceIndex;;
+       if (type(i) == 1) iceIndex = i;
+       else iceIndex = j;
+       elastic_stiffness(mean_thickness(iceIndex), mean_thickness(iceIndex),
+                         radius(i), radius(j), stiffness);
+       contactForce = (stiffness*delta + damp_normal*delta_dot) * L;
+       kt0 = Gmod/L*mean_thickness(iceIndex);
+     }
+     else{
+       kt0 = Gmod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
+       F_FLOAT particleRadius = 5000.0;
+       F_FLOAT plasticFrictionCoefficient = 26126.0;
+       F_FLOAT plasticHardeningCoefficient = 9.28;
 
-     hopkins_ridging_model(NEWTON_PAIR || j < nlocal,
-			   delta,
-			   delta_dot,
-			   mean_thickness(i),
-			   mean_thickness(j),
-			   radius(i),
-			   radius(j),
-			   ridgingIceThickness(i),
-			   ridgingIceThickness(j),
-			   ridgingIceThicknessWeight(i),
-			   ridgingIceThicknessWeight(j),
-			   netToGrossClosingRatio(i),
-			   netToGrossClosingRatio(j),
-			   changeEffectiveElementArea(i),
-			   changeEffectiveElementArea(j),
-			   particleRadius,
-			   plasticFrictionCoefficient,
-			   plasticHardeningCoefficient,
-			   L,
-			   ridgeSlip,
-			   ridgeSlipUsed,
-			   previousForce,
-			   contactForce);
+       F_FLOAT previousForce = d_firsthistory(i,size_history*jj+7);
+       F_FLOAT ridgeSlip     = d_firsthistory(i,size_history*jj+10);
+       F_FLOAT ridgeSlipUsed = d_firsthistory(i,size_history*jj+11);
 
+       hopkins_ridging_model(NEWTON_PAIR || j < nlocal,
+           delta,
+           delta_dot,
+           mean_thickness(i),
+           mean_thickness(j),
+           radius(i),
+           radius(j),
+           ridgingIceThickness(i),
+           ridgingIceThickness(j),
+           ridgingIceThicknessWeight(i),
+           ridgingIceThicknessWeight(j),
+           netToGrossClosingRatio(i),
+           netToGrossClosingRatio(j),
+           changeEffectiveElementArea(i),
+           changeEffectiveElementArea(j),
+           particleRadius,
+           plasticFrictionCoefficient,
+           plasticHardeningCoefficient,
+           L,
+           ridgeSlip,
+           ridgeSlipUsed,
+           previousForce,
+           contactForce);
+       if (HISTORYUPDATE){
+         d_firsthistory(i,size_history*jj+7)  = previousForce;
+         d_firsthistory(i,size_history*jj+10) = ridgeSlip;
+         d_firsthistory(i,size_history*jj+11) = ridgeSlipUsed;
+       }
+     }
      // Compute plastic normal force
      /*hprime = d_firsthistory(i,size_history*jj+4);
      ke = Emod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
@@ -770,17 +787,13 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
         d_firsthistory(i,size_history*jj+2) += vtx*update_dt;
         d_firsthistory(i,size_history*jj+3) += vty*update_dt;
 
-	d_firsthistory(i,size_history*jj+7)  = previousForce;
-	d_firsthistory(i,size_history*jj+10) = ridgeSlip;
-	d_firsthistory(i,size_history*jj+11) = ridgeSlipUsed;
-     }
+	 }
 
      var1 = d_firsthistory(i,size_history*jj+2);
      var2 = d_firsthistory(i,size_history*jj+3);
      dispmag =sqrt(var1*var1 + var2*var2); 
 
      // total tangential force
-     kt0 = Gmod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
      ftx = - (kt0*var1 + damp_tangential*vtx);
      fty = - (kt0*var2 + damp_tangential*vty);
 
