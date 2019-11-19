@@ -56,6 +56,10 @@ class AtomKokkos : public Atom {
 
 // USER-DEMSI package
   DAT::tdual_float_1d  k_min_thickness,k_mean_thickness;
+  DAT::tdual_float_1d  k_ridgingIceThickness;
+  DAT::tdual_float_1d  k_ridgingIceThicknessWeight;
+  DAT::tdual_float_1d  k_netToGrossClosingRatio;
+  DAT::tdual_float_1d  k_changeEffectiveElementArea;
   DAT::tdual_float_1d  k_ice_area,k_coriolis;
   DAT::tdual_float_2d  k_forcing;
   DAT::tdual_float_2d  k_ocean_vel,k_bvector;
