@@ -369,7 +369,7 @@ void PairGranHopkinsKokkos<DeviceType>::elastic_stiffness(F_FLOAT meanIceThickne
 
   F_FLOAT stiffness1 = (Emod * meanIceThickness1) / (2.0 * radius1);
   F_FLOAT stiffness2 = (Emod * meanIceThickness2) / (2.0 * radius2);
-  elasticStiffness = 1.0 / ((1.0 / stiffness1) + (1.0 / stiffness2));
+  elasticStiffness = std::min(stiffness1,stiffness2);
 
 }
 
