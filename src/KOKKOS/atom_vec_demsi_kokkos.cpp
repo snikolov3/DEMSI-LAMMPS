@@ -2694,8 +2694,8 @@ void AtomVecDemsiKokkos::unpack_border_vel(int n, int first, double *buf)
     h_coriolis(i) = buf[m++];
     h_ocean_vel(i,0) = buf[m++];
     h_ocean_vel(i,1) = buf[m++];
-    h_coriolis(i,0) = buf[m++];
-    h_coriolis(i,1) = buf[m++];
+    h_bvector(i,0) = buf[m++];
+    h_bvector(i,1) = buf[m++];
     h_v(i,0) = buf[m++];
     h_v(i,1) = buf[m++];
     h_v(i,2) = buf[m++];
@@ -3571,9 +3571,9 @@ void AtomVecDemsiKokkos::data_vel(int m, char **values)
 int AtomVecDemsiKokkos::data_vel_hybrid(int m, char **values)
 {
   sync(Host,OMEGA_MASK);
-  omega[m][0] = atof(values[0]);
-  omega[m][1] = atof(values[1]);
-  omega[m][2] = atof(values[2]);
+  h_omega(m,0) = atof(values[0]);
+  h_omega(m,1) = atof(values[1]);
+  h_omega(m,2) = atof(values[2]);
   modified(Host,OMEGA_MASK);
   return 3;
 }
@@ -3763,6 +3763,7 @@ void AtomVecDemsiKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & RMASS_MASK) atomKK->k_rmass.sync<LMPDeviceType>();
     if (mask & OMEGA_MASK) atomKK->k_omega.sync<LMPDeviceType>();
     if (mask & TORQUE_MASK) atomKK->k_torque.sync<LMPDeviceType>();
+    if (mask & FORCING_MASK) atomKK->k_forcing.sync<LMPDeviceType>();
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.sync<LMPDeviceType>();
         atomKK->k_min_thickness.sync<LMPDeviceType>();
@@ -3796,6 +3797,7 @@ void AtomVecDemsiKokkos::sync(ExecutionSpace space, unsigned int mask)
     if (mask & RMASS_MASK) atomKK->k_rmass.sync<LMPHostType>();
     if (mask & OMEGA_MASK) atomKK->k_omega.sync<LMPHostType>();
     if (mask & TORQUE_MASK) atomKK->k_torque.sync<LMPHostType>();
+    if (mask & FORCING_MASK) atomKK->k_forcing.sync<LMPHostType>();
     if (mask & THICKNESS_MASK) {
         atomKK->k_mean_thickness.sync<LMPHostType>();
         atomKK->k_min_thickness.sync<LMPHostType>();
