@@ -160,6 +160,8 @@ void FixNeighHistoryKokkos<DeviceType>::pre_exchange_item(const int &ii) const
 	      d_valuepartner(j,dnum*m+5) = d_firstvalue(i,dnum*jj+5);
 	      d_valuepartner(j,dnum*m+8) = d_firstvalue(i,dnum*jj+8);
 	      d_valuepartner(j,dnum*m+9) = d_firstvalue(i,dnum*jj+9);
+              d_valuepartner(j,dnum*m+10) = d_firstvalue(i,dnum*jj+10);
+              d_valuepartner(j,dnum*m+11) = d_firstvalue(i,dnum*jj+11);
             }
           }
           else {
