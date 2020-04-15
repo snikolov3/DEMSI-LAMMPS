@@ -80,42 +80,48 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
   KOKKOS_INLINE_FUNCTION
   void elastic_stiffness(F_FLOAT meanIceThickness1,
 			 F_FLOAT meanIceThickness2,
-                         F_FLOAT radius1,
+			 F_FLOAT radius1,
 			 F_FLOAT radius2,
-			 F_FLOAT &elasticStiffness) const;
+			 F_FLOAT mass1,
+			 F_FLOAT mass2,
+			 F_FLOAT bondLength,
+			 F_FLOAT &elasticStiffness,
+			 F_FLOAT &elasticDamping) const;
 
   KOKKOS_INLINE_FUNCTION
   void plastic_parameters(F_FLOAT particleRadius,
 			  F_FLOAT plasticFrictionCoefficient,
 			  F_FLOAT plasticHardeningCoefficient,
-                          F_FLOAT ridgingIceThickness1,
+			  F_FLOAT ridgingIceThickness1,
 			  F_FLOAT ridgingIceThickness2,
 			  F_FLOAT ridgingIceThicknessWeight1,
-                          F_FLOAT ridgingIceThicknessWeight2,
+			  F_FLOAT ridgingIceThicknessWeight2,
 			  F_FLOAT radius1,
 			  F_FLOAT radius2,
 			  F_FLOAT &plasticFriction,
-                          F_FLOAT &plasticHardeningStiffness) const;
+			  F_FLOAT &plasticHardeningStiffness) const;
 
   KOKKOS_INLINE_FUNCTION
   void elastic_plastic_model(F_FLOAT bondLength,
 			     F_FLOAT previousForce,
 			     F_FLOAT overlap,
 			     F_FLOAT convergence,
-                             F_FLOAT elasticStiffness,
+			     F_FLOAT elasticStiffness,
+			     F_FLOAT elasticDamping,
 			     F_FLOAT plasticFriction,
 			     F_FLOAT plasticHardeningStiffness,
-                             F_FLOAT &ridgingForce,
-                             F_FLOAT &elasticOverlap,
+			     F_FLOAT &ridgingForce,
+			     F_FLOAT &elasticOverlap,
 			     F_FLOAT &plasticOverlap,
 			     F_FLOAT &elasticConvergence,
-                             F_FLOAT &plasticConvergence) const;
+			     F_FLOAT &plasticConvergence) const;
 
   KOKKOS_INLINE_FUNCTION
   void elastic_model(F_FLOAT bondLength,
 		     F_FLOAT elasticOverlap,
 		     F_FLOAT elasticConvergence,
-                     F_FLOAT elasticStiffness,
+		     F_FLOAT elasticStiffness,
+		     F_FLOAT elasticDamping,
 		     F_FLOAT &elasticForce) const;
 
   KOKKOS_INLINE_FUNCTION
@@ -123,10 +129,10 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
 		       F_FLOAT bondLength,
 		       F_FLOAT netToGrossClosingRatio1,
 		       F_FLOAT netToGrossClosingRatio2,
-                       F_FLOAT ridgeSlip,
+		       F_FLOAT ridgeSlip,
 		       F_FLOAT &ridgeSlipUsed,
 		       F_FLOAT &changeEffectiveElementArea1,
-                       F_FLOAT &changeEffectiveElementArea2) const;
+		       F_FLOAT &changeEffectiveElementArea2) const;
 
   KOKKOS_INLINE_FUNCTION
   void hopkins_ridging_model(bool modifyOtherElement,
@@ -136,6 +142,8 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
 			     F_FLOAT meanIceThickness2,
 			     F_FLOAT radius1,
 			     F_FLOAT radius2,
+			     F_FLOAT mass1,
+			     F_FLOAT mass2,
 			     F_FLOAT ridgingIceThickness1,
 			     F_FLOAT ridgingIceThickness2,
 			     F_FLOAT ridgingIceThicknessWeight1,
@@ -145,10 +153,10 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
 			     F_FLOAT &changeEffectiveElementArea1,
 			     F_FLOAT &changeEffectiveElementArea2,
 			     F_FLOAT particleRadius,
-                             F_FLOAT plasticFrictionCoefficient,
+			     F_FLOAT plasticFrictionCoefficient,
 			     F_FLOAT plasticHardeningCoefficient,
 			     F_FLOAT bondLength,
-                             F_FLOAT &ridgeSlip,
+			     F_FLOAT &ridgeSlip,
 			     F_FLOAT &ridgeSlipUsed,
 			     F_FLOAT &previousForce,
 			     F_FLOAT &contactForce) const;
