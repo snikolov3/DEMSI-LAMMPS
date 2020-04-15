@@ -17,6 +17,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <iomanip>
 #include <string.h>
 #include "pair_gran_hopkins_kokkos.h"
 #include "kokkos.h"
@@ -365,11 +366,18 @@ void PairGranHopkinsKokkos<DeviceType>::elastic_stiffness(F_FLOAT meanIceThickne
 							  F_FLOAT meanIceThickness2,
 							  F_FLOAT radius1,
 							  F_FLOAT radius2,
-							  F_FLOAT &elasticStiffness) const {
+							  F_FLOAT mass1,
+							  F_FLOAT mass2,
+							  F_FLOAT bondLength,
+							  F_FLOAT &elasticStiffness,
+							  F_FLOAT &elasticDamping) const {
 
   F_FLOAT stiffness1 = (Emod * meanIceThickness1) / (2.0 * radius1);
   F_FLOAT stiffness2 = (Emod * meanIceThickness2) / (2.0 * radius2);
   elasticStiffness = std::min(stiffness1,stiffness2);
+
+  elasticDamping = std::sqrt(2.0 * elasticStiffness * bondLength * std::min(mass1,mass2)) / bondLength;
+  elasticDamping *= damp_normal;
 
 }
 
@@ -405,31 +413,32 @@ void PairGranHopkinsKokkos<DeviceType>::plastic_parameters(F_FLOAT particleRadiu
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::elastic_plastic_model(F_FLOAT bondLength,
-                                                              F_FLOAT previousForce,
-                                                              F_FLOAT overlap,
-                                                              F_FLOAT convergence,
-                                                              F_FLOAT elasticStiffness,
-                                                              F_FLOAT plasticFriction,
-                                                              F_FLOAT plasticHardeningStiffness,
-                                                              F_FLOAT &ridgingForce,
-                                                              F_FLOAT &elasticOverlap,
-                                                              F_FLOAT &plasticOverlap,
-                                                              F_FLOAT &elasticConvergence,
-                                                              F_FLOAT &plasticConvergence)  const{
+							      F_FLOAT previousForce,
+							      F_FLOAT overlap,
+							      F_FLOAT convergence,
+							      F_FLOAT elasticStiffness,
+							      F_FLOAT elasticDamping,
+							      F_FLOAT plasticFriction,
+							      F_FLOAT plasticHardeningStiffness,
+							      F_FLOAT &ridgingForce,
+							      F_FLOAT &elasticOverlap,
+							      F_FLOAT &plasticOverlap,
+							      F_FLOAT &elasticConvergence,
+							      F_FLOAT &plasticConvergence)  const{
 
   // pressure ridging
   F_FLOAT A = 1.0 / (plasticHardeningStiffness * update_dt);
   F_FLOAT B = 1.0;
-  F_FLOAT C = (elasticStiffness * bondLength) / damp_normal;
-  F_FLOAT D = (elasticStiffness * plasticFriction * bondLength) / (damp_normal * plasticHardeningStiffness);
-  F_FLOAT denominator = (A + (1.0 + (elasticStiffness / plasticHardeningStiffness)) / damp_normal);
+  F_FLOAT C = (elasticStiffness * bondLength) / elasticDamping;
+  F_FLOAT D = (elasticStiffness * plasticFriction * bondLength) / (elasticDamping * plasticHardeningStiffness);
+  F_FLOAT denominator = (A + (1.0 + (elasticStiffness / plasticHardeningStiffness)) / elasticDamping);
 
   ridgingForce = (A * previousForce + B * convergence * bondLength + C * overlap + D) / denominator;
 
   plasticOverlap = (ridgingForce - plasticFriction * bondLength) / (plasticHardeningStiffness * bondLength);
   elasticOverlap = overlap - plasticOverlap;
 
-  elasticConvergence = (ridgingForce - elasticStiffness * bondLength * elasticOverlap) / (damp_normal * bondLength);
+  elasticConvergence = (ridgingForce - elasticStiffness * bondLength * elasticOverlap) / (elasticDamping * bondLength);
   plasticConvergence = convergence - elasticConvergence;
 
 }
@@ -439,12 +448,13 @@ void PairGranHopkinsKokkos<DeviceType>::elastic_plastic_model(F_FLOAT bondLength
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::elastic_model(F_FLOAT bondLength,
-                                                      F_FLOAT elasticOverlap,
+						      F_FLOAT elasticOverlap,
 						      F_FLOAT elasticConvergence,
-                                                      F_FLOAT elasticStiffness,
+						      F_FLOAT elasticStiffness,
+						      F_FLOAT elasticDamping,
 						      F_FLOAT &elasticForce) const {
 
-  elasticForce = (elasticStiffness * elasticOverlap + damp_normal * elasticConvergence) * bondLength;
+  elasticForce = (elasticStiffness * elasticOverlap + elasticDamping * elasticConvergence) * bondLength;
 
 }
 
@@ -454,12 +464,12 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::geometry_change(bool modifyOtherElement,
 							F_FLOAT bondLength,
-                                                        F_FLOAT netToGrossClosingRatio1,
-                                                        F_FLOAT netToGrossClosingRatio2,
-                                                        F_FLOAT ridgeSlip,
+							F_FLOAT netToGrossClosingRatio1,
+							F_FLOAT netToGrossClosingRatio2,
+							F_FLOAT ridgeSlip,
 							F_FLOAT &ridgeSlipUsed,
-                                                        F_FLOAT &changeEffectiveElementArea1,
-                                                        F_FLOAT &changeEffectiveElementArea2) const {
+							F_FLOAT &changeEffectiveElementArea1,
+							F_FLOAT &changeEffectiveElementArea2) const {
 
   if (ridgeSlip > ridgeSlipUsed) {
 
@@ -490,6 +500,8 @@ void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherEl
 							      F_FLOAT meanIceThickness2,
 							      F_FLOAT radius1,
 							      F_FLOAT radius2,
+							      F_FLOAT mass1,
+							      F_FLOAT mass2,
 							      F_FLOAT ridgingIceThickness1,
 							      F_FLOAT ridgingIceThickness2,
 							      F_FLOAT ridgingIceThicknessWeight1,
@@ -517,11 +529,16 @@ void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherEl
 
     // elastic stiffness
     F_FLOAT elasticStiffness;
+    F_FLOAT elasticDamping;
     elastic_stiffness(meanIceThickness1,
 		      meanIceThickness2,
 		      radius1,
 		      radius2,
-		      elasticStiffness);
+		      mass1,
+		      mass2,
+		      bondLength,
+		      elasticStiffness,
+		      elasticDamping);
 
     // plastic parameters
     F_FLOAT plasticFriction;
@@ -549,6 +566,7 @@ void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherEl
 			  totalOverlap,
 			  convergence,
 			  elasticStiffness,
+			  elasticDamping,
 			  plasticFriction,
 			  plasticHardeningStiffness,
 			  ridgingForce,
@@ -566,6 +584,7 @@ void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherEl
 		  elasticOverlap,
 		  convergence,
 		  elasticStiffness,
+		  elasticDamping,
 		  elasticForce);
 
     // use elastic/plastic force if elastic/plastic force is less than elastic
@@ -658,7 +677,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
      nx = delx/r;
      ny = dely/r;
 
-     radmin = MIN(radius[i],radius[j]); 
+     radmin = MIN(radius[i],radius[j]);
 
      //L = 2*radmin*(1+(abs(radius[i] - radius[j])/r));
      L = (4.0 * radius[i] * radius[j]) / (radius[i] + radius[j]);
@@ -693,13 +712,21 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
      F_FLOAT contactForce;
 
      if (type(i) == 2 || type(j) == 2){
-       F_FLOAT stiffness;
-       int iceIndex;;
+       F_FLOAT elasticStiffness;
+       F_FLOAT elasticDamping;
+       int iceIndex;
        if (type(i) == 1) iceIndex = i;
        else iceIndex = j;
-       elastic_stiffness(mean_thickness(iceIndex), mean_thickness(iceIndex),
-                         radius(i), radius(j), stiffness);
-       contactForce = (stiffness*delta + damp_normal*delta_dot) * L;
+       elastic_stiffness(mean_thickness(iceIndex),
+			 mean_thickness(iceIndex),
+			 radius(i),
+			 radius(j),
+			 rmass(i),
+			 rmass(j),
+			 L,
+			 elasticStiffness,
+			 elasticDamping);
+       contactForce = (elasticStiffness*delta + elasticDamping*delta_dot) * L;
        kt0 = Gmod/L*mean_thickness(iceIndex);
      }
      else{
@@ -719,6 +746,8 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
            mean_thickness(j),
            radius(i),
            radius(j),
+           rmass(i),
+           rmass(j),
            ridgingIceThickness(i),
            ridgingIceThickness(j),
            ridgingIceThicknessWeight(i),
