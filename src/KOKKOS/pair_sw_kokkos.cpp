@@ -130,11 +130,11 @@ void PairSWKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   int max_neighs = d_neighbors.extent(1);
 
-  if (((int) d_neighbors_short.extent(1) != max_neighs) ||
-      ((int) d_neighbors_short.extent(0) != ignum)) {
+  if ((d_neighbors_short.extent(1) != max_neighs) ||
+     (d_neighbors_short.extent(0) != ignum)) {
     d_neighbors_short = Kokkos::View<int**,DeviceType>("SW::neighbors_short",ignum,max_neighs);
   }
-  if ((int)d_numneigh_short.extent(0)!=ignum)
+  if (d_numneigh_short.extent(0)!=ignum)
     d_numneigh_short = Kokkos::View<int*,DeviceType>("SW::numneighs_short",ignum);
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPairSWComputeShortNeigh>(0,neighflag==FULL?ignum:inum), *this);
 
@@ -387,6 +387,7 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWComputeFullA<NEIGHFLAG,EVFLAG
 
   const int i = d_ilist[ii];
 
+  const tagint itag = tag[i];
   const int itype = d_map[type[i]];
   const X_FLOAT xtmp = x(i,0);
   const X_FLOAT ytmp = x(i,1);
@@ -403,6 +404,7 @@ void PairSWKokkos<DeviceType>::operator()(TagPairSWComputeFullA<NEIGHFLAG,EVFLAG
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors_short(i,jj);
     j &= NEIGHMASK;
+    const tagint jtag = tag[j];
 
     const int jtype = d_map[type[j]];
 
@@ -934,7 +936,7 @@ void PairSWKokkos<DeviceType>::ev_tally3(EV_FLOAT &ev, const int &i, const int &
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairSWKokkos<DeviceType>::ev_tally3_atom(EV_FLOAT & /*ev*/, const int &i,
+void PairSWKokkos<DeviceType>::ev_tally3_atom(EV_FLOAT &ev, const int &i,
           const F_FLOAT &evdwl, const F_FLOAT &ecoul,
                      F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *drji, F_FLOAT *drki) const
 {
@@ -965,7 +967,7 @@ void PairSWKokkos<DeviceType>::ev_tally3_atom(EV_FLOAT & /*ev*/, const int &i,
 
 namespace LAMMPS_NS {
 template class PairSWKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#ifdef KOKKOS_ENABLE_CUDA
 template class PairSWKokkos<LMPHostType>;
 #endif
 }

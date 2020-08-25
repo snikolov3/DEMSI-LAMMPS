@@ -49,7 +49,7 @@ void FixEnforce2DKokkos<DeviceType>::setup(int vflag)
 
 
 template <class DeviceType>
-void FixEnforce2DKokkos<DeviceType>::post_force(int /*vflag*/)
+void FixEnforce2DKokkos<DeviceType>::post_force(int vflag)
 {
   atomKK->sync(execution_space,datamask_read);
 
@@ -163,7 +163,7 @@ void FixEnforce2DKokkos<DeviceType>::post_force_item( int i ) const
 
 namespace LAMMPS_NS {
 template class FixEnforce2DKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#ifdef KOKKOS_ENABLE_CUDA
 template class FixEnforce2DKokkos<LMPHostType>;
 #endif
 }

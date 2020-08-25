@@ -54,6 +54,16 @@ class AtomKokkos : public Atom {
 
   DAT::tdual_float_2d k_dvector;
 
+// USER-DEMSI package
+  DAT::tdual_float_1d  k_min_thickness,k_mean_thickness;
+  DAT::tdual_float_1d  k_ridgingIceThickness;
+  DAT::tdual_float_1d  k_ridgingIceThicknessWeight;
+  DAT::tdual_float_1d  k_netToGrossClosingRatio;
+  DAT::tdual_float_1d  k_changeEffectiveElementArea;
+  DAT::tdual_float_1d  k_ice_area,k_coriolis;
+  DAT::tdual_float_2d  k_forcing;
+  DAT::tdual_float_2d  k_ocean_vel,k_bvector;
+                       
 
 // USER-DPD package
   DAT::tdual_efloat_1d k_uCond, k_uMech, k_uChem, k_uCG, k_uCGnew,
@@ -78,7 +88,7 @@ class AtomKokkos : public Atom {
 };
 
 template<class ViewType, class IndexView>
-struct SortFunctor {
+class SortFunctor {
   typedef typename ViewType::device_type device_type;
   ViewType source;
   Kokkos::View<typename ViewType::non_const_data_type,typename ViewType::array_type,device_type> dest;
@@ -100,19 +110,19 @@ struct SortFunctor {
     dest(i) = source(index(i));
   }
   void operator()(const typename std::enable_if<ViewType::rank==2, int>::type& i) {
-    for(int j=0; j < (int)source.extent(1); j++)
+    for(int j=0;j<source.extent(1);j++)
       dest(i,j) = source(index(i),j);
   }
   void operator()(const typename std::enable_if<ViewType::rank==3, int>::type& i) {
-    for(int j=0; j < (int)source.extent(1); j++)
-      for(int k=0; k < (int)source.extent(2); k++)
-        dest(i,j,k) = source(index(i),j,k);
+    for(int j=0;j<source.extent(1);j++)
+    for(int k=0;k<source.extent(2);k++)
+      dest(i,j,k) = source(index(i),j,k);
   }
   void operator()(const typename std::enable_if<ViewType::rank==4, int>::type& i) {
-    for(int j=0; j < (int)source.extent(1); j++)
-      for(int k=0; k < (int)source.extent(2); k++)
-        for(int l=0; l < (int)source.extent(3); l++)
-          dest(i,j,k,l) = source(index(i),j,k,l);
+    for(int j=0;j<source.extent(1);j++)
+    for(int k=0;k<source.extent(2);k++)
+    for(int l=0;l<source.extent(3);l++)
+      dest(i,j,k,l) = source(index(i),j,k,l);
   }
 };
 

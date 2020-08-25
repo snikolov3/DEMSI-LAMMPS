@@ -1541,7 +1541,6 @@ int FixWallGran::pack_restart(int i, double *buf)
   if (!use_history) return 0;
 
   int n = 0;
-  // pack buf[0] this way because other fixes unpack it
   buf[n++] = size_history + 1;
   for (int m = 0; m < size_history; m++)
     buf[n++] = history_one[i][m];
@@ -1559,7 +1558,6 @@ void FixWallGran::unpack_restart(int nlocal, int nth)
   double **extra = atom->extra;
 
   // skip to Nth set of extra values
-  // unpack the Nth first values this way because other fixes pack them
 
   int m = 0;
   for (int i = 0; i < nth; i++) m += static_cast<int> (extra[nlocal][m]);

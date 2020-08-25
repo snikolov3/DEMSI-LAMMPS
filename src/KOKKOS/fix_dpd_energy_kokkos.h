@@ -27,7 +27,7 @@ FixStyle(dpd/energy/kk/host,FixDPDenergyKokkos<LMPHostType>)
 
 namespace LAMMPS_NS {
 
-template <class DeviceType>
+template <typename DeviceType>
 class FixDPDenergyKokkos : public FixDPDenergy {
  public:
   FixDPDenergyKokkos(class LAMMPS *, int, char **);

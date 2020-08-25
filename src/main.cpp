@@ -63,5 +63,5 @@ int main(int argc, char **argv)
   delete lammps;
 #endif
   MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Finalize();
+  //MPI_Finalize();
 }

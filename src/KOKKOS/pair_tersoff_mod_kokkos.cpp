@@ -213,11 +213,11 @@ void PairTersoffMODKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   int max_neighs = d_neighbors.extent(1);
 
-  if (((int)d_neighbors_short.extent(1) != max_neighs) ||
-     ((int)d_neighbors_short.extent(0) != ignum)) {
+  if ((d_neighbors_short.extent(1) != max_neighs) ||
+     (d_neighbors_short.extent(0) != ignum)) {
     d_neighbors_short = Kokkos::View<int**,DeviceType>("Tersoff::neighbors_short",ignum,max_neighs);
   }
-  if ((int)d_numneigh_short.extent(0)!=ignum)
+  if (d_numneigh_short.extent(0)!=ignum)
     d_numneigh_short = Kokkos::View<int*,DeviceType>("Tersoff::numneighs_short",ignum);
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagPairTersoffMODComputeShortNeigh>(0,neighflag==FULL?ignum:inum), *this);
 
@@ -1248,10 +1248,8 @@ void PairTersoffMODKokkos<DeviceType>::v_tally3(EV_FLOAT &ev, const int &i, cons
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairTersoffMODKokkos<DeviceType>::v_tally3_atom(EV_FLOAT &ev, const int &i,
-                                                     const int & /*j*/, const int & /*k*/,
-                                                     F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *drji,
-                                                     F_FLOAT *drjk) const
+void PairTersoffMODKokkos<DeviceType>::v_tally3_atom(EV_FLOAT &ev, const int &i, const int &j, const int &k,
+        F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *drji, F_FLOAT *drjk) const
 {
   F_FLOAT v[6];
 
@@ -1287,7 +1285,7 @@ int PairTersoffMODKokkos<DeviceType>::sbmask(const int& j) const {
 
 namespace LAMMPS_NS {
 template class PairTersoffMODKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#ifdef KOKKOS_ENABLE_CUDA
 template class PairTersoffMODKokkos<LMPHostType>;
 #endif
 }

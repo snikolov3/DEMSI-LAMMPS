@@ -67,8 +67,15 @@ class FixNeighHistoryKokkos : public FixNeighHistory {
   typename ArrayTypes<DeviceType>::t_tagint_2d d_partner;
   typename ArrayTypes<DeviceType>::t_float_2d d_valuepartner;
 
+  HAT::t_int_1d h_npartner;
+  HAT::t_tagint_2d h_partner;
+  HAT::t_float_2d h_valuepartner;
+
   typename ArrayTypes<DeviceType>::t_int_scalar d_resize;
   typename ArrayTypes<LMPHostType>::t_int_scalar h_resize;
+ 
+  int nondefault_history_transfer;
+  int beyond_contact;
 };
 
 template <class DeviceType>

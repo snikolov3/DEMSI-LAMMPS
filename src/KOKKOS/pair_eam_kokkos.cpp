@@ -425,9 +425,8 @@ void PairEAMKokkos<DeviceType>::interpolate(int n, double delta, double *f, t_ho
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int PairEAMKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_2d k_sendlist,
-                                                        int iswap_in, DAT::tdual_xfloat_1d &buf,
-                                                        int /*pbc_flag*/, int * /*pbc*/)
+int PairEAMKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_2d k_sendlist, int iswap_in, DAT::tdual_xfloat_1d &buf,
+                               int pbc_flag, int *pbc)
 {
   d_sendlist = k_sendlist.view<DeviceType>();
   iswap = iswap_in;
@@ -463,7 +462,7 @@ void PairEAMKokkos<DeviceType>::operator()(TagPairEAMUnpackForwardComm, const in
 
 template<class DeviceType>
 int PairEAMKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf,
-                                                 int /*pbc_flag*/, int * /*pbc*/)
+                               int pbc_flag, int *pbc)
 {
   int i,j;
 
@@ -897,7 +896,7 @@ void PairEAMKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int &
 
 namespace LAMMPS_NS {
 template class PairEAMKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#ifdef KOKKOS_ENABLE_CUDA
 template class PairEAMKokkos<LMPHostType>;
 #endif
 }

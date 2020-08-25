@@ -182,9 +182,10 @@ void FixPrint::end_of_step()
   modify->addstep_compute(next_print);
 
   if (me == 0) {
-    if (screenflag) utils::logmesg(lmp,std::string(copy) + "\n");
+    if (screenflag && screen) fprintf(screen,"%s\n",copy);
+    if (screenflag && logfile) fprintf(logfile,"%s\n",copy);
     if (fp) {
-      fmt::print(fp,"{}\n",copy);
+      fprintf(fp,"%s\n",copy);
       fflush(fp);
     }
   }

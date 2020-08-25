@@ -16,7 +16,6 @@
 
 #include "pointers.h"
 #include <map>
-#include <set>
 #include <string>
 
 namespace LAMMPS_NS {
@@ -130,6 +129,19 @@ class Atom : protected Pointers {
   double *edpd_cv;               // heat capacity
   int cc_species;
 
+  //USER-DEMSI package
+  double **forcing;
+  double *mean_thickness;
+  double *min_thickness;
+  double *ridgingIceThickness;
+  double *ridgingIceThicknessWeight;
+  double *netToGrossClosingRatio;
+  double *changeEffectiveElementArea;
+  double *ice_area;
+  double *coriolis;
+  double **ocean_vel;
+  double **bvector;
+
   // USER-MESONT package
 
   double *length;
@@ -182,6 +194,9 @@ class Atom : protected Pointers {
   int smd_flag,damage_flag;
   int contact_radius_flag,smd_data_9_flag,smd_stress_flag;
   int eff_plastic_strain_flag,eff_plastic_strain_rate_flag;
+
+  //USER-DEMSI package
+  int demsi_flag;
 
   // Peridynamics scale factor, used by dump cfg
 
@@ -242,7 +257,6 @@ class Atom : protected Pointers {
   int map_user;                   // user requested map style:
                                   // 0 = no request, 1=array, 2=hash, 3=yes
   tagint map_tag_max;             // max atom ID that map() is setup for
-  std::set<tagint> *unique_tags;  // set to ensure that bodies have unique tags
 
   // spatial sorting of atoms
 
@@ -327,7 +341,7 @@ class Atom : protected Pointers {
 
   virtual void sync_modify(ExecutionSpace, unsigned int, unsigned int) {}
 
-  void *extract(char *);
+  void *extract(const char *);
 
   inline int* get_map_array() {return map_array;};
   inline int get_map_size() {return map_tag_max+1;};

@@ -52,7 +52,7 @@ typedef double FFT_SCALAR;
 // CUFFT or KISSFFT, thus undefine all other
 // FFTs here, since they may be valid in fft3d.cpp
 
-#ifdef KOKKOS_ENABLE_CUDA
+#if defined(KOKKOS_ENABLE_CUDA)
 # if defined(FFT_FFTW)
 #  undef FFT_FFTW
 # endif
@@ -164,7 +164,7 @@ typedef tdual_int_64::t_dev_um t_int_64_um;
 
 };
 
-#ifdef LMP_KOKKOS_GPU
+#ifdef KOKKOS_ENABLE_CUDA
 template <>
 struct FFTArrayTypes<LMPHostType> {
 

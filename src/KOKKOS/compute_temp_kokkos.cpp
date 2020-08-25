@@ -154,7 +154,7 @@ void ComputeTempKokkos<DeviceType>::operator()(TagComputeTempVector<RMASS>, cons
 
 namespace LAMMPS_NS {
 template class ComputeTempKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#ifdef KOKKOS_ENABLE_CUDA
 template class ComputeTempKokkos<LMPHostType>;
 #endif
 }

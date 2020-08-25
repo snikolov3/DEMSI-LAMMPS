@@ -290,7 +290,7 @@ compute_evdwl(const F_FLOAT& rsq, const int& i, const int&j,
 
 namespace LAMMPS_NS {
 template class PairYukawaKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#ifdef KOKKOS_ENABLE_CUDA
 template class PairYukawaKokkos<LMPHostType>;
 #endif
 }

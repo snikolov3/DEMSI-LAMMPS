@@ -69,10 +69,18 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
   endif()
 endif()
 
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
+  set(CMAKE_TUNE_DEFAULT "-march=native")
+endif()
+
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+  set(CMAKE_TUNE_DEFAULT "-march=native")
+endif()
+
 # we require C++11 without extensions
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Use compiler extensions")
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 ########################################################################
 # User input options                                                   #
@@ -87,6 +95,8 @@ set(LAMMPS_BINARY lmp${LAMMPS_MACHINE})
 option(BUILD_SHARED_LIBS "Build shared library" OFF)
 if(BUILD_SHARED_LIBS) # for all pkg libs, mpi_stubs and linalg
   set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  file(GLOB LIB_HEADERS ${LAMMPS_SOURCE_DIR}/*.h)
+  install(FILES ${LIB_HEADERS} DESTINATION ${CMAKE_INSTALL_PREFIX}/include/lammps)
 endif()
 
 option(BUILD_TOOLS "Build and install LAMMPS tools (msi2lmp, binary2txt, chain)" OFF)
@@ -104,14 +114,14 @@ install(TARGETS lmp EXPORT LAMMPS_Targets DESTINATION ${CMAKE_INSTALL_BINDIR})
 option(CMAKE_VERBOSE_MAKEFILE "Generate verbose Makefiles" OFF)
 
 set(STANDARD_PACKAGES ASPHERE BODY CLASS2 COLLOID COMPRESS DIPOLE
-  GRANULAR KSPACE LATTE MANYBODY MC MESSAGE MISC MLIAP MOLECULE PERI POEMS
-  QEQ REPLICA RIGID SHOCK SPIN SNAP SRD KIM PYTHON MSCG MPIIO VORONOI
+  GRANULAR KSPACE LATTE MANYBODY MC MESSAGE MISC MOLECULE PERI POEMS QEQ
+  REPLICA RIGID SHOCK SPIN SNAP SRD KIM PYTHON MSCG MPIIO VORONOI
   USER-ATC USER-AWPMD USER-BOCS USER-CGDNA USER-MESODPD USER-CGSDK USER-COLVARS
   USER-DIFFRACTION USER-DPD USER-DRUDE USER-EFF USER-FEP USER-H5MD USER-LB
   USER-MANIFOLD USER-MEAMC USER-MESONT USER-MGPT USER-MISC USER-MOFFF USER-MOLFILE
   USER-NETCDF USER-PHONON USER-PLUMED USER-PTM USER-QTB USER-REACTION
   USER-REAXC USER-SCAFACOS USER-SDPD USER-SMD USER-SMTBQ USER-SPH USER-TALLY
-  USER-UEF USER-VTK USER-QUIP USER-QMMM USER-YAFF USER-ADIOS)
+  USER-UEF USER-VTK USER-QUIP USER-QMMM USER-YAFF USER-ADIOS USER-DEMSI)
 set(SUFFIX_PACKAGES CORESHELL USER-OMP KOKKOS OPT USER-INTEL GPU)
 foreach(PKG ${STANDARD_PACKAGES} ${SUFFIX_PACKAGES})
   option(PKG_${PKG} "Build ${PKG} Package" OFF)
@@ -185,14 +195,13 @@ if(NOT ${LAMMPS_MEMALIGN} STREQUAL "0")
   target_compile_definitions(lammps PRIVATE -DLAMMPS_MEMALIGN=${LAMMPS_MEMALIGN})
 endif()
 
-option(LAMMPS_EXCEPTIONS "enable the use of C++ exceptions for error messages (useful for library interface)" ${ENABLE_TESTING})
+option(LAMMPS_EXCEPTIONS "enable the use of C++ exceptions for error messages (useful for library interface)" OFF)
 if(LAMMPS_EXCEPTIONS)
   target_compile_definitions(lammps PUBLIC -DLAMMPS_EXCEPTIONS)
 endif()
 
 # "hard" dependencies between packages resulting
 # in an error instead of skipping over files
-pkg_depends(MLIAP SNAP)
 pkg_depends(MPIIO MPI)
 pkg_depends(USER-ATC MANYBODY)
 pkg_depends(USER-LB MPI)
@@ -249,9 +258,9 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
   endif()
 endif()
 
-set(ENABLE_SANITIZER "none" CACHE STRING "Select a code sanitizer option (none (default), address, leak, thread, undefined)")
+set(ENABLE_SANITIZER "none" CACHE STRING "Select a code sanitizer option (none (default), address, thread, undefined)")
 mark_as_advanced(ENABLE_SANITIZER)
-set(ENABLE_SANITIZER_VALUES none address leak thread undefined)
+set(ENABLE_SANITIZER_VALUES none address thread undefined)
 set_property(CACHE ENABLE_SANITIZER PROPERTY STRINGS ${ENABLE_SANITIZER_VALUES})
 validate_option(ENABLE_SANITIZER ENABLE_SANITIZER_VALUES)
 string(TOLOWER ${ENABLE_SANITIZER} ENABLE_SANITIZER)
@@ -358,7 +367,7 @@ foreach(PKG_WITH_INCL KSPACE PYTHON VORONOI USER-COLVARS USER-MOLFILE USER-NETCD
   endif()
 endforeach()
 
-set(CMAKE_TUNE_FLAGS "${CMAKE_TUNE_DEFAULT}" CACHE STRING "Compiler and machine specific optimization flags (compilation only)")
+set(CMAKE_TUNE_FLAGS "${CMAKE_TUNE_DEFAULT}" CACHE STRING "Compiler specific optimization or instrumentation")
 separate_arguments(CMAKE_TUNE_FLAGS)
 foreach(_FLAG ${CMAKE_TUNE_FLAGS})
   target_compile_options(lammps PRIVATE ${_FLAG})
@@ -401,6 +410,9 @@ foreach(PKG ${STANDARD_PACKAGES})
   file(GLOB ${PKG}_SOURCES ${${PKG}_SOURCES_DIR}/[^.]*.cpp)
   file(GLOB ${PKG}_HEADERS ${${PKG}_SOURCES_DIR}/[^.]*.h)
 
+  # temporary way to deal with installing headers for DEMSI-LAMMPS
+  install(FILES ${${PKG}_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
+
   # check for package files in src directory due to old make system
   DetectBuildSystemConflict(${LAMMPS_SOURCE_DIR} ${${PKG}_SOURCES} ${${PKG}_HEADERS})
 
@@ -428,6 +440,9 @@ foreach(PKG ${SUFFIX_PACKAGES})
 
   file(GLOB ${PKG}_SOURCES ${${PKG}_SOURCES_DIR}/[^.]*.cpp)
   file(GLOB ${PKG}_HEADERS ${${PKG}_SOURCES_DIR}/[^.]*.h)
+
+  # temporary way to deal with installing headers for DEMSI-LAMMPS
+  install(FILES ${${PKG}_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
 
   # check for package files in src directory due to old make system
   DetectBuildSystemConflict(${LAMMPS_SOURCE_DIR} ${${PKG}_SOURCES} ${${PKG}_HEADERS})
@@ -696,7 +711,7 @@ if(BUILD_SHARED_LIBS OR PKG_PYTHON)
       -c "import distutils.sysconfig as cg; print(cg.get_python_lib(1,0,prefix='${CMAKE_INSTALL_PREFIX}'))"
       OUTPUT_VARIABLE PYTHON_DEFAULT_INSTDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
     set(PYTHON_INSTDIR ${PYTHON_DEFAULT_INSTDIR} CACHE PATH "Installation folder for LAMMPS Python module")
-    install(FILES ${LAMMPS_PYTHON_DIR}/lammps.py DESTINATION ${PYTHON_INSTDIR})
+    #install(FILES ${LAMMPS_PYTHON_DIR}/lammps.py DESTINATION ${PYTHON_INSTDIR})
   endif()
 endif()
 
@@ -747,12 +762,6 @@ if (${_index} GREATER -1)
 endif()
 message(STATUS "<<< Linker flags: >>>")
 message(STATUS "Executable name:  ${LAMMPS_BINARY}")
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
-  get_target_property(OPTIONS lammps LINK_OPTIONS)
-  if(OPTIONS)
-    message(STATUS "Linker options:   ${OPTIONS}")
-  endif()
-endif()
 if(CMAKE_EXE_LINKER_FLAGS)
   message(STATUS "Executable linker flags: ${CMAKE_EXE_LINKER_FLAGS}")
 endif()

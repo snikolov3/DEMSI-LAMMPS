@@ -41,7 +41,7 @@ FixGravityKokkos<DeviceType>::FixGravityKokkos(LAMMPS *lmp, int narg, char **arg
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixGravityKokkos<DeviceType>::post_force(int /*vflag*/)
+void FixGravityKokkos<DeviceType>::post_force(int vflag)
 {
   // update gravity due to variables
 
@@ -115,7 +115,7 @@ void FixGravityKokkos<DeviceType>::operator()(TagFixGravityMass, const int i, do
 
 namespace LAMMPS_NS {
 template class FixGravityKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#ifdef KOKKOS_ENABLE_CUDA
 template class FixGravityKokkos<LMPHostType>;
 #endif
 }

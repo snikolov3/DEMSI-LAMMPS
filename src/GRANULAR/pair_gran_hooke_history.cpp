@@ -39,12 +39,13 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
+PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp, int _size_history) : Pair(lmp),
+  size_history(_size_history)
 {
   single_enable = 1;
   no_virial_fdotr_compute = 1;
   history = 1;
-  size_history = 3;
+//  size_history = 3;
 
   single_extra = 10;
   svector = new double[10];
@@ -58,6 +59,8 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
 
   comm_forward = 1;
 
+  beyond_contact = 0;
+
   // keep default behavior of history[i][j] = -history[j][i]
 
   nondefault_history_transfer = 0;
@@ -68,6 +71,7 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
   fix_history = NULL;
   modify->add_fix("NEIGH_HISTORY_HH_DUMMY all DUMMY");
   fix_dummy = (FixDummy *) modify->fix[modify->nfix-1];
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -92,6 +96,8 @@ PairGranHookeHistory::~PairGranHookeHistory()
   }
 
   memory->destroy(mass_rigid);
+
+  int nondefault_history_transfer = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -151,6 +157,7 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
+
   firsttouch = fix_history->firstflag;
   firstshear = fix_history->firstvalue;
 

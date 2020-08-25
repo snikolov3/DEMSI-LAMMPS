@@ -15,8 +15,6 @@
 #define LMP_ONE_MOLECULE_H
 
 #include "pointers.h"
-#include <string>
-#include <vector>
 
 namespace LAMMPS_NS {
 
@@ -96,7 +94,7 @@ class Molecule : protected Pointers {
   // fragment info
 
   int **fragmentmask;       // nfragments by natoms
-  std::vector<std::string> fragmentnames;
+  char **fragmentnames;
 
   double center[3];         // geometric center of molecule
   double masstotal;         // total mass of molecule
@@ -165,6 +163,7 @@ class Molecule : protected Pointers {
   void readline(char *);
   void parse_keyword(int, char *, char *);
   void skip_lines(int, char *);
+  int parse(char *, char **, int);
 
   // void print();
 };

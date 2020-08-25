@@ -172,7 +172,7 @@ void CommKokkos::forward_comm(int dummy)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void CommKokkos::forward_comm_device(int)
+void CommKokkos::forward_comm_device(int dummy)
 {
   int n;
   MPI_Request request;
@@ -529,18 +529,19 @@ struct BuildExchangeListFunctor {
       typename AT::tdual_int_scalar nsend,
       typename AT::tdual_int_1d sendflag,int nlocal, int dim,
                 X_FLOAT lo, X_FLOAT hi):
-                _lo(lo),_hi(hi),
                 _x(x.template view<DeviceType>()),
-                _nlocal(nlocal),_dim(dim),
-                _nsend(nsend.template view<DeviceType>()),
                 _sendlist(sendlist.template view<DeviceType>()),
-                _sendflag(sendflag.template view<DeviceType>()) { }
+                _nsend(nsend.template view<DeviceType>()),
+                _sendflag(sendflag.template view<DeviceType>()),
+                _nlocal(nlocal),_dim(dim),
+                _lo(lo),_hi(hi){
+  }
 
   KOKKOS_INLINE_FUNCTION
   void operator() (int i) const {
     if (_x(i,_dim) < _lo || _x(i,_dim) >= _hi) {
       const int mysend=Kokkos::atomic_fetch_add(&_nsend(),1);
-      if(mysend < (int)_sendlist.extent(0)) {
+      if(mysend<_sendlist.extent(0)) {
         _sendlist(mysend) = i;
         _sendflag(i) = 1;
       }
@@ -598,10 +599,10 @@ void CommKokkos::exchange_device()
       i = nsend = 0;
 
       if (true) {
-        if ((int)k_sendflag.h_view.extent(0) < nlocal) k_sendflag.resize(nlocal);
+        if (k_sendflag.h_view.extent(0)<nlocal) k_sendflag.resize(nlocal);
         k_sendflag.sync<DeviceType>();
         k_count.h_view() = k_exchange_sendlist.h_view.extent(0);
-        while (k_count.h_view() >= (int)k_exchange_sendlist.h_view.extent(0)) {
+        while (k_count.h_view()>=k_exchange_sendlist.h_view.extent(0)) {
           k_count.h_view() = 0;
           k_count.modify<LMPHostType>();
           k_count.sync<DeviceType>();
@@ -615,7 +616,7 @@ void CommKokkos::exchange_device()
           k_count.modify<DeviceType>();
 
           k_count.sync<LMPHostType>();
-          if (k_count.h_view() >= (int)k_exchange_sendlist.h_view.extent(0)) {
+          if (k_count.h_view()>=k_exchange_sendlist.h_view.extent(0)) {
             k_exchange_lists.resize(2,k_count.h_view()*1.1);
             k_exchange_sendlist = Kokkos::subview(k_exchange_lists,0,Kokkos::ALL);
             k_exchange_copylist = Kokkos::subview(k_exchange_lists,1,Kokkos::ALL);
@@ -781,10 +782,11 @@ struct BuildBorderListFunctor {
                          int _nlast, int _dim,
                          X_FLOAT _lo, X_FLOAT _hi, int _iswap,
                          int _maxsendlist):
-    lo(_lo),hi(_hi),x(_x.template view<DeviceType>()),iswap(_iswap),
-    maxsendlist(_maxsendlist),nfirst(_nfirst),nlast(_nlast),dim(_dim),
+    x(_x.template view<DeviceType>()),
     sendlist(_sendlist.template view<DeviceType>()),
-    nsend(_nsend.template view<DeviceType>()) {}
+    nsend(_nsend.template view<DeviceType>()),
+    nfirst(_nfirst),nlast(_nlast),dim(_dim),
+    lo(_lo),hi(_hi),iswap(_iswap),maxsendlist(_maxsendlist){}
 
 
   KOKKOS_INLINE_FUNCTION
@@ -821,7 +823,7 @@ void CommKokkos::borders_device() {
   double lo,hi;
   int *type;
   double **x;
-  double *mlo,*mhi;
+  double *buf,*mlo,*mhi;
   MPI_Request request;
   AtomVecKokkos *avec = (AtomVecKokkos *) atom->avec;
 
@@ -990,8 +992,10 @@ void CommKokkos::borders_device() {
         if (n) MPI_Send(k_buf_send.view<DeviceType>().data(),n,
                         MPI_DOUBLE,sendproc[iswap],0,world);
         if (nrecv) MPI_Wait(&request,MPI_STATUS_IGNORE);
+        buf = buf_recv;
       } else {
         nrecv = nsend;
+        buf = buf_send;
       }
 
       // unpack buffer
@@ -1054,7 +1058,7 @@ void CommKokkos::borders_device() {
 
 void CommKokkos::copy_swap_info()
 {
-  if (nswap > (int)k_swap.extent(1)) {
+  if (nswap > k_swap.extent(1)) {
     k_swap = DAT::tdual_int_2d("comm:swap",2,nswap);
     k_firstrecv    = Kokkos::subview(k_swap,0,Kokkos::ALL);
     k_sendnum_scan = Kokkos::subview(k_swap,1,Kokkos::ALL);
@@ -1072,7 +1076,7 @@ void CommKokkos::copy_swap_info()
 
   k_sendlist.sync<LMPHostType>();
 
-  if (totalsend > (int)k_pbc.extent(0)) {
+  if (totalsend > k_pbc.extent(0)) {
     k_pbc = DAT::tdual_int_2d("comm:pbc",totalsend,6);
     k_swap2 = DAT::tdual_int_2d("comm:swap2",2,totalsend);
     k_pbc_flag = Kokkos::subview(k_swap2,0,Kokkos::ALL);
@@ -1170,7 +1174,7 @@ void CommKokkos::grow_send_kokkos(int n, int flag, ExecutionSpace space)
    free/malloc the size of the recv buffer as needed with BUFFACTOR
 ------------------------------------------------------------------------- */
 
-void CommKokkos::grow_recv_kokkos(int n, ExecutionSpace /*space*/)
+void CommKokkos::grow_recv_kokkos(int n, ExecutionSpace space)
 {
   maxrecv = static_cast<int> (BUFFACTOR * n);
   int maxrecv_border = (maxrecv+BUFEXTRA+5)/atom->avec->size_border + 2;
@@ -1183,7 +1187,7 @@ void CommKokkos::grow_recv_kokkos(int n, ExecutionSpace /*space*/)
    realloc the size of the iswap sendlist as needed with BUFFACTOR
 ------------------------------------------------------------------------- */
 
-void CommKokkos::grow_list(int /*iswap*/, int n)
+void CommKokkos::grow_list(int iswap, int n)
 {
   int size = static_cast<int> (BUFFACTOR * n);
 

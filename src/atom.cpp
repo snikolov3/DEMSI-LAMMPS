@@ -168,6 +168,20 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   rho = drho = esph = desph = cv = NULL;
   vest = NULL;
 
+  // USER-DEMSI package
+
+  forcing = NULL;
+  mean_thickness = NULL;
+  min_thickness = NULL;
+  ridgingIceThickness = NULL;
+  ridgingIceThicknessWeight = NULL;
+  netToGrossClosingRatio = NULL;
+  changeEffectiveElementArea = NULL;
+  ice_area = NULL;
+  coriolis = NULL;
+  ocean_vel = NULL;
+  bvector = NULL;
+
   // end of customization section
   // --------------------------------------------------------------------
 
@@ -217,8 +231,6 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   map_bucket = NULL;
   map_hash = NULL;
 
-  unique_tags = nullptr;
-
   atom_style = NULL;
   avec = NULL;
 
@@ -244,14 +256,6 @@ Atom::~Atom()
   memory->destroy(binhead);
   memory->destroy(next);
   memory->destroy(permute);
-
-  memory->destroy(tag);
-  memory->destroy(type);
-  memory->destroy(mask);
-  memory->destroy(image);
-  memory->destroy(x);
-  memory->destroy(v);
-  memory->destroy(f);
 
   // delete peratom data struct
 
@@ -297,8 +301,6 @@ Atom::~Atom()
   // delete mapping data structures
 
   map_delete();
-
-  delete unique_tags;
 }
 
 /* ----------------------------------------------------------------------
@@ -483,6 +485,19 @@ void Atom::peratom_create()
   add_peratom("eff_plastic_strain_rate",&eff_plastic_strain_rate,DOUBLE,0);
   add_peratom("damage",&damage,DOUBLE,0);
 
+  // USER-DEMSI package 
+  add_peratom("forcing",&forcing,DOUBLE,1);
+  add_peratom("mean_thickness",&mean_thickness,DOUBLE,0);
+  add_peratom("min_thickness",&min_thickness,DOUBLE,0);
+  add_peratom("ridgingIceThickness",&ridgingIceThickness,DOUBLE,0);
+  add_peratom("ridgingIceThicknessWeight",&ridgingIceThicknessWeight,DOUBLE,0);
+  add_peratom("netToGrossClosingRatio",&netToGrossClosingRatio,DOUBLE,0);
+  add_peratom("changeEffectiveElementArea",&changeEffectiveElementArea,DOUBLE,0);
+  add_peratom("ice_area",&ice_area,DOUBLE,0);
+  add_peratom("coriolis",&coriolis,DOUBLE,0);
+  add_peratom("ocean_vel",&ocean_vel,DOUBLE,1);
+  add_peratom("bvector",&bvector,DOUBLE,1);
+
   // end of customization section
   // --------------------------------------------------------------------
 }
@@ -574,7 +589,7 @@ void Atom::add_peratom_vary(const char *name, void *address,
 void Atom::set_atomflag_defaults()
 {
   // --------------------------------------------------------------------
-  // 3rd customization section: customize by adding new flag
+  // 4th customization section: customize by adding new flag
   // identical list as 2nd customization in atom.h
 
   sphere_flag = ellipsoid_flag = line_flag = tri_flag = body_flag = 0;
@@ -657,7 +672,7 @@ AtomVec *Atom::new_avec(const std::string &style, int trysuffix, int &sflag)
       sflag = 1;
       std::string estyle = style + "/" + lmp->suffix;
       if (avec_map->find(estyle) != avec_map->end()) {
-        AtomVecCreator &avec_creator = (*avec_map)[estyle];
+        AtomVecCreator avec_creator = (*avec_map)[estyle];
         return avec_creator(lmp);
       }
     }
@@ -666,7 +681,7 @@ AtomVec *Atom::new_avec(const std::string &style, int trysuffix, int &sflag)
       sflag = 2;
       std::string estyle = style + "/" + lmp->suffix2;
       if (avec_map->find(estyle) != avec_map->end()) {
-        AtomVecCreator &avec_creator = (*avec_map)[estyle];
+        AtomVecCreator avec_creator = (*avec_map)[estyle];
         return avec_creator(lmp);
       }
     }
@@ -674,7 +689,7 @@ AtomVec *Atom::new_avec(const std::string &style, int trysuffix, int &sflag)
 
   sflag = 0;
   if (avec_map->find(style) != avec_map->end()) {
-    AtomVecCreator &avec_creator = (*avec_map)[style];
+    AtomVecCreator avec_creator = (*avec_map)[style];
     return avec_creator(lmp);
   }
 
@@ -741,7 +756,7 @@ AtomVec *Atom::style_match(const char *style)
 {
   if (strcmp(atom_style,style) == 0) return avec;
   else if (strcmp(atom_style,"hybrid") == 0) {
-    auto avec_hybrid = (AtomVecHybrid *) avec;
+    AtomVecHybrid *avec_hybrid = (AtomVecHybrid *) avec;
     for (int i = 0; i < avec_hybrid->nstyles; i++)
       if (strcmp(avec_hybrid->keywords[i],style) == 0)
         return avec_hybrid->styles[i];
@@ -1558,8 +1573,6 @@ void Atom::data_bodies(int n, char *buf, AtomVec *avec_body, tagint id_offset)
   int *ivalues = NULL;
   double *dvalues = NULL;
 
-  if (!unique_tags) unique_tags = new std::set<tagint>;
-
   // loop over lines of body data
   // if I own atom tag, tokenize lines into ivalues/dvalues, call data_body()
   // else skip values
@@ -1570,11 +1583,6 @@ void Atom::data_bodies(int n, char *buf, AtomVec *avec_body, tagint id_offset)
 
     if (tagdata <= 0 || tagdata > map_tag_max)
       error->one(FLERR,"Invalid atom ID in Bodies section of data file");
-
-    if (unique_tags->find(tagdata) == unique_tags->end())
-      unique_tags->insert(tagdata);
-    else
-      error->one(FLERR,"Duplicate atom ID in Bodies section of data file");
 
     ninteger = force->inumeric(FLERR,strtok(NULL," \t\n\r\f"));
     ndouble = force->inumeric(FLERR,strtok(NULL," \t\n\r\f"));
@@ -1776,8 +1784,9 @@ int Atom::shape_consistency(int itype,
   double one[3] = {-1.0, -1.0, -1.0};
   double *shape;
 
-  auto avec_ellipsoid = (AtomVecEllipsoid *) style_match("ellipsoid");
-  auto bonus = avec_ellipsoid->bonus;
+  AtomVecEllipsoid *avec_ellipsoid =
+    (AtomVecEllipsoid *) style_match("ellipsoid");
+  AtomVecEllipsoid::Bonus *bonus = avec_ellipsoid->bonus;
 
   int flag = 0;
   for (int i = 0; i < nlocal; i++) {
@@ -2368,10 +2377,10 @@ void Atom::remove_custom(int flag, int index)
    if don't recognize name, return NULL
 ------------------------------------------------------------------------- */
 
-void *Atom::extract(char *name)
+void *Atom::extract(const char *name)
 {
   // --------------------------------------------------------------------
-  // 4th customization section: customize by adding new variable name
+  // 5th customization section: customize by adding new variable name
 
   if (strcmp(name,"mass") == 0) return (void *) mass;
 

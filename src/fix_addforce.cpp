@@ -123,6 +123,8 @@ FixAddForce::FixAddForce(LAMMPS *lmp, int narg, char **arg) :
 
 FixAddForce::~FixAddForce()
 {
+  if (copymode) return;
+
   delete [] xstr;
   delete [] ystr;
   delete [] zstr;

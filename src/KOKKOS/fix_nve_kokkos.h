@@ -31,10 +31,9 @@ template<class DeviceType>
 class FixNVEKokkos;
 
 template <class DeviceType, int RMass>
-struct FixNVEKokkosInitialIntegrateFunctor;
-
+class FixNVEKokkosInitialIntegrateFunctor;
 template <class DeviceType, int RMass>
-struct FixNVEKokkosFinalIntegrateFunctor;
+class FixNVEKokkosFinalIntegrateFunctor;
 
 template<class DeviceType>
 class FixNVEKokkos : public FixNVE {

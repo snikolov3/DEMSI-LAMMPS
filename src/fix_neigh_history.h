@@ -21,6 +21,8 @@ FixStyle(NEIGH_HISTORY,FixNeighHistory)
 #define LMP_FIX_NEIGH_HISTORY_H
 
 #include "fix.h"
+#include "my_page.h"
+//#include "pair_gran_hooke_history.h"
 
 namespace LAMMPS_NS {
 
@@ -31,6 +33,7 @@ class FixNeighHistory : public Fix {
   int **firstflag;              // ptr to each atom's neighbor flsg
   double **firstvalue;          // ptr to each atom's values
   class Pair *pair;             // ptr to pair style that uses neighbor history
+ // class PairGranHookeHistory *pair;             // ptr to pair style that uses neighbor history
 
   FixNeighHistory(class LAMMPS *, int, char **);
   ~FixNeighHistory();

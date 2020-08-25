@@ -25,12 +25,11 @@ class Variable : protected Pointers {
   Variable(class LAMMPS *);
   ~Variable();
   void set(int, char **);
-  void set(const std::string &);
   void set(char *, int, char **);
-  int set_string(const char *, const char *);
+  int set_string(char *, char *);
   int next(int, char **);
 
-  int find(const char *);
+  int find(char *);
   void set_arrays(int);
   void python_command(int, char **);
 
@@ -40,7 +39,7 @@ class Variable : protected Pointers {
   char *pythonstyle(char *, char *);
   int internalstyle(int);
 
-  char *retrieve(const char *);
+  char *retrieve(char *);
   double compute_equal(int);
   double compute_equal(char *);
   void compute_atom(int, int, double *, int, int);

@@ -17,7 +17,6 @@
 
 #include "tokenizer.h"
 #include "utils.h"
-#include <algorithm>
 #include "fmt/format.h"
 
 using namespace LAMMPS_NS;
@@ -50,10 +49,6 @@ Tokenizer::Tokenizer(Tokenizer && rhs) :
 
 void Tokenizer::reset() {
     start = text.find_first_not_of(separators);
-}
-
-bool Tokenizer::contains(const std::string & str) const {
-    return text.find(str) != std::string::npos;
 }
 
 void Tokenizer::skip(int n) {
@@ -129,10 +124,6 @@ ValueTokenizer::ValueTokenizer(ValueTokenizer && rhs) : tokens(std::move(rhs.tok
 
 bool ValueTokenizer::has_next() const {
     return tokens.has_next();
-}
-
-bool ValueTokenizer::contains(const std::string & value) const {
-    return tokens.contains(value);
 }
 
 std::string ValueTokenizer::next_string() {

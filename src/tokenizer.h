@@ -42,7 +42,6 @@ public:
     void reset();
     void skip(int n);
     bool has_next() const;
-    bool contains(const std::string & str) const;
     std::string next();
 
     size_t count();
@@ -90,8 +89,7 @@ public:
     double next_double();
 
     bool has_next() const;
-    bool contains(const std::string & value) const;
-    void skip(int ntokens);
+    void skip(int n);
 
     size_t count();
 };

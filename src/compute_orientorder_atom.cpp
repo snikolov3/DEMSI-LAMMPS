@@ -256,7 +256,6 @@ void ComputeOrientOrderAtom::compute_peratom()
 
   double **x = atom->x;
   int *mask = atom->mask;
-  memset(&qnarray[0][0],0,nmax*ncol*sizeof(double));
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -319,6 +318,7 @@ void ComputeOrientOrderAtom::compute_peratom()
       }
 
       calc_boop(rlist, ncount, qn, qlist, nqlist);
+
     }
   }
 }
