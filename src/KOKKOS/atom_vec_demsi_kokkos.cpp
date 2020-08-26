@@ -3276,7 +3276,7 @@ int AtomVecDemsiKokkos::size_restart()
   int nlocal = atom->nlocal;
   int n = 0;
   for (int i = 0; i < nlocal; i++)
-     n += 20 + 2*num_bond[i];
+     n += 31 + 2*num_bond[i];
 
   if (atom->nextra_restart)
     for (int iextra = 0; iextra < atom->nextra_restart; iextra++)
