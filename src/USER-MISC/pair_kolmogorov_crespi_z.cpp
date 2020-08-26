@@ -15,23 +15,24 @@
    Contributing author: Jaap Kroes (Radboud Universiteit)
    e-mail: jaapkroes at gmail dot com
    based on previous versions by Merel van Wijk and by Marco Raguzzoni
-  
+
    This is a simplified version of the potential described in
    [Kolmogorov & Crespi, Phys. Rev. B 71, 235415 (2005)]
    The simplification is that all normals are taken along the z-direction
 ------------------------------------------------------------------------- */
 
+#include "pair_kolmogorov_crespi_z.h"
+#include <mpi.h>
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include "pair_kolmogorov_crespi_z.h"
 #include "atom.h"
 #include "comm.h"
 #include "force.h"
 #include "neigh_list.h"
 #include "memory.h"
 #include "error.h"
+#include "utils.h"
 
 using namespace LAMMPS_NS;
 
@@ -42,7 +43,7 @@ using namespace LAMMPS_NS;
 
 PairKolmogorovCrespiZ::PairKolmogorovCrespiZ(LAMMPS *lmp) : Pair(lmp)
 {
-  writedata = 1;
+  single_enable = 0;
   restartinfo = 0;
 
   // initialize element to parameter maps
@@ -85,10 +86,9 @@ void PairKolmogorovCrespiZ::compute(int eflag, int vflag)
   double rsq,r,rhosq,exp1,exp2,r6,r8;
   double frho,sumC,sumC2,sumCff,fsum,rdsq;
   int *ilist,*jlist,*numneigh,**firstneigh;
-  
+
   evdwl = 0.0;
-  if (eflag || vflag) ev_setup(eflag,vflag);
-  else evflag = vflag_fdotr = 0;
+  ev_init(eflag,vflag);
 
   double **x = atom->x;
   double **f = atom->f;
@@ -121,7 +121,7 @@ void PairKolmogorovCrespiZ::compute(int eflag, int vflag)
       // rho^2 = r^2 - (n,r) = r^2 - z^2
       rhosq = delx*delx + dely*dely;
       rsq = rhosq + delz*delz;
-      
+
       if (rsq < cutsq[itype][jtype]) {
 
         int iparam_ij = elem2param[map[itype]][map[jtype]];
@@ -137,7 +137,7 @@ void PairKolmogorovCrespiZ::compute(int eflag, int vflag)
         exp2 = exp(-rdsq);
 
         // note that f(rho_ij) equals f(rho_ji) as normals are all along z
-        sumC = p.C0+p.C2*rdsq+p.C4*rdsq*rdsq; 
+        sumC = p.C0+p.C2*rdsq+p.C4*rdsq*rdsq;
         sumC2 = (2*p.C2+4*p.C4*rdsq)*p.delta2inv;
         frho = exp2*sumC;
         sumCff = p.C + 2*frho;
@@ -221,9 +221,9 @@ void PairKolmogorovCrespiZ::settings(int narg, char **arg)
 
 void PairKolmogorovCrespiZ::coeff(int narg, char **arg)
 {
-  int i,j,n; 
+  int i,j,n;
 
-  if (narg != 3 + atom->ntypes) 
+  if (narg != 3 + atom->ntypes)
     error->all(FLERR,"Incorrect args for pair coefficients");
   if (!allocated) allocate();
 
@@ -260,17 +260,18 @@ void PairKolmogorovCrespiZ::coeff(int narg, char **arg)
     }
   }
 
-
   read_file(arg[2]);
-  
-  double cut_one = cut_global;
+
+  // set setflag only for i,j pairs where both are mapped to elements
 
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {
     for (int j = MAX(jlo,i); j <= jhi; j++) {
-      cut[i][j] = cut_one;
-      setflag[i][j] = 1;
-      count++;
+      if ((map[i] >=0) && (map[j] >= 0)) {
+        cut[i][j] = cut_global;
+        setflag[i][j] = 1;
+        count++;
+      }
     }
   }
 
@@ -285,6 +286,8 @@ void PairKolmogorovCrespiZ::coeff(int narg, char **arg)
 double PairKolmogorovCrespiZ::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (!offset_flag)
+    error->all(FLERR,"Must use 'pair_modify shift yes' with this pair style");
 
   if (offset_flag && (cut[i][j] > 0.0)) {
     int iparam_ij = elem2param[map[i]][map[j]];
@@ -343,7 +346,7 @@ void PairKolmogorovCrespiZ::read_file(char *filename)
     // strip comment, skip line if blank
 
     if ((ptr = strchr(line,'#'))) *ptr = '\0';
-    nwords = atom->count_words(line);
+    nwords = utils::count_words(line);
     if (nwords == 0) continue;
 
     // concatenate additional lines until have params_per_line words
@@ -362,7 +365,7 @@ void PairKolmogorovCrespiZ::read_file(char *filename)
       MPI_Bcast(&n,1,MPI_INT,0,world);
       MPI_Bcast(line,n,MPI_CHAR,0,world);
       if ((ptr = strchr(line,'#'))) *ptr = '\0';
-      nwords = atom->count_words(line);
+      nwords = utils::count_words(line);
     }
 
     if (nwords != params_per_line)
@@ -391,6 +394,11 @@ void PairKolmogorovCrespiZ::read_file(char *filename)
       maxparam += DELTA;
       params = (Param *) memory->srealloc(params,maxparam*sizeof(Param),
                                           "pair:params");
+
+      // make certain all addional allocated storage is initialized
+      // to avoid false positives when checking with valgrind
+
+      memset(params + nparams, 0, DELTA*sizeof(Param));
     }
 
     params[nparams].ielement = ielement;
@@ -407,7 +415,7 @@ void PairKolmogorovCrespiZ::read_file(char *filename)
     params[nparams].S        = atof(words[10]);
 
     // energies in meV further scaled by S
-    double meV = 1.0e-3*params[nparams].S; 
+    double meV = 1.0e-3*params[nparams].S;
     params[nparams].C *= meV;
     params[nparams].A *= meV;
     params[nparams].C0 *= meV;

@@ -95,9 +95,9 @@ void PairSWIntel::compute(int eflag, int vflag,
                           IntelBuffers<flt_t,acc_t> *buffers,
                           const ForceConst<flt_t> &fc)
 {
-  if (eflag || vflag) {
-    ev_setup(eflag, vflag);
-  } else evflag = vflag_fdotr = 0;
+  ev_init(eflag, vflag);
+  if (vflag_atom)
+    error->all(FLERR,"USER-INTEL package does not support per-atom stress");
 
   const int inum = list->inum;
   const int nthreads = comm->nthreads;
@@ -1286,11 +1286,11 @@ void PairSWIntel::ForceConst<flt_t>::set_ntypes(const int ntypes,
       }
       #endif
 
-      _memory->destroy(op2);
-      _memory->destroy(op2f);
-      _memory->destroy(op2f2);
-      _memory->destroy(op2e);
-      _memory->destroy(op3);
+      memory->destroy(p2);
+      memory->destroy(p2f);
+      memory->destroy(p2f2);
+      memory->destroy(p2e);
+      memory->destroy(p3);
     }
     if (ntypes > 0) {
       _cop = cop;

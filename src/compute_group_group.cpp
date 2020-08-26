@@ -16,10 +16,10 @@
      K-space terms added by Stan Moore (BYU)
 ------------------------------------------------------------------------- */
 
+#include "compute_group_group.h"
 #include <mpi.h>
 #include <cstring>
 #include <cmath>
-#include "compute_group_group.h"
 #include "atom.h"
 #include "update.h"
 #include "force.h"
@@ -104,7 +104,7 @@ ComputeGroupGroup::ComputeGroupGroup(LAMMPS *lmp, int narg, char **arg) :
     } else error->all(FLERR,"Illegal compute group/group command");
   }
 
-  vector = new double[3];
+  vector = new double[size_vector];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -124,7 +124,8 @@ void ComputeGroupGroup::init()
 
   if (pairflag && force->pair == NULL)
     error->all(FLERR,"No pair style defined for compute group/group");
-  if (force->pair_match("hybrid",0) == NULL && force->pair->single_enable == 0)
+  if (force->pair_match("^hybrid",0) == NULL
+      && force->pair->single_enable == 0)
     error->all(FLERR,"Pair style does not support compute group/group");
 
   // error if Kspace style does not compute group/group interactions
@@ -146,12 +147,9 @@ void ComputeGroupGroup::init()
 
   if (kspaceflag) {
     kspace_correction();
-    if (fabs(e_correction) > SMALL && comm->me == 0) {
-      char str[128];
-      sprintf(str,"Both groups in compute group/group have a net charge; "
-              "the Kspace boundary correction to energy will be non-zero");
-      error->warning(FLERR,str);
-    }
+    if ((fabs(e_correction) > SMALL) && (comm->me == 0))
+      error->warning(FLERR,"Both groups in compute group/group have a net charge; "
+                     "the Kspace boundary correction to energy will be non-zero");
   }
 
   // recheck that group 2 has not been deleted

@@ -27,24 +27,22 @@
    - MacKerell et al., J. Comput. Chem. 25(2004):1400-1415.
 ------------------------------------------------------------------------- */
 
+#include "fix_cmap.h"
 #include <mpi.h>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <cstdio>
-#include "fix_cmap.h"
 #include "atom.h"
-#include "atom_vec.h"
 #include "update.h"
 #include "respa.h"
-#include "modify.h"
 #include "domain.h"
 #include "force.h"
-#include "group.h"
 #include "comm.h"
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
+#include "utils.h"
+#include "fmt/format.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -256,17 +254,12 @@ void FixCMAP::pre_neighbor()
       atom5 = atom->map(crossterm_atom5[i][m]);
 
       if (atom1 == -1 || atom2 == -1 || atom3 == -1 ||
-          atom4 == -1 || atom5 == -1) {
-        char str[128];
-        sprintf(str,"CMAP atoms "
-                TAGINT_FORMAT " " TAGINT_FORMAT " " TAGINT_FORMAT " "
-                TAGINT_FORMAT " " TAGINT_FORMAT
-                " missing on proc %d at step " BIGINT_FORMAT,
-                crossterm_atom1[i][m],crossterm_atom2[i][m],
-                crossterm_atom3[i][m],crossterm_atom4[i][m],
-                crossterm_atom5[i][m],me,update->ntimestep);
-        error->one(FLERR,str);
-      }
+          atom4 == -1 || atom5 == -1)
+        error->one(FLERR,fmt::format("CMAP atoms {} {} {} {} {} missing on "
+                                     "proc {} at step {}",
+                                     crossterm_atom1[i][m],crossterm_atom2[i][m],
+                                     crossterm_atom3[i][m],crossterm_atom4[i][m],
+                                     crossterm_atom5[i][m],me,update->ntimestep));
       atom1 = domain->closest_image(i,atom1);
       atom2 = domain->closest_image(i,atom2);
       atom3 = domain->closest_image(i,atom3);
@@ -341,8 +334,7 @@ void FixCMAP::post_force(int vflag)
 
   ecmap = 0.0;
   int eflag = eflag_caller;
-  if (eflag || vflag) ev_setup(eflag,vflag);
-  else evflag = 0;
+  ev_init(eflag,vflag);
 
   for (n = 0; n < ncrosstermlist; n++) {
     i1 = crosstermlist[n][0];
@@ -642,11 +634,10 @@ void FixCMAP::read_grid_map(char *cmapfile)
   FILE *fp = NULL;
   if (comm->me == 0) {
     fp = force->open_potential(cmapfile);
-    if (fp == NULL) {
-      char str[128];
-      snprintf(str,128,"Cannot open fix cmap file %s",cmapfile);
-      error->one(FLERR,str);
-    }
+    if (fp == NULL)
+      error->one(FLERR,fmt::format("Cannot open fix cmap file {}: {}",
+                                   cmapfile, utils::getsyserror()));
+
   }
 
   for (int ix1 = 0; ix1 < 6; ix1++)
@@ -943,7 +934,7 @@ double FixCMAP::dihedral_angle_atan2(double fx, double fy, double fz,
 {
   // calculate the dihedral angle
 
-  double angle, arg1, arg2;
+  double angle = 0.0, arg1, arg2;
 
   arg1 = absg*(fx*bx+fy*by+fz*bz);
   arg2 = ax*bx+ay*by+az*bz;
@@ -1050,7 +1041,7 @@ void FixCMAP::read_data_header(char *line)
     sscanf(line,BIGINT_FORMAT,&ncmap);
   } else error->all(FLERR,"Invalid read data header line for fix cmap");
 
-  // didn't set in constructor b/c this fix could be defined
+  // didn't set in constructor because this fix could be defined
   // before newton command
 
   newton_bond = force->newton_bond;
@@ -1071,14 +1062,11 @@ void FixCMAP::read_data_section(char *keyword, int n, char *buf,
 
   next = strchr(buf,'\n');
   *next = '\0';
-  int nwords = atom->count_words(buf);
+  int nwords = utils::count_words(utils::trim_comment(buf));
   *next = '\n';
 
-  if (nwords != 7) {
-    char str[128];
-    snprintf(str,128,"Incorrect %s format in data file",keyword);
-    error->all(FLERR,str);
-  }
+  if (nwords != 7)
+    error->all(FLERR,fmt::format("Incorrect {} format in data file",keyword));
 
   // loop over lines of CMAP crossterms
   // tokenize the line into values
@@ -1303,6 +1291,7 @@ int FixCMAP::pack_restart(int i, double *buf)
     buf[n++] = ubuf(crossterm_atom4[i][m]).d;
     buf[n++] = ubuf(crossterm_atom5[i][m]).d;
   }
+  // pack buf[0] this way because other fixes unpack it
   buf[0] = n;
 
   return n;
@@ -1317,6 +1306,7 @@ void FixCMAP::unpack_restart(int nlocal, int nth)
   double **extra = atom->extra;
 
   // skip to Nth set of extra values
+  // unpack the Nth first values this way because other fixes pack them
 
    int n = 0;
    for (int i = 0; i < nth; i++) n += static_cast<int> (extra[nlocal][n]);

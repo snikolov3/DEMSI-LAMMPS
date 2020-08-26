@@ -70,9 +70,9 @@ void PairLJCharmmCoulLongIntel::compute(int eflag, int vflag,
                                         IntelBuffers<flt_t,acc_t> *buffers,
                                         const ForceConst<flt_t> &fc)
 {
-  if (eflag || vflag) {
-    ev_setup(eflag,vflag);
-  } else evflag = vflag_fdotr = 0;
+  ev_init(eflag,vflag);
+  if (vflag_atom)
+    error->all(FLERR,"USER-INTEL package does not support per-atom stress");
 
   const int inum = list->inum;
   const int nthreads = comm->nthreads;
@@ -557,7 +557,7 @@ void PairLJCharmmCoulLongIntel::pack_force_const(ForceConst<flt_t> &fc,
   // Repeat cutsq calculation because done after call to init_style
   if (cut_lj > cut_coul)
     error->all(FLERR,
-         "Intel varient of lj/charmm/coul/long expects lj cutoff<=coulombic");
+         "Intel variant of lj/charmm/coul/long expects lj cutoff<=coulombic");
   for (int i = 1; i <= atom->ntypes; i++) {
     for (int j = i; j <= atom->ntypes; j++) {
       double cut;

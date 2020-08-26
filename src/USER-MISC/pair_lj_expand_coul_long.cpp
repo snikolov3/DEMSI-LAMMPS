@@ -15,17 +15,15 @@
    Contributing author: Trung Nguyen (Northwestern)
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include "pair_lj_expand_coul_long.h"
+#include <mpi.h>
+#include <cmath>
+#include <cstring>
 #include "atom.h"
 #include "comm.h"
 #include "force.h"
 #include "kspace.h"
 #include "update.h"
-#include "integrate.h"
 #include "respa.h"
 #include "neighbor.h"
 #include "neigh_list.h"
@@ -33,6 +31,7 @@
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
+#include "utils.h"
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -54,6 +53,7 @@ PairLJExpandCoulLong::PairLJExpandCoulLong(LAMMPS *lmp) : Pair(lmp)
   writedata = 1;
   ftable = NULL;
   qdist = 0.0;
+  cut_respa = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -91,8 +91,7 @@ void PairLJExpandCoulLong::compute(int eflag, int vflag)
   double rsq,rshift,rshiftsq,rshift2inv;
 
   evdwl = ecoul = 0.0;
-  if (eflag || vflag) ev_setup(eflag,vflag);
-  else evflag = vflag_fdotr = 0;
+  ev_init(eflag,vflag);
 
   double **x = atom->x;
   double **f = atom->f;
@@ -169,7 +168,7 @@ void PairLJExpandCoulLong::compute(int eflag, int vflag)
           rshift2inv = 1.0/rshiftsq;
           r6inv = rshift2inv*rshift2inv*rshift2inv;
           forcelj = r6inv * (lj1[itype][jtype]*r6inv - lj2[itype][jtype]);
-          forcelj = factor_lj*forcelj/rshift/r;
+          forcelj *= factor_lj/rshift/r;
         } else forcelj = 0.0;
 
         fpair = forcecoul*r2inv + forcelj;
@@ -278,7 +277,7 @@ void PairLJExpandCoulLong::compute_inner()
           rshift2inv = 1.0/rshiftsq;
           r6inv = rshift2inv*rshift2inv*rshift2inv;
           forcelj = r6inv * (lj1[itype][jtype]*r6inv - lj2[itype][jtype]);
-          forcelj = factor_lj*forcelj/rshift/r;
+          forcelj *= factor_lj/rshift/r;
         } else forcelj = 0.0;
 
         fpair = forcecoul*r2inv + forcelj;
@@ -373,7 +372,7 @@ void PairLJExpandCoulLong::compute_middle()
           rshift2inv = 1.0/rshiftsq;
           r6inv = rshift2inv*rshift2inv*rshift2inv;
           forcelj = r6inv * (lj1[itype][jtype]*r6inv - lj2[itype][jtype]);
-          forcelj = factor_lj*forcelj/rshift/r;
+          forcelj *= factor_lj/rshift/r;
         } else forcelj = 0.0;
 
         fpair = forcecoul*r2inv + forcelj;
@@ -412,8 +411,7 @@ void PairLJExpandCoulLong::compute_outer(int eflag, int vflag)
   int *ilist,*jlist,*numneigh,**firstneigh;
 
   evdwl = ecoul = 0.0;
-  if (eflag || vflag) ev_setup(eflag,vflag);
-  else evflag = 0;
+  ev_init(eflag,vflag);
 
   double **x = atom->x;
   double **f = atom->f;
@@ -509,7 +507,7 @@ void PairLJExpandCoulLong::compute_outer(int eflag, int vflag)
           rshift2inv = 1.0/rshiftsq;
           r6inv = rshift2inv*rshift2inv*rshift2inv;
           forcelj = r6inv * (lj1[itype][jtype]*r6inv - lj2[itype][jtype]);
-          forcelj = factor_lj*forcelj/rshift/r;
+          forcelj *= factor_lj/rshift/r;
           if (rsq < cut_in_on_sq) {
             rsw = (sqrt(rsq) - cut_in_off)/cut_in_diff;
             forcelj *= rsw*rsw*(3.0 - 2.0*rsw);
@@ -527,6 +525,7 @@ void PairLJExpandCoulLong::compute_outer(int eflag, int vflag)
           f[j][2] -= delz*fpair;
         }
 
+        if (evflag) ecoul = evdwl = 0.0;
         if (eflag) {
           if (rsq < cut_coulsq) {
             if (!ncoultablebits || rsq <= tabinnersq) {
@@ -541,14 +540,18 @@ void PairLJExpandCoulLong::compute_outer(int eflag, int vflag)
                 ecoul -= (1.0-factor_coul)*prefactor;
               }
             }
-          } else ecoul = 0.0;
+          }
 
           if (rsq < cut_ljsq[itype][jtype]) {
-            r6inv = r2inv*r2inv*r2inv;
+            r = sqrt(rsq);
+            rshift = r - shift[itype][jtype];
+            rshiftsq = rshift*rshift;
+            rshift2inv = 1.0/rshiftsq;
+            r6inv = rshift2inv*rshift2inv*rshift2inv;
             evdwl = r6inv*(lj3[itype][jtype]*r6inv-lj4[itype][jtype]) -
               offset[itype][jtype];
             evdwl *= factor_lj;
-          } else evdwl = 0.0;
+          }
         }
 
         if (vflag) {
@@ -567,15 +570,18 @@ void PairLJExpandCoulLong::compute_outer(int eflag, int vflag)
             }
           } else forcecoul = 0.0;
 
-          if (rsq <= cut_in_off_sq) {
-            r6inv = r2inv*r2inv*r2inv;
+          if (rsq < cut_ljsq[itype][jtype]) {
+            r = sqrt(rsq);
+            rshift = r - shift[itype][jtype];
+            rshiftsq = rshift*rshift;
+            rshift2inv = 1.0/rshiftsq;
+            r6inv = rshift2inv*rshift2inv*rshift2inv;
             forcelj = r6inv * (lj1[itype][jtype]*r6inv - lj2[itype][jtype]);
-          } else if (rsq <= cut_in_on_sq) {
-            r6inv = r2inv*r2inv*r2inv;
-            forcelj = r6inv * (lj1[itype][jtype]*r6inv - lj2[itype][jtype]);
-          }
-          fpair = (forcecoul + factor_lj*forcelj) * r2inv;
-        }
+            forcelj *= factor_lj/rshift/r;
+          } else forcelj = 0.0;
+
+          fpair = forcecoul*r2inv + forcelj;
+        } else fpair = 0.0;
 
         if (evflag) ev_tally(i,j,nlocal,newton_pair,
                              evdwl,ecoul,fpair,delx,dely,delz);
@@ -789,9 +795,9 @@ double PairLJExpandCoulLong::init_one(int i, int j)
        (1.0/3.0 + 2.0*shift1/(4.0*rc1) + shift2/(5.0*rc2))/rc3);
     ptail_ij = 16.0*MY_PI*all[0]*all[1]*epsilon[i][j] * sig6 *
       ((1.0/9.0 + 3.0*shift1/(10.0*rc1) +
-	3.0*shift2/(11.0*rc2) + shift3/(12.0*rc3))*2.0*sig6/rc9 -
+        3.0*shift2/(11.0*rc2) + shift3/(12.0*rc3))*2.0*sig6/rc9 -
        (1.0/3.0 + 3.0*shift1/(4.0*rc1) +
-	3.0*shift2/(5.0*rc2) + shift3/(6.0*rc3))/rc3);
+        3.0*shift2/(5.0*rc2) + shift3/(6.0*rc3))/rc3);
   }
 
   return cut;
@@ -832,14 +838,14 @@ void PairLJExpandCoulLong::read_restart(FILE *fp)
   int me = comm->me;
   for (i = 1; i <= atom->ntypes; i++)
     for (j = i; j <= atom->ntypes; j++) {
-      if (me == 0) fread(&setflag[i][j],sizeof(int),1,fp);
+      if (me == 0) utils::sfread(FLERR,&setflag[i][j],sizeof(int),1,fp,NULL,error);
       MPI_Bcast(&setflag[i][j],1,MPI_INT,0,world);
       if (setflag[i][j]) {
         if (me == 0) {
-          fread(&epsilon[i][j],sizeof(double),1,fp);
-          fread(&sigma[i][j],sizeof(double),1,fp);
-          fread(&shift[i][j],sizeof(double),1,fp);
-          fread(&cut_lj[i][j],sizeof(double),1,fp);
+          utils::sfread(FLERR,&epsilon[i][j],sizeof(double),1,fp,NULL,error);
+          utils::sfread(FLERR,&sigma[i][j],sizeof(double),1,fp,NULL,error);
+          utils::sfread(FLERR,&shift[i][j],sizeof(double),1,fp,NULL,error);
+          utils::sfread(FLERR,&cut_lj[i][j],sizeof(double),1,fp,NULL,error);
         }
         MPI_Bcast(&epsilon[i][j],1,MPI_DOUBLE,0,world);
         MPI_Bcast(&sigma[i][j],1,MPI_DOUBLE,0,world);
@@ -871,13 +877,13 @@ void PairLJExpandCoulLong::write_restart_settings(FILE *fp)
 void PairLJExpandCoulLong::read_restart_settings(FILE *fp)
 {
   if (comm->me == 0) {
-    fread(&cut_lj_global,sizeof(double),1,fp);
-    fread(&cut_coul,sizeof(double),1,fp);
-    fread(&offset_flag,sizeof(int),1,fp);
-    fread(&mix_flag,sizeof(int),1,fp);
-    fread(&tail_flag,sizeof(int),1,fp);
-    fread(&ncoultablebits,sizeof(int),1,fp);
-    fread(&tabinner,sizeof(double),1,fp);
+    utils::sfread(FLERR,&cut_lj_global,sizeof(double),1,fp,NULL,error);
+    utils::sfread(FLERR,&cut_coul,sizeof(double),1,fp,NULL,error);
+    utils::sfread(FLERR,&offset_flag,sizeof(int),1,fp,NULL,error);
+    utils::sfread(FLERR,&mix_flag,sizeof(int),1,fp,NULL,error);
+    utils::sfread(FLERR,&tail_flag,sizeof(int),1,fp,NULL,error);
+    utils::sfread(FLERR,&ncoultablebits,sizeof(int),1,fp,NULL,error);
+    utils::sfread(FLERR,&tabinner,sizeof(double),1,fp,NULL,error);
   }
   MPI_Bcast(&cut_lj_global,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&cut_coul,1,MPI_DOUBLE,0,world);
@@ -949,11 +955,16 @@ double PairLJExpandCoulLong::single(int i, int j, int itype, int jtype,
   } else forcecoul = 0.0;
 
   if (rsq < cut_ljsq[itype][jtype]) {
-    r6inv = r2inv*r2inv*r2inv;
+    r = sqrt(rsq);
+    double rshift = r - shift[itype][jtype];
+    double rshiftsq = rshift*rshift;
+    double rshift2inv = 1.0/rshiftsq;
+    r6inv = rshift2inv*rshift2inv*rshift2inv;
     forcelj = r6inv * (lj1[itype][jtype]*r6inv - lj2[itype][jtype]);
+    forcelj *= factor_lj/rshift/r;
   } else forcelj = 0.0;
 
-  fforce = (forcecoul + factor_lj*forcelj) * r2inv;
+  fforce = forcecoul*r2inv + forcelj;
 
   double eng = 0.0;
   if (rsq < cut_coulsq) {

@@ -22,12 +22,11 @@
                            support for groups
 ------------------------------------------------------------------------- */
 
+#include "dump_xtc.h"
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <climits>
-#include "dump_xtc.h"
 #include "domain.h"
 #include "atom.h"
 #include "update.h"
@@ -440,7 +439,7 @@ int xdropen(XDR *xdrs, const char *filename, const char *type)
   }
   xdrmodes[xdrid] = *type;
 
-  /* next test isn't usefull in the case of C language
+  /* next test isn't useful in the case of C language
    * but is used for the Fortran interface
    * (C users are expected to pass the address of an already allocated
    * XDR staructure)
@@ -556,7 +555,7 @@ static int sizeofint(const int size)
   unsigned int num = 1;
   int num_of_bits = 0;
 
-  while (size >= num && num_of_bits < 32) {
+  while (size >= (int) num && num_of_bits < 32) {
     num_of_bits++;
     num <<= 1;
   }
@@ -597,7 +596,7 @@ static int sizeofints( const int num_of_ints, unsigned int sizes[])
   }
   num = 1;
   num_of_bytes--;
-  while (bytes[num_of_bytes] >= num) {
+  while ((int)bytes[num_of_bytes] >= num) {
     num_of_bits++;
     num *= 2;
   }
@@ -611,7 +610,7 @@ static int sizeofints( const int num_of_ints, unsigned int sizes[])
  | this routine is used internally by xdr3dfcoord, to send a set of
  | small integers to the buffer.
  | Multiplication with fixed (specified maximum ) sizes is used to get
- | to one big, multibyte integer. Allthough the routine could be
+ | to one big, multibyte integer. Although the routine could be
  | modified to handle sizes bigger than 16777216, or more than just
  | a few integers, this is not done, because the gain in compression
  | isn't worth the effort. Note that overflowing the multiplication
@@ -651,13 +650,13 @@ static void sendints(int buf[], const int num_of_ints, const int num_of_bits,
     }
     num_of_bytes = bytecnt;
   }
-  if (num_of_bits >= num_of_bytes * 8) {
-    for (i = 0; i < num_of_bytes; i++) {
+  if (num_of_bits >= (int)num_of_bytes * 8) {
+    for (i = 0; i < (int)num_of_bytes; i++) {
       sendbits(buf, 8, bytes[i]);
     }
     sendbits(buf, num_of_bits - num_of_bytes * 8, 0);
   } else {
-    for (i = 0; i < num_of_bytes-1; i++) {
+    for (i = 0; i < (int)num_of_bytes-1; i++) {
       sendbits(buf, 8, bytes[i]);
     }
     sendbits(buf, num_of_bits- (num_of_bytes -1) * 8, bytes[i]);
@@ -692,7 +691,7 @@ static int receivebits(int buf[], int num_of_bits)
     num_of_bits -=8;
   }
   if (num_of_bits > 0) {
-    if (lastbits < num_of_bits) {
+    if ((int)lastbits < num_of_bits) {
       lastbits += 8;
       lastbyte = (lastbyte << 8) | cbuf[cnt++];
     }
@@ -759,7 +758,7 @@ static void receiveints(int buf[], const int num_of_ints, int num_of_bits,
  | using multiplication by *precision and rounding to the nearest integer.
  | Then the minimum and maximum value are calculated to determine the range.
  | The limited range of integers so found, is used to compress the coordinates.
- | In addition the differences between succesive coordinates is calculated.
+ | In addition the differences between successive coordinates is calculated.
  | If the difference happens to be 'small' then only the difference is saved,
  | compressing the data even more. The notion of 'small' is changed dynamically
  | and is enlarged or reduced whenever needed or possible.
@@ -932,11 +931,11 @@ int xdr3dfcoord(XDR *xdrs, float *fp, int *size, float *precision)
     lip = ip;
     luip = (unsigned int *) ip;
     smallidx = FIRSTIDX;
-    while (smallidx < LASTIDX && magicints[smallidx] < mindiff) {
+    while (smallidx < (int)LASTIDX && magicints[smallidx] < mindiff) {
       smallidx++;
     }
     xdr_int(xdrs, &smallidx);
-    maxidx = MYMIN(LASTIDX, smallidx + 8) ;
+    maxidx = MYMIN((int)LASTIDX, smallidx + 8) ;
     minidx = maxidx - 8; /* often this equal smallidx */
     smaller = magicints[MYMAX(FIRSTIDX, smallidx-1)] / 2;
     small = magicints[smallidx] / 2;
@@ -1112,7 +1111,7 @@ int xdr3dfcoord(XDR *xdrs, float *fp, int *size, float *precision)
     }
 
     xdr_int(xdrs, &smallidx);
-    maxidx = MYMIN(LASTIDX, smallidx + 8) ;
+    maxidx = MYMIN((int)LASTIDX, smallidx + 8) ;
     minidx = maxidx - 8; /* often this equal smallidx */
     smaller = magicints[MYMAX(FIRSTIDX, smallidx-1)] / 2;
     small = magicints[smallidx] / 2;

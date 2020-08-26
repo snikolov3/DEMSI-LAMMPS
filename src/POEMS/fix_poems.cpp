@@ -17,25 +17,25 @@
                   Kurt Anderson (anderk5@rpi.edu)
 ------------------------------------------------------------------------- */
 
+#include "fix_poems.h"
 #include <mpi.h>
 #include <cmath>
-#include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include "workspace.h"
-#include "fix_poems.h"
 #include "atom.h"
 #include "domain.h"
 #include "update.h"
 #include "respa.h"
 #include "modify.h"
 #include "force.h"
-#include "output.h"
 #include "group.h"
 #include "comm.h"
 #include "citeme.h"
 #include "memory.h"
 #include "error.h"
+#include "utils.h"
+#include "fmt/format.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -277,14 +277,9 @@ FixPOEMS::FixPOEMS(LAMMPS *lmp, int narg, char **arg) :
   for (ibody = 0; ibody < nbody; ibody++) nsum += nrigid[ibody];
   nsum -= njoint;
 
-  if (me == 0) {
-    if (screen)
-      fprintf(screen,"%d clusters, %d bodies, %d joints, %d atoms\n",
-              ncluster,nbody,njoint,nsum);
-    if (logfile)
-      fprintf(logfile,"%d clusters, %d bodies, %d joints, %d atoms\n",
-              ncluster,nbody,njoint,nsum);
-  }
+  if (me == 0)
+    utils::logmesg(lmp,fmt::format("{} clusters, {} bodies, {} joints, {} atoms\n",
+                                   ncluster,nbody,njoint,nsum));
 }
 
 /* ----------------------------------------------------------------------
@@ -366,11 +361,11 @@ void FixPOEMS::init()
     int pflag = 0;
     for (i = 0; i < modify->nfix; i++) {
       if (strcmp(modify->fix[i]->style,"poems") == 0) pflag = 1;
-      if (pflag && (modify->fmask[i] & POST_FORCE) && 
+      if (pflag && (modify->fmask[i] & POST_FORCE) &&
           !modify->fix[i]->rigid_flag) {
-        char str[128];
-        snprintf(str,128,"Fix %s alters forces after fix poems",modify->fix[i]->id);
-        error->warning(FLERR,str);
+        if (comm->me == 0)
+          error->warning(FLERR,std::string("Fix ") + modify->fix[i]->id
+                         + std::string(" alters forces after fix poems"));
       }
     }
   }
@@ -748,19 +743,9 @@ void FixPOEMS::initial_integrate(int vflag)
 
 /* ---------------------------------------------------------------------- */
 
-void FixPOEMS::post_force(int vflag)
+void FixPOEMS::post_force(int /* vflag */)
 {
   if (earlyflag) compute_forces_and_torques();
-
-  /*
-  for (int ibody = 0; ibody < nbody; ibody++) {
-    if (ibody == 0) {
-    printf("PFF %d %g %g %g\n",ibody,fcm[ibody][0],fcm[ibody][1],fcm[ibody][2]);
-    printf("PFT %d %g %g %g\n",ibody,
-           torque[ibody][0],torque[ibody][1],torque[ibody][2]);
-    }
-  }
-  */
 }
 
 /* ----------------------------------------------------------------------
@@ -850,7 +835,7 @@ void FixPOEMS::final_integrate()
 
 /* ---------------------------------------------------------------------- */
 
-void FixPOEMS::initial_integrate_respa(int vflag, int ilevel, int iloop)
+void FixPOEMS::initial_integrate_respa(int vflag, int ilevel, int /* iloop */)
 {
   dtv = step_respa[ilevel];
   dtf = 0.5 * step_respa[ilevel] * force->ftm2v;
@@ -862,14 +847,14 @@ void FixPOEMS::initial_integrate_respa(int vflag, int ilevel, int iloop)
 
 /* ---------------------------------------------------------------------- */
 
-void FixPOEMS::post_force_respa(int vflag, int ilevel, int iloop)
+void FixPOEMS::post_force_respa(int vflag, int ilevel, int /* iloop */)
 {
   if (ilevel == nlevels_respa-1) post_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */
 
-void FixPOEMS::final_integrate_respa(int ilevel, int iloop)
+void FixPOEMS::final_integrate_respa(int ilevel, int /* iloop */)
 {
   dtf = 0.5 * step_respa[ilevel] * force->ftm2v;
   final_integrate();
@@ -949,7 +934,7 @@ int FixPOEMS::dof(int igroup)
          thus this routine does nothing for now
 ------------------------------------------------------------------------- */
 
-void FixPOEMS::deform(int flag) {}
+void FixPOEMS::deform(int /* flag */) {}
 
 /* ---------------------------------------------------------------------- */
 
@@ -1607,7 +1592,7 @@ void FixPOEMS::grow_arrays(int nmax)
    copy values within local atom-based arrays
 ------------------------------------------------------------------------- */
 
-void FixPOEMS::copy_arrays(int i, int j, int delflag)
+void FixPOEMS::copy_arrays(int i, int j, int /* delflag */)
 {
   natom2body[j] = natom2body[i];
   for (int k = 0; k < natom2body[j]; k++) atom2body[j][k] = atom2body[i][k];

@@ -18,15 +18,13 @@
      Hybrid and sub-group capabilities: Ray Shan (Sandia)
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include "fix_qeq_reax.h"
+#include <mpi.h>
+#include <cmath>
+#include <cstring>
 #include "pair_reaxc.h"
 #include "atom.h"
 #include "comm.h"
-#include "domain.h"
 #include "neighbor.h"
 #include "neigh_list.h"
 #include "neigh_request.h"
@@ -39,16 +37,14 @@
 #include "citeme.h"
 #include "error.h"
 #include "reaxc_defs.h"
+#include "reaxc_types.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
 #define EV_TO_KCAL_PER_MOL 14.4
-//#define DANGER_ZONE     0.95
-//#define LOOSE_ZONE      0.7
 #define SQR(x) ((x)*(x))
 #define CUBE(x) ((x)*(x)*(x))
-#define MIN_NBRS 100
 
 static const char cite_fix_qeq_reax[] =
   "fix qeq/reax command:\n\n"
@@ -124,16 +120,14 @@ FixQEqReax::FixQEqReax(LAMMPS *lmp, int narg, char **arg) :
   // register with Atom class
 
   reaxc = NULL;
-  reaxc = (PairReaxC *) force->pair_match("reax/c",0);
+  reaxc = (PairReaxC *) force->pair_match("^reax/c",0);
 
-  if (reaxc) {
-    s_hist = t_hist = NULL;
-    grow_arrays(atom->nmax);
-    atom->add_callback(0);
-    for (int i = 0; i < atom->nmax; i++)
-      for (int j = 0; j < nprev; ++j)
-        s_hist[i][j] = t_hist[i][j] = 0;
-  }
+  s_hist = t_hist = NULL;
+  grow_arrays(atom->nmax);
+  atom->add_callback(0);
+  for (int i = 0; i < atom->nmax; i++)
+    for (int j = 0; j < nprev; ++j)
+      s_hist[i][j] = t_hist[i][j] = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -202,7 +196,7 @@ void FixQEqReax::pertype_parameters(char *arg)
     return;
   }
 
-  int i,itype,ntypes;
+  int i,itype,ntypes,rv;
   double v1,v2,v3;
   FILE *pf;
 
@@ -218,9 +212,11 @@ void FixQEqReax::pertype_parameters(char *arg)
       error->one(FLERR,"Fix qeq/reax parameter file could not be found");
 
     for (i = 1; i <= ntypes && !feof(pf); i++) {
-      fscanf(pf,"%d %lg %lg %lg",&itype,&v1,&v2,&v3);
+      rv = fscanf(pf,"%d %lg %lg %lg",&itype,&v1,&v2,&v3);
+      if (rv != 4)
+        error->one(FLERR,"Fix qeq/reax: Incorrect format of param file");
       if (itype < 1 || itype > ntypes)
-        error->one(FLERR,"Fix qeq/reax invalid atom type in param file");
+        error->one(FLERR,"Fix qeq/reax: invalid atom type in param file");
       chi[itype] = v1;
       eta[itype] = v2;
       gamma[itype] = v3;
@@ -301,8 +297,8 @@ void FixQEqReax::allocate_matrix()
     mincap = reaxc->system->mincap;
     safezone = reaxc->system->safezone;
   } else {
-    mincap = MIN_CAP;
-    safezone = SAFE_ZONE;
+    mincap = REAX_MIN_CAP;
+    safezone = REAX_SAFE_ZONE;
   }
 
   n = atom->nlocal;
@@ -325,7 +321,7 @@ void FixQEqReax::allocate_matrix()
     i = ilist[ii];
     m += numneigh[i];
   }
-  m_cap = MAX( (int)(m * safezone), mincap * MIN_NBRS);
+  m_cap = MAX( (int)(m * safezone), mincap * REAX_MIN_NBRS);
 
   H.n = n_cap;
   H.m = m_cap;
@@ -467,19 +463,26 @@ void FixQEqReax::min_setup_pre_force(int vflag)
 void FixQEqReax::init_storage()
 {
   int NN;
+  int *ilist;
 
-  if (reaxc)
+  if (reaxc) {
     NN = reaxc->list->inum + reaxc->list->gnum;
-  else
+    ilist = reaxc->list->ilist;
+  } else {
     NN = list->inum + list->gnum;
+    ilist = list->ilist;
+  }
 
-  for (int i = 0; i < NN; i++) {
-    Hdia_inv[i] = 1. / eta[atom->type[i]];
-    b_s[i] = -chi[atom->type[i]];
-    b_t[i] = -1.0;
-    b_prc[i] = 0;
-    b_prm[i] = 0;
-    s[i] = t[i] = 0;
+  for (int ii = 0; ii < NN; ii++) {
+    int i = ilist[ii];
+    if (atom->mask[i] & groupbit) {
+      Hdia_inv[i] = 1. / eta[atom->type[i]];
+      b_s[i] = -chi[atom->type[i]];
+      b_t[i] = -1.0;
+      b_prc[i] = 0;
+      b_prm[i] = 0;
+      s[i] = t[i] = 0;
+    }
   }
 }
 
@@ -557,17 +560,11 @@ void FixQEqReax::init_matvec()
       b_s[i]      = -chi[ atom->type[i] ];
       b_t[i]      = -1.0;
 
-      /* linear extrapolation for s & t from previous solutions */
-      //s[i] = 2 * s_hist[i][0] - s_hist[i][1];
-      //t[i] = 2 * t_hist[i][0] - t_hist[i][1];
-
       /* quadratic extrapolation for s & t from previous solutions */
-      //s[i] = s_hist[i][2] + 3 * ( s_hist[i][0] - s_hist[i][1] );
       t[i] = t_hist[i][2] + 3 * ( t_hist[i][0] - t_hist[i][1]);
 
       /* cubic extrapolation for s & t from previous solutions */
       s[i] = 4*(s_hist[i][0]+s_hist[i][2])-(6*s_hist[i][1]+s_hist[i][3]);
-      //t[i] = 4*(t_hist[i][0]+t_hist[i][2])-(6*t_hist[i][1]+t_hist[i][3]);
     }
   }
 
@@ -615,6 +612,7 @@ void FixQEqReax::compute_H()
 
       for (jj = 0; jj < jnum; jj++) {
         j = jlist[jj];
+        j &= NEIGHMASK;
 
         dx = x[j][0] - x[i][0];
         dy = x[j][1] - x[i][1];

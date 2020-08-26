@@ -11,24 +11,28 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include <mpi.h>
-#include <cstring>
-#include <cctype>
 #include "lammps.h"
-#include "style_angle.h"
-#include "style_atom.h"
-#include "style_bond.h"
-#include "style_command.h"
-#include "style_compute.h"
-#include "style_dihedral.h"
-#include "style_dump.h"
-#include "style_fix.h"
-#include "style_improper.h"
-#include "style_integrate.h"
-#include "style_kspace.h"
-#include "style_minimize.h"
-#include "style_pair.h"
-#include "style_region.h"
+#include <mpi.h>
+#include <cmath>
+#include <cstring>
+#include <cstdlib>
+#include <cctype>
+#include <map>
+#include <string>
+#include "style_angle.h"     // IWYU pragma: keep
+#include "style_atom.h"      // IWYU pragma: keep
+#include "style_bond.h"      // IWYU pragma: keep
+#include "style_command.h"   // IWYU pragma: keep
+#include "style_compute.h"   // IWYU pragma: keep
+#include "style_dihedral.h"  // IWYU pragma: keep
+#include "style_dump.h"      // IWYU pragma: keep
+#include "style_fix.h"       // IWYU pragma: keep
+#include "style_improper.h"  // IWYU pragma: keep
+#include "style_integrate.h" // IWYU pragma: keep
+#include "style_kspace.h"    // IWYU pragma: keep
+#include "style_minimize.h"  // IWYU pragma: keep
+#include "style_pair.h"      // IWYU pragma: keep
+#include "style_region.h"    // IWYU pragma: keep
 #include "universe.h"
 #include "input.h"
 #include "info.h"
@@ -44,18 +48,40 @@
 #include "output.h"
 #include "citeme.h"
 #include "accelerator_kokkos.h"
-#include "accelerator_omp.h"
+#include "accelerator_omp.h"    // IWYU pragma: keep
 #include "timer.h"
-#include "python.h"
+#include "lmppython.h"
 #include "version.h"
 #include "memory.h"
 #include "error.h"
+#include "utils.h"
+#include "fmt/format.h"
 
 #include "lmpinstalledpkgs.h"
-
-using namespace LAMMPS_NS;
+#include "lmpgitversion.h"
 
 static void print_style(FILE *fp, const char *str, int &pos);
+
+struct LAMMPS_NS::package_styles_lists {
+  std::map<std::string,std::string> angle_styles;
+  std::map<std::string,std::string> atom_styles;
+  std::map<std::string,std::string> body_styles;
+  std::map<std::string,std::string> bond_styles;
+  std::map<std::string,std::string> command_styles;
+  std::map<std::string,std::string> compute_styles;
+  std::map<std::string,std::string> dihedral_styles;
+  std::map<std::string,std::string> dump_styles;
+  std::map<std::string,std::string> fix_styles;
+  std::map<std::string,std::string> improper_styles;
+  std::map<std::string,std::string> integrate_styles;
+  std::map<std::string,std::string> kspace_styles;
+  std::map<std::string,std::string> minimize_styles;
+  std::map<std::string,std::string> pair_styles;
+  std::map<std::string,std::string> reader_styles;
+  std::map<std::string,std::string> region_styles;
+};
+
+using namespace LAMMPS_NS;
 
 /* ----------------------------------------------------------------------
    start up LAMMPS
@@ -65,13 +91,15 @@ static void print_style(FILE *fp, const char *str, int &pos);
    input is allocated at end after MPI info is setup
 ------------------------------------------------------------------------- */
 
-LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
+LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator) :
+  memory(NULL), error(NULL), universe(NULL), input(NULL), atom(NULL),
+  update(NULL), neighbor(NULL), comm(NULL), domain(NULL), force(NULL),
+  modify(NULL), group(NULL), output(NULL), timer(NULL), kokkos(NULL),
+  atomKK(NULL), memoryKK(NULL), python(NULL), citeme(NULL)
 {
   memory = new Memory(this);
   error = new Error(this);
   universe = new Universe(this,communicator);
-  output = NULL;
-  python = NULL;
 
   clientserver = 0;
   cslib = NULL;
@@ -82,6 +110,8 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
   infile = NULL;
 
   initclock = MPI_Wtime();
+
+  init_pkg_lists();
 
   // check if -mpi is first arg
   // if so, then 2 apps were launched with one mpirun command
@@ -121,8 +151,9 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
   int partscreenflag = 0;
   int partlogflag = 0;
   int kokkosflag = 0;
-  int restartflag = 0;
-  int restartremapflag = 0;
+  int restart2data = 0;
+  int restart2dump = 0;
+  int restartremap = 0;
   int citeflag = 1;
   int helpflag = 0;
 
@@ -132,9 +163,8 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
   else exename = NULL;
   packargs = NULL;
   num_package = 0;
-  char *rfile = NULL;
-  char *dfile = NULL;
-  int wdfirst,wdlast;
+  char *restartfile = NULL;
+  int wfirst,wlast;
   int kkfirst,kklast;
 
   int npack = 0;
@@ -248,26 +278,49 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
       universe->reorder(arg[iarg+1],arg[iarg+2]);
       iarg += 3;
 
-    } else if (strcmp(arg[iarg],"-restart") == 0 ||
-               strcmp(arg[iarg],"-r") == 0) {
+    } else if (strcmp(arg[iarg],"-restart2data") == 0 ||
+               strcmp(arg[iarg],"-r2data") == 0) {
       if (iarg+3 > narg)
         error->universe_all(FLERR,"Invalid command-line argument");
-      restartflag = 1;
-      rfile = arg[iarg+1];
-      dfile = arg[iarg+2];
+      if (restart2dump)
+        error->universe_all(FLERR,
+                            "Cannot use both -restart2data and -restart2dump");
+      restart2data = 1;
+      restartfile = arg[iarg+1];
       // check for restart remap flag
-      if (strcmp(dfile,"remap") == 0) {
+      if (strcmp(arg[iarg+2],"remap") == 0) {
         if (iarg+4 > narg)
           error->universe_all(FLERR,"Invalid command-line argument");
-        restartremapflag = 1;
-        dfile = arg[iarg+3];
+        restartremap = 1;
         iarg++;
       }
-      iarg += 3;
-      // delimit any extra args for the write_data command
-      wdfirst = iarg;
+      iarg += 2;
+      // delimit args for the write_data command
+      wfirst = iarg;
       while (iarg < narg && arg[iarg][0] != '-') iarg++;
-      wdlast = iarg;
+      wlast = iarg;
+
+    } else if (strcmp(arg[iarg],"-restart2dump") == 0 ||
+               strcmp(arg[iarg],"-r2dump") == 0) {
+      if (iarg+3 > narg)
+        error->universe_all(FLERR,"Invalid command-line argument");
+      if (restart2data)
+        error->universe_all(FLERR,
+                            "Cannot use both -restart2data and -restart2dump");
+      restart2dump = 1;
+      restartfile = arg[iarg+1];
+      // check for restart remap flag
+      if (strcmp(arg[iarg+2],"remap") == 0) {
+        if (iarg+4 > narg)
+          error->universe_all(FLERR,"Invalid command-line argument");
+        restartremap = 1;
+        iarg++;
+      }
+      iarg += 2;
+      // delimit args for the write_dump command
+      wfirst = iarg;
+      while (iarg < narg && arg[iarg][0] != '-') iarg++;
+      wlast = iarg;
 
     } else if (strcmp(arg[iarg],"-screen") == 0 ||
                strcmp(arg[iarg],"-sc") == 0) {
@@ -282,7 +335,7 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
         error->universe_all(FLERR,"Invalid command-line argument");
       delete [] suffix;
       delete [] suffix2;
-      suffix2 = NULL;
+      suffix = suffix2 = NULL;
       suffix_enable = 1;
       // hybrid option to set fall-back for suffix2
       if (strcmp(arg[iarg+1],"hybrid") == 0) {
@@ -347,20 +400,25 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
     else {
       universe->uscreen = fopen(arg[screenflag],"w");
       if (universe->uscreen == NULL)
-        error->universe_one(FLERR,"Cannot open universe screen file");
+        error->universe_one(FLERR,fmt::format("Cannot open universe screen "
+                                              "file {}: {}",arg[screenflag],
+                                              utils::getsyserror()));
     }
     if (logflag == 0) {
       if (helpflag == 0) {
         universe->ulogfile = fopen("log.lammps","w");
         if (universe->ulogfile == NULL)
-          error->universe_warn(FLERR,"Cannot open log.lammps for writing");
+          error->universe_warn(FLERR,"Cannot open log.lammps for writing: "
+                               + utils::getsyserror());
       }
     } else if (strcmp(arg[logflag],"none") == 0)
       universe->ulogfile = NULL;
     else {
       universe->ulogfile = fopen(arg[logflag],"w");
       if (universe->ulogfile == NULL)
-        error->universe_one(FLERR,"Cannot open universe log file");
+        error->universe_one(FLERR,fmt::format("Cannot open universe log "
+                                              "file {}: {}",arg[logflag],
+                                              utils::getsyserror()));
     }
   }
 
@@ -383,17 +441,13 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
     if (universe->me == 0) {
       if (inflag == 0) infile = stdin;
       else infile = fopen(arg[inflag],"r");
-      if (infile == NULL) {
-        char str[128];
-        snprintf(str,128,"Cannot open input script %s",arg[inflag]);
-        error->one(FLERR,str);
-      }
+      if (infile == NULL)
+        error->one(FLERR,fmt::format("Cannot open input script {}: {}",
+                                     arg[inflag], utils::getsyserror()));
     }
 
-    if (universe->me == 0) {
-      if (screen) fprintf(screen,"LAMMPS (%s)\n",universe->version);
-      if (logfile) fprintf(logfile,"LAMMPS (%s)\n",universe->version);
-    }
+    if ((universe->me == 0) && !helpflag)
+      utils::logmesg(this,fmt::format("LAMMPS ({})\n",universe->version));
 
   // universe is one or more worlds, as setup by partition switch
   // split universe communicator into separate world communicators
@@ -405,88 +459,81 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
     MPI_Comm_split(universe->uworld,universe->iworld,0,&world);
     MPI_Comm_rank(world,&me);
 
-    if (me == 0)
-      if (partscreenflag == 0)
-       if (screenflag == 0) {
-         char str[32];
-         sprintf(str,"screen.%d",universe->iworld);
-         screen = fopen(str,"w");
-         if (screen == NULL) error->one(FLERR,"Cannot open screen file");
-       } else if (strcmp(arg[screenflag],"none") == 0)
-         screen = NULL;
-       else {
-         char str[128];
-         snprintf(str,128,"%s.%d",arg[screenflag],universe->iworld);
-         screen = fopen(str,"w");
-         if (screen == NULL) error->one(FLERR,"Cannot open screen file");
-       }
-      else if (strcmp(arg[partscreenflag],"none") == 0)
-        screen = NULL;
-      else {
-        char str[128];
-        snprintf(str,128,"%s.%d",arg[partscreenflag],universe->iworld);
-        screen = fopen(str,"w");
-        if (screen == NULL) error->one(FLERR,"Cannot open screen file");
-      } else screen = NULL;
-
-    if (me == 0)
-      if (partlogflag == 0)
-       if (logflag == 0) {
-         char str[32];
-         sprintf(str,"log.lammps.%d",universe->iworld);
-         logfile = fopen(str,"w");
-         if (logfile == NULL) error->one(FLERR,"Cannot open logfile");
-       } else if (strcmp(arg[logflag],"none") == 0)
-         logfile = NULL;
-       else {
-         char str[128];
-         snprintf(str,128,"%s.%d",arg[logflag],universe->iworld);
-         logfile = fopen(str,"w");
-         if (logfile == NULL) error->one(FLERR,"Cannot open logfile");
-       }
-      else if (strcmp(arg[partlogflag],"none") == 0)
-        logfile = NULL;
-      else {
-        char str[128];
-        snprintf(str,128,"%s.%d",arg[partlogflag],universe->iworld);
-        logfile = fopen(str,"w");
-        if (logfile == NULL) error->one(FLERR,"Cannot open logfile");
-      } else logfile = NULL;
-
+    screen = logfile = infile = NULL;
     if (me == 0) {
-      infile = fopen(arg[inflag],"r");
-      if (infile == NULL) {
-        char str[128];
-        snprintf(str,128,"Cannot open input script %s",arg[inflag]);
-        error->one(FLERR,str);
+      std::string str;
+      if (partscreenflag == 0) {
+        if (screenflag == 0) {
+          str = fmt::format("screen.{}",universe->iworld);
+          screen = fopen(str.c_str(),"w");
+          if (screen == NULL)
+            error->one(FLERR,fmt::format("Cannot open screen file {}: {}",
+                                         str,utils::getsyserror()));
+        } else if (strcmp(arg[screenflag],"none") == 0) {
+          screen = NULL;
+        } else {
+          str = fmt::format("{}.{}",arg[screenflag],universe->iworld);
+          screen = fopen(str.c_str(),"w");
+          if (screen == NULL)
+            error->one(FLERR,fmt::format("Cannot open screen file {}: {}",
+                                         arg[screenflag],utils::getsyserror()));
+        }
+      } else if (strcmp(arg[partscreenflag],"none") == 0) {
+        screen = NULL;
+      } else {
+        str = fmt::format("{}.{}",arg[partscreenflag],universe->iworld);
+        screen = fopen(str.c_str(),"w");
+        if (screen == NULL)
+          error->one(FLERR,fmt::format("Cannot open screen file {}: {}",
+                                       str,utils::getsyserror()));
       }
-    } else infile = NULL;
+
+      if (partlogflag == 0) {
+        if (logflag == 0) {
+          str = fmt::format("log.lammps.{}",universe->iworld);
+          logfile = fopen(str.c_str(),"w");
+          if (logfile == NULL)
+            error->one(FLERR,fmt::format("Cannot open logfile {}: {}",
+                                         str, utils::getsyserror()));
+        } else if (strcmp(arg[logflag],"none") == 0) {
+          logfile = NULL;
+        } else {
+          str = fmt::format("{}.{}",arg[logflag],universe->iworld);
+          logfile = fopen(str.c_str(),"w");
+          if (logfile == NULL)
+            error->one(FLERR,fmt::format("Cannot open logfile {}: {}",
+                                         str, utils::getsyserror()));
+        }
+      } else if (strcmp(arg[partlogflag],"none") == 0) {
+        logfile = NULL;
+      } else {
+        str = fmt::format("{}.{}",arg[partlogflag],universe->iworld);
+        logfile = fopen(str.c_str(),"w");
+        if (logfile == NULL)
+          error->one(FLERR,fmt::format("Cannot open logfile {}: {}",
+                                       str, utils::getsyserror()));
+      }
+
+      infile = fopen(arg[inflag],"r");
+      if (infile == NULL)
+        error->one(FLERR,fmt::format("Cannot open input script {}: {}",
+                                     arg[inflag], utils::getsyserror()));
+    }
 
     // screen and logfile messages for universe and world
 
-    if (universe->me == 0) {
-      if (universe->uscreen) {
-        fprintf(universe->uscreen,"LAMMPS (%s)\n",universe->version);
-        fprintf(universe->uscreen,"Running on %d partitions of processors\n",
-                universe->nworlds);
-      }
-      if (universe->ulogfile) {
-        fprintf(universe->ulogfile,"LAMMPS (%s)\n",universe->version);
-        fprintf(universe->ulogfile,"Running on %d partitions of processors\n",
-                universe->nworlds);
-      }
+    if ((universe->me == 0) && (!helpflag)) {
+      const char fmt[] = "LAMMPS ({})\nRunning on {} partitions of processors\n";
+      if (universe->uscreen)
+        fmt::print(universe->uscreen,fmt,universe->version,universe->nworlds);
+
+      if (universe->ulogfile)
+        fmt::print(universe->ulogfile,fmt,universe->version,universe->nworlds);
     }
 
-    if (me == 0) {
-      if (screen) {
-        fprintf(screen,"LAMMPS (%s)\n",universe->version);
-        fprintf(screen,"Processor partition = %d\n",universe->iworld);
-      }
-      if (logfile) {
-        fprintf(logfile,"LAMMPS (%s)\n",universe->version);
-        fprintf(logfile,"Processor partition = %d\n",universe->iworld);
-      }
-    }
+    if ((me == 0) && (!helpflag))
+      utils::logmesg(this,fmt::format("LAMMPS ({})\nProcessor partition = {}\n",
+                                      universe->version, universe->iworld));
   }
 
   // check consistency of datatype settings in lmptype.h
@@ -547,6 +594,7 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
   input = new Input(this,narg,arg);
 
   // copy package cmdline arguments
+
   if (npack > 0) {
     num_package = npack;
     packargs = new char**[npack];
@@ -561,31 +609,31 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
     memory->destroy(plast);
   }
 
-  // allocate top-level classes
-
-  create();
-  post_create();
-
   // if helpflag set, print help and quit with "success" status
+  // otherwise allocate top level classes.
 
   if (helpflag) {
     if (universe->me == 0 && screen) help();
     error->done(0);
+  } else {
+    create();
+    post_create();
   }
 
-  // if restartflag set, invoke 2 commands and quit
-  // add args between wdfirst and wdlast to write_data command
-  // also add "noinit" to prevent write_data from doing system init
+  // if either restart conversion option was used, invoke 2 commands and quit
+  // add args between wfirst and wlast to write_data or write_data command
+  // add "noinit" to write_data to prevent a system init
+  // write_dump will just give a warning message about no init
 
-  if (restartflag) {
-    char cmd[128];
-    snprintf(cmd,128,"read_restart %s\n",rfile);
-    if (restartremapflag) strcat(cmd," remap\n");
+  if (restart2data || restart2dump) {
+    std::string cmd = fmt::format("read_restart {}",restartfile);
+    if (restartremap) cmd += " remap\n";
     input->one(cmd);
-    snprintf(cmd,128,"write_data %s",dfile);
-    for (iarg = wdfirst; iarg < wdlast; iarg++)
-      sprintf(&cmd[strlen(cmd)]," %s",arg[iarg]);
-    strcat(cmd," noinit\n");
+    if (restart2data) cmd = "write_data ";
+    else cmd = "write_dump";
+    for (iarg = wfirst; iarg < wlast; iarg++)
+       cmd += fmt::format(" {}", arg[iarg]);
+    if (restart2data) cmd += " noinit";
     input->one(cmd);
     error->done(0);
   }
@@ -619,15 +667,12 @@ LAMMPS::~LAMMPS()
 
   double totalclock = MPI_Wtime() - initclock;
   if ((me == 0) && (screen || logfile)) {
-    char outtime[128];
     int seconds = fmod(totalclock,60.0);
     totalclock  = (totalclock - seconds) / 60.0;
     int minutes = fmod(totalclock,60.0);
     int hours = (totalclock - minutes) / 60.0;
-    sprintf(outtime,"Total wall time: "
-            "%d:%02d:%02d\n", hours, minutes, seconds);
-    if (screen) fputs(outtime,screen);
-    if (logfile) fputs(outtime,logfile);
+    utils::logmesg(this,fmt::format("Total wall time: {}:{:02d}:{:02d}\n",
+                                    hours, minutes, seconds));
   }
 
   if (universe->nworlds == 1) {
@@ -664,6 +709,8 @@ LAMMPS::~LAMMPS()
   delete universe;
   delete error;
   delete memory;
+
+  delete pkg_lists;
 }
 
 /* ----------------------------------------------------------------------
@@ -716,7 +763,7 @@ void LAMMPS::create()
 
 /* ----------------------------------------------------------------------
    check suffix consistency with installed packages
-   invoke package-specific deafult package commands
+   invoke package-specific default package commands
      only invoke if suffix is set and enabled
      also check if suffix2 is set
    called from LAMMPS constructor and after clear() command
@@ -733,26 +780,27 @@ void LAMMPS::post_create()
   // check that KOKKOS package classes were instantiated
   // check that GPU, INTEL, USER-OMP fixes were compiled with LAMMPS
 
-  if (!suffix_enable) return;
+  if (suffix_enable) {
 
-  if (strcmp(suffix,"gpu") == 0 && !modify->check_package("GPU"))
-    error->all(FLERR,"Using suffix gpu without GPU package installed");
-  if (strcmp(suffix,"intel") == 0 && !modify->check_package("INTEL"))
-    error->all(FLERR,"Using suffix intel without USER-INTEL package installed");
-  if (strcmp(suffix,"kk") == 0 &&
-      (kokkos == NULL || kokkos->kokkos_exists == 0))
-    error->all(FLERR,"Using suffix kk without KOKKOS package enabled");
-  if (strcmp(suffix,"omp") == 0 && !modify->check_package("OMP"))
-    error->all(FLERR,"Using suffix omp without USER-OMP package installed");
+    if (strcmp(suffix,"gpu") == 0 && !modify->check_package("GPU"))
+      error->all(FLERR,"Using suffix gpu without GPU package installed");
+    if (strcmp(suffix,"intel") == 0 && !modify->check_package("INTEL"))
+      error->all(FLERR,"Using suffix intel without USER-INTEL package installed");
+    if (strcmp(suffix,"kk") == 0 &&
+        (kokkos == NULL || kokkos->kokkos_exists == 0))
+      error->all(FLERR,"Using suffix kk without KOKKOS package enabled");
+    if (strcmp(suffix,"omp") == 0 && !modify->check_package("OMP"))
+      error->all(FLERR,"Using suffix omp without USER-OMP package installed");
 
-  if (strcmp(suffix,"gpu") == 0) input->one("package gpu 1");
-  if (strcmp(suffix,"intel") == 0) input->one("package intel 1");
-  if (strcmp(suffix,"omp") == 0) input->one("package omp 0");
+    if (strcmp(suffix,"gpu") == 0) input->one("package gpu 1");
+    if (strcmp(suffix,"intel") == 0) input->one("package intel 1");
+    if (strcmp(suffix,"omp") == 0) input->one("package omp 0");
 
-  if (suffix2) {
-    if (strcmp(suffix2,"gpu") == 0) input->one("package gpu 1");
-    if (strcmp(suffix2,"intel") == 0) input->one("package intel 1");
-    if (strcmp(suffix2,"omp") == 0) input->one("package omp 0");
+    if (suffix2) {
+      if (strcmp(suffix2,"gpu") == 0) input->one("package gpu 1");
+      if (strcmp(suffix2,"intel") == 0) input->one("package intel 1");
+      if (strcmp(suffix2,"omp") == 0) input->one("package omp 0");
+    }
   }
 
   // invoke any command-line package commands
@@ -838,10 +886,153 @@ void LAMMPS::destroy()
 }
 
 /* ----------------------------------------------------------------------
+   initialize lists of styles in packages
+------------------------------------------------------------------------- */
+
+void _noopt LAMMPS::init_pkg_lists()
+{
+  pkg_lists = new package_styles_lists;
+#define PACKAGE "UNKNOWN"
+#define ANGLE_CLASS
+#define AngleStyle(key,Class)                   \
+  pkg_lists->angle_styles[#key] = PACKAGE;
+#include "packages_angle.h"
+#undef AngleStyle
+#undef ANGLE_CLASS
+#define ATOM_CLASS
+#define AtomStyle(key,Class)                    \
+  pkg_lists->atom_styles[#key] = PACKAGE;
+#include "packages_atom.h"
+#undef AtomStyle
+#undef ATOM_CLASS
+#define BODY_CLASS
+#define BodyStyle(key,Class)                    \
+  pkg_lists->body_styles[#key] = PACKAGE;
+#include "packages_body.h"
+#undef BodyStyle
+#undef BODY_CLASS
+#define BOND_CLASS
+#define BondStyle(key,Class)                    \
+  pkg_lists->bond_styles[#key] = PACKAGE;
+#include "packages_bond.h"
+#undef BondStyle
+#undef BOND_CLASS
+#define COMMAND_CLASS
+#define CommandStyle(key,Class)                 \
+  pkg_lists->command_styles[#key] = PACKAGE;
+#include "packages_command.h"
+#undef CommandStyle
+#undef COMMAND_CLASS
+#define COMPUTE_CLASS
+#define ComputeStyle(key,Class)                 \
+  pkg_lists->compute_styles[#key] = PACKAGE;
+#include "packages_compute.h"
+#undef ComputeStyle
+#undef COMPUTE_CLASS
+#define DIHEDRAL_CLASS
+#define DihedralStyle(key,Class)                \
+  pkg_lists->dihedral_styles[#key] = PACKAGE;
+#include "packages_dihedral.h"
+#undef DihedralStyle
+#undef DIHEDRAL_CLASS
+#define DUMP_CLASS
+#define DumpStyle(key,Class)                    \
+  pkg_lists->dump_styles[#key] = PACKAGE;
+#include "packages_dump.h"
+#undef DumpStyle
+#undef DUMP_CLASS
+#define FIX_CLASS
+#define FixStyle(key,Class)                     \
+  pkg_lists->fix_styles[#key] = PACKAGE;
+#include "packages_fix.h"
+#undef FixStyle
+#undef FIX_CLASS
+#define IMPROPER_CLASS
+#define ImproperStyle(key,Class)                \
+  pkg_lists->improper_styles[#key] = PACKAGE;
+#include "packages_improper.h"
+#undef ImproperStyle
+#undef IMPROPER_CLASS
+#define INTEGRATE_CLASS
+#define IntegrateStyle(key,Class)               \
+  pkg_lists->integrate_styles[#key] = PACKAGE;
+#include "packages_integrate.h"
+#undef IntegrateStyle
+#undef INTEGRATE_CLASS
+#define KSPACE_CLASS
+#define KSpaceStyle(key,Class)                  \
+  pkg_lists->kspace_styles[#key] = PACKAGE;
+#include "packages_kspace.h"
+#undef KSpaceStyle
+#undef KSPACE_CLASS
+#define MINIMIZE_CLASS
+#define MinimizeStyle(key,Class)                \
+  pkg_lists->minimize_styles[#key] = PACKAGE;
+#include "packages_minimize.h"
+#undef MinimizeStyle
+#undef MINIMIZE_CLASS
+#define PAIR_CLASS
+#define PairStyle(key,Class)                    \
+  pkg_lists->pair_styles[#key] = PACKAGE;
+#include "packages_pair.h"
+#undef PairStyle
+#undef PAIR_CLASS
+#define READER_CLASS
+#define ReaderStyle(key,Class)                  \
+  pkg_lists->reader_styles[#key] = PACKAGE;
+#include "packages_reader.h"
+#undef ReaderStyle
+#undef READER_CLASS
+#define REGION_CLASS
+#define RegionStyle(key,Class)                  \
+  pkg_lists->region_styles[#key] = PACKAGE;
+#include "packages_region.h"
+#undef RegionStyle
+#undef REGION_CLASS
+}
+
+bool LAMMPS::is_installed_pkg(const char *pkg)
+{
+  for (int i=0; installed_packages[i] != NULL; ++i)
+    if (strcmp(installed_packages[i],pkg) == 0) return true;
+
+  return false;
+}
+
+#define check_for_match(style,list,name)                                \
+  if (strcmp(list,#style) == 0) {                                       \
+    std::map<std::string,std::string> &styles(pkg_lists-> style ## _styles); \
+    if (styles.find(name) != styles.end()) {                            \
+      return styles[name].c_str();                                      \
+    }                                                                   \
+  }
+
+const char *LAMMPS::match_style(const char *style, const char *name)
+{
+  check_for_match(angle,style,name);
+  check_for_match(atom,style,name);
+  check_for_match(body,style,name);
+  check_for_match(bond,style,name);
+  check_for_match(command,style,name);
+  check_for_match(compute,style,name);
+  check_for_match(dump,style,name);
+  check_for_match(fix,style,name);
+  check_for_match(compute,style,name);
+  check_for_match(improper,style,name);
+  check_for_match(integrate,style,name);
+  check_for_match(kspace,style,name);
+  check_for_match(minimize,style,name);
+  check_for_match(pair,style,name);
+  check_for_match(reader,style,name);
+  check_for_match(region,style,name);
+  return NULL;
+}
+
+/* ----------------------------------------------------------------------
    help message for command line options and styles present in executable
 ------------------------------------------------------------------------- */
 
-void LAMMPS::help()
+void _noopt LAMMPS::help()
 {
   FILE *fp = screen;
   const char *pager = NULL;
@@ -869,9 +1060,14 @@ void LAMMPS::help()
 
   // general help message about command line and flags
 
+  if (has_git_info) {
+    fprintf(fp,"\nLarge-scale Atomic/Molecular Massively Parallel Simulator - "
+            LAMMPS_VERSION "\nGit info (%s / %s)\n\n",git_branch, git_descriptor);
+  } else {
+    fprintf(fp,"\nLarge-scale Atomic/Molecular Massively Parallel Simulator - "
+            LAMMPS_VERSION "\n\n");
+  }
   fprintf(fp,
-          "\nLarge-scale Atomic/Molecular Massively Parallel Simulator - "
-          LAMMPS_VERSION "\n\n"
           "Usage example: %s -var t 300 -echo screen -in in.alloy\n\n"
           "List of command line options supported by this LAMMPS executable:\n\n"
           "-echo none/screen/log/both  : echoing of input script (-e)\n"
@@ -885,7 +1081,9 @@ void LAMMPS::help()
           "-partition size1 size2 ...  : assign partition sizes (-p)\n"
           "-plog basename              : basename for partition logs (-pl)\n"
           "-pscreen basename           : basename for partition screens (-ps)\n"
-          "-restart rfile dfile ...    : convert restart to data file (-r)\n"
+          "-restart2data rfile dfile ... : convert restart to data file (-r2data)\n"
+          "-restart2dump rfile dgroup dstyle dfile ... \n"
+          "                            : convert restart to dump file (-r2dump)\n"
           "-reorder topology-specs     : processor reordering (-r)\n"
           "-screen none/filename       : where to send screen output (-sc)\n"
           "-suffix gpu/intel/opt/omp   : style suffix to apply (-sf)\n"
@@ -1051,12 +1249,36 @@ void LAMMPS::print_config(FILE *fp)
   const char *pkg;
   int ncword, ncline = 0;
 
+  fmt::print(fp,"OS: {}\n\n",Info::get_os_info());
+
+  fmt::print(fp,"Compiler: {} with {}\nC++ standard: {}\n",
+             Info::get_compiler_info(),Info::get_openmp_info(),
+             Info::get_cxx_info());
+
+  int major,minor;
+  std::string infobuf = Info::get_mpi_info(major,minor);
+  fmt::print(fp,"MPI v{}.{}: {}\n\n",major,minor,infobuf);
+
   fputs("Active compile time flags:\n\n",fp);
   if (Info::has_gzip_support()) fputs("-DLAMMPS_GZIP\n",fp);
   if (Info::has_png_support()) fputs("-DLAMMPS_PNG\n",fp);
   if (Info::has_jpeg_support()) fputs("-DLAMMPS_JPEG\n",fp);
   if (Info::has_ffmpeg_support()) fputs("-DLAMMPS_FFMPEG\n",fp);
   if (Info::has_exceptions()) fputs("-DLAMMPS_EXCEPTIONS\n",fp);
+#if defined(LAMMPS_BIGBIG)
+  fputs("-DLAMMPS_BIGBIG\n",fp);
+#elif defined(LAMMPS_SMALLBIG)
+  fputs("-DLAMMPS_SMALLBIG\n",fp);
+#else // defined(LAMMPS_SMALLSMALL)
+  fputs("-DLAMMPS_SMALLSMALL\n",fp);
+#endif
+
+  fmt::print(fp,"sizeof(smallint): {}-bit\n"
+             "sizeof(imageint): {}-bit\n"
+             "sizeof(tagint):   {}-bit\n"
+             "sizeof(bigint):   {}-bit\n",
+             sizeof(smallint)*8, sizeof(imageint)*8,
+             sizeof(tagint)*8, sizeof(bigint)*8);
 
   fputs("\nInstalled packages:\n\n",fp);
   for (int i = 0; NULL != (pkg = installed_packages[i]); ++i) {

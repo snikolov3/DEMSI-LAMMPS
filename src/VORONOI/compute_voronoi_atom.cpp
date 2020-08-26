@@ -15,15 +15,14 @@
    Contributing author: Daniel Schwen
 ------------------------------------------------------------------------- */
 
+#include "compute_voronoi_atom.h"
 #include <mpi.h>
 #include <cmath>
 #include <cstring>
-#include <cstdlib>
-#include "compute_voronoi_atom.h"
+#include <voro++.hh>
 #include "atom.h"
 #include "group.h"
 #include "update.h"
-#include "modify.h"
 #include "domain.h"
 #include "memory.h"
 #include "error.h"
@@ -89,7 +88,7 @@ ComputeVoronoi::ComputeVoronoi(LAMMPS *lmp, int narg, char **arg) :
     else if (strcmp(arg[iarg], "surface") == 0) {
       if (iarg + 2 > narg) error->all(FLERR,"Illegal compute voronoi/atom command");
       // group all is a special case where we just skip group testing
-      if(strcmp(arg[iarg+1], "all") == 0) {
+      if (strcmp(arg[iarg+1], "all") == 0) {
         surface = VOROSURF_ALL;
       } else {
         sgroup = group->find(arg[iarg+1]);
@@ -265,7 +264,7 @@ void ComputeVoronoi::buildCells()
   double **x = atom->x;
 
   // setup bounds for voro++ domain for orthogonal and triclinic simulation boxes
-  if( domain->triclinic ) {
+  if (domain->triclinic) {
     // triclinic box: embed parallelepiped into orthogonal voro++ domain
 
     // cutghost is in lamda coordinates for triclinic boxes, use subxx_lamda
@@ -355,7 +354,7 @@ void ComputeVoronoi::buildCells()
 
     // pass coordinates for local and ghost atoms to voro++
     for (i = 0; i < nall; i++) {
-      if( !onlyGroup || (mask[i] & groupbit) )
+      if (!onlyGroup || (mask[i] & groupbit))
         con_poly->put(i,x[i][0],x[i][1],x[i][2],rfield[i]);
     }
   } else {
@@ -373,7 +372,7 @@ void ComputeVoronoi::buildCells()
 
     // pass coordinates for local and ghost atoms to voro++
     for (i = 0; i < nall; i++)
-      if( !onlyGroup || (mask[i] & groupbit) )
+      if (!onlyGroup || (mask[i] & groupbit))
         con_mono->put(i,x[i][0],x[i][1],x[i][2]);
   }
 }
@@ -512,7 +511,7 @@ void ComputeVoronoi::processCell(voronoicell_neighbor &c, int i)
       c.face_areas(narea);
       have_narea = true;
       voro[i][1] = 0.0;
-      for (j=0; j<narea.size(); ++j)
+      for (j=0; j < (int)narea.size(); ++j)
         if (narea[j] > fthresh) voro[i][1] += 1.0;
     } else {
       // unthresholded face count
@@ -527,7 +526,7 @@ void ComputeVoronoi::processCell(voronoicell_neighbor &c, int i)
       voro[i][2] = 0.0;
 
       // each entry in neigh should correspond to an entry in narea
-      if (neighs != narea.size())
+      if (neighs != (int)narea.size())
         error->one(FLERR,"Voro++ error: narea and neigh have a different size");
 
       // loop over all faces (neighbors) and check if they are in the surface group
@@ -544,10 +543,10 @@ void ComputeVoronoi::processCell(voronoicell_neighbor &c, int i)
         c.vertices(vcell);
         c.face_vertices(vlist); // for each face: vertex count followed list of vertex indices (n_1,v1_1,v2_1,v3_1,..,vn_1,n_2,v2_1,...)
         double dx, dy, dz, r2, t2 = ethresh*ethresh;
-        for( j=0; j<vlist.size(); j+=vlist[j]+1 ) {
+        for( j=0; j < (int)vlist.size(); j+=vlist[j]+1 ) {
           int a, b, nedge = 0;
           // vlist[j] contains number of vertex indices for the current face
-          for( k=0; k<vlist[j]; ++k ) {
+          for( k=0; k < vlist[j]; ++k ) {
             a = vlist[j+1+k];              // first vertex in edge
             b = vlist[j+1+(k+1)%vlist[j]]; // second vertex in edge (possible wrap around to first vertex in list)
             dx = vcell[a*3]   - vcell[b*3];
@@ -588,7 +587,7 @@ void ComputeVoronoi::processCell(voronoicell_neighbor &c, int i)
 
       if (!have_narea) c.face_areas(narea);
 
-      if (neighs != narea.size())
+      if (neighs != (int)narea.size())
         error->one(FLERR,"Voro++ error: narea and neigh have a different size");
       tagint itag, jtag;
       tagint *tag = atom->tag;
@@ -624,7 +623,7 @@ double ComputeVoronoi::memory_usage()
 void ComputeVoronoi::compute_vector()
 {
   invoked_vector = update->ntimestep;
-  if( invoked_peratom < invoked_vector ) compute_peratom();
+  if (invoked_peratom < invoked_vector) compute_peratom();
 
   for( int i=0; i<size_vector; ++i ) sendvector[i] = edge[i];
   MPI_Allreduce(sendvector,edge,size_vector,MPI_DOUBLE,MPI_SUM,world);
@@ -635,13 +634,13 @@ void ComputeVoronoi::compute_vector()
 void ComputeVoronoi::compute_local()
 {
   invoked_local = update->ntimestep;
-  if( invoked_peratom < invoked_local ) compute_peratom();
+  if (invoked_peratom < invoked_local) compute_peratom();
 }
 
 /* ---------------------------------------------------------------------- */
 
 int ComputeVoronoi::pack_forward_comm(int n, int *list, double *buf,
-                                  int pbc_flag, int *pbc)
+                                  int /* pbc_flag */, int * /* pbc */)
 {
   int i,m=0;
   for (i = 0; i < n; ++i) buf[m++] = rfield[list[i]];

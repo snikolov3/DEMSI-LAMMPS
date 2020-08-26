@@ -33,6 +33,7 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
   ~AtomVecDemsiKokkos() {}
   void init();
   void grow(int);
+  void grow_pointers();
   void grow_reset();
   void copy(int, int, int);
   int pack_comm(int, int *, double *, int, int *);
