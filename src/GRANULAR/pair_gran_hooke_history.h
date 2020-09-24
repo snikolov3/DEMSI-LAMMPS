@@ -47,7 +47,7 @@ class PairGranHookeHistory : public Pair {
     // Otherwise set to 1, and provide a transfer_history function.
   virtual void transfer_history(double*, double*) {};
 
-  int beyond_contact; //0 is interactions are only when particles are in contact, 1 otherwise
+//  int beyond_contact; //0 is interactions are only when particles are in contact, 1 otherwise
 
  protected:
   double kn,kt,gamman,gammat,xmu;
