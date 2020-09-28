@@ -1,0 +1,74 @@
+// POV-Ray 3.6 Scene File "p_watr1.pov"
+// created by  Friedrich A. Lohmueller, 2004
+// homepage:  http://www.f-lohmueller.de
+// email:  Friedrich.Lohmueller_at_t-online.de
+#include "colors.inc"
+#include "textures.inc"
+
+global_settings { assumed_gamma 1.1 }
+
+// camera -----------------------------------------------------------
+#declare Cam0 = camera {/*ultra_wide_angle*/ angle 65 
+                        location  <0.0 , 1.0 ,-3.0>
+                        look_at   <0.0 , 0.8 , 0.0>}
+camera{Cam0}
+// sun ---------------------------------------------------------------
+light_source{<1500,2500,-2500> color White}
+// sky ---------------------------------------------------------------------
+plane{<0,1,0>,1 hollow  
+       texture{ pigment{ bozo turbulence 0.76
+                         color_map { [0.5 rgb <0.30, 0.30, 1.0>*1]
+                                     [0.6 rgb <1,1,1>]
+                                     [1.0 rgb <0.2,0.2,0.2>]}
+                         scale 3.5 translate<10,0,9>
+                       }
+                finish {ambient 1 diffuse 0} }      
+       scale 10000}
+//--------------------------------------------------------------------------
+   
+// fog ---------------------------------------------------------------
+fog{fog_type   2   distance 65  color rgb<1,0.99,0.9>
+    fog_offset 0.1 fog_alt  2.0 turbulence 0.2}
+//--------------------------------------------------------------------
+
+plane{<0,1,0>, 0 
+      texture{pigment{ rgb <0.2, 0.2, 0.2> } 
+              normal { bumps 0.08 scale <1,0.25,0.35>*1 turbulence 0.6 }
+              finish { ambient 0.05 diffuse 0.55 
+                       brilliance 6.0 phong 0.8 phong_size 120
+                       reflection 0.6 }
+             }
+     }
+//--------------------------------------------------------------------
+#declare Stake_H = 1.75;
+#declare Stake_R = 0.10;
+#declare Stake =   // Pfahl       
+union{
+ 
+ cylinder {<0,-Stake_H,0>,<0,Stake_H,0>,Stake_R translate<0,0,0>
+          texture{pigment{spiral1 2 
+                          color_map{[0.0 White]
+                                    [0.5 White]
+                                    [0.5 rgb<1,0,0>]
+                                    [1.0 rgb<1,0,0>]}
+                                    rotate<90,0,0>
+                                    scale<1,0.3,1>}
+                  normal {bumps 0.5 scale 0.025}
+                  finish {ambient 0.05 diffuse 0.95 
+                          phong 1 reflection 0.05}
+                  }
+           }
+ union{
+   cylinder{<0,-0.05,0>,<0,0.05,0>,Stake_R+0.02 translate<0,Stake_H.0>}
+   sphere {<0,0,0>,Stake_R+0.02 translate<0,Stake_H+0.1,0> }
+   torus {1.0,0.1 scale 0.12  translate<0,Stake_H+0.01,0>}
+       
+   texture{pigment{color White}
+           normal {bumps 0.3 scale 0.025}
+           finish {ambient 0.15 diffuse 0.85 phong 1 reflection 0.05}}}
+}// end of Stake --------
+//---------------------------------------------------------------------
+object{Stake scale 1 rotate<0,0,5> translate <-1.0,0,3>}      
+           
+//----------------------------------------------------------------- end
+
