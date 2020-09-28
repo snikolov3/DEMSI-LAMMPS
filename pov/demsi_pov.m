@@ -2,7 +2,7 @@
 
 filenameBonds= 'base';
 filenamePar = 'particles'; 
-outputName = 'newest_rev_scale_newt';
+outputName = 'newest_waves';
 ninst = [0:10000:420000];
 
 for index = ninst
@@ -117,15 +117,34 @@ for index = ninst
           fprintf(fidW1, 'up<0,0,1>\n');
         fprintf(fidW1, '}\n\n');
 
-    fprintf(fidW1, 'plane{<0,0,1>, -100\n');
-          fprintf(fidW1, 'texture{pigment{ rgb <0.2, 0.2, 0.2> }\n');
-                  fprintf(fidW1, 'normal { bumps 0.08 scale <1,0.25,0.35>*30000 turbulence 0.6 }\n');
-                  fprintf(fidW1, 'finish { ambient 0.05 diffuse 0.55\n');
-                           fprintf(fidW1, 'brilliance 6.0 phong 0.8 phong_size 1200\n');
-                           fprintf(fidW1, 'reflection 0.6 }\n');
-                 fprintf(fidW1, '}\n\n');
-         fprintf(fidW1, '}\n');
-     
+%     fprintf(fidW1, 'plane{<0,0,1>, -100\n');
+%           fprintf(fidW1, 'texture{pigment{ rgb <0.2, 0.2, 0.2> }\n');
+%                   fprintf(fidW1, 'normal { bumps 0.08 scale <1,0.25,0.35>*30000 turbulence 0.6 }\n');
+%                   fprintf(fidW1, 'finish { ambient 0.05 diffuse 0.55\n');
+%                            fprintf(fidW1, 'brilliance 6.0 phong 0.8 phong_size 1200\n');
+%                            fprintf(fidW1, 'reflection 0.6 }\n');
+%                  fprintf(fidW1, '}\n\n');
+%          fprintf(fidW1, '}\n');
+
+    fprintf(fidW1, 'plane{<0,0,1>, -100\n')
+    fprintf(fidW1, 'texture{pigment{ rgb <0.2, 0.2, 0.2> }\n')
+    fprintf(fidW1, 'normal {\n')
+      fprintf(fidW1, 'function {\n')
+        fprintf(fidW1, 'f_ridged_mf(x, y, z, 0.1, 3.0, 7, 0.7, 0.7, 2)\n')
+      fprintf(fidW1, '} 0.8\n')
+      fprintf(fidW1, 'scale <0.13, 0.4, 0.13>*50000\n')
+    fprintf(fidW1, '}\n')
+    fprintf(fidW1, 'finish { ambient 0.05 diffuse 0.55\n')
+    fprintf(fidW1, 'brilliance 6.0 phong 0.8 phong_size 1200\n')
+    fprintf(fidW1, 'reflection 0.6 }\n')
+    fprintf(fidW1, '}\n')
+    fprintf(fidW1, 'interior {\n')
+      fprintf(fidW1, 'ior 1.3\n')
+      fprintf(fidW1, 'fade_distance 2\n')
+      fprintf(fidW1, 'fade_power 500\n')
+    fprintf(fidW1, '}\n')
+    fprintf(fidW1, '}\n')
+
     display(sprintf('Timestep: %f', index));
     display(sprintf('Number of triplets: %g', length(triplets(:,1))));
 
