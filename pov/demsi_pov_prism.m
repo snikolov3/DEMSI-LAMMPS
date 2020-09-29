@@ -2,7 +2,7 @@
 
 filenameBonds= 'base';
 filenamePar = 'particles'; 
-outputName = 'newest_waves_prism';
+outputName = 'newest_waves_new';
 ninst = [0:10000:420000];
 
 for index = ninst
@@ -130,7 +130,7 @@ for index = ninst
     fprintf(fidW1, 'texture{pigment{ rgb <0.2, 0.2, 0.2> }\n');
     fprintf(fidW1, 'normal {\n');
       fprintf(fidW1, 'function {\n');
-        fprintf(fidW1, 'f_ridged_mf(x, y, z, 0.1, 3.0, 7, 0.7, 0.7, 2)\n');
+        fprintf(fidW1, 'f_ridged_mf(x+%i, y, z, 0.1, 3.0, 7, 0.7, 0.7, 2)\n', index);
       fprintf(fidW1, '} 0.8\n');
       fprintf(fidW1, 'scale <0.13, 0.4, 0.13>*50000\n');
     fprintf(fidW1, '}\n');
