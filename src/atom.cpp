@@ -178,6 +178,7 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   netToGrossClosingRatio = NULL;
   changeEffectiveElementArea = NULL;
   ice_area = NULL;
+  iceConcentration = NULL;
   coriolis = NULL;
   ocean_vel = NULL;
   bvector = NULL;
@@ -494,6 +495,7 @@ void Atom::peratom_create()
   add_peratom("netToGrossClosingRatio",&netToGrossClosingRatio,DOUBLE,0);
   add_peratom("changeEffectiveElementArea",&changeEffectiveElementArea,DOUBLE,0);
   add_peratom("ice_area",&ice_area,DOUBLE,0);
+  add_peratom("iceConcentration",&iceConcentration,DOUBLE,0);
   add_peratom("coriolis",&coriolis,DOUBLE,0);
   add_peratom("ocean_vel",&ocean_vel,DOUBLE,1);
   add_peratom("bvector",&bvector,DOUBLE,1);

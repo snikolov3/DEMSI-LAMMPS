@@ -85,6 +85,7 @@ AtomKokkos::~AtomKokkos()
   memoryKK->destroy_kokkos(k_changeEffectiveElementArea,changeEffectiveElementArea);
   memoryKK->destroy_kokkos(k_forcing,forcing);
   memoryKK->destroy_kokkos(k_ice_area,ice_area);
+  memoryKK->destroy_kokkos(k_iceConcentration,iceConcentration);
   memoryKK->destroy_kokkos(k_coriolis,coriolis);
   memoryKK->destroy_kokkos(k_ocean_vel,ocean_vel);
   memoryKK->destroy_kokkos(k_bvector,bvector);

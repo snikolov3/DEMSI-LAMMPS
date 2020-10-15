@@ -144,7 +144,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
     d_vatom = k_vatom.view<DeviceType>();
   }
- 
+
   atomKK->sync(execution_space,datamask_read);
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
@@ -161,6 +161,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   radius = atomKK->k_radius.view<DeviceType>();
   min_thickness = atomKK->k_min_thickness.view<DeviceType>();
   mean_thickness = atomKK->k_mean_thickness.view<DeviceType>();
+  iceConcentration = atomKK->k_iceConcentration.view<DeviceType>();
   ridgingIceThickness = atomKK->k_ridgingIceThickness.view<DeviceType>();
   ridgingIceThicknessWeight = atomKK->k_ridgingIceThicknessWeight.view<DeviceType>();
   netToGrossClosingRatio = atomKK->k_netToGrossClosingRatio.view<DeviceType>();
@@ -177,7 +178,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_firsttouch = fix_historyKK->d_firstflag;
   d_firsthistory = fix_historyKK->d_firstvalue;
 
-  EV_FLOAT ev; 
+  EV_FLOAT ev;
 
   if (strcmp(sig_c0_type,"constant") == 0) {
     strcmp_sig_c0_type_constant = true;
@@ -393,8 +394,11 @@ void PairGranHopkinsKokkos<DeviceType>::elastic_stiffness(F_FLOAT meanIceThickne
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::plastic_parameters(F_FLOAT particleRadius,
-							   F_FLOAT plasticFrictionCoefficient,
-							   F_FLOAT plasticHardeningCoefficient,
+							   F_FLOAT plasticFrictionCoeff,
+							   F_FLOAT plasticHardeningCoeff,
+							   F_FLOAT exponentialIceStrengthCoeff,
+							   F_FLOAT iceConcentration1,
+							   F_FLOAT iceConcentration2,
 							   F_FLOAT ridgingIceThickness1,
 							   F_FLOAT ridgingIceThickness2,
 							   F_FLOAT ridgingIceThicknessWeight1,
@@ -410,8 +414,10 @@ void PairGranHopkinsKokkos<DeviceType>::plastic_parameters(F_FLOAT particleRadiu
 
   F_FLOAT resolutionScaling = 10000.0 / (2.0*particleRadius);
 
-  plasticFriction           = plasticFrictionCoefficient  * ridgingThickness;
-  plasticHardeningStiffness = plasticHardeningCoefficient * ridgingThickness*ridgingThickness * resolutionScaling;
+  F_FLOAT iceConcentration = std::min(iceConcentration1, iceConcentration2);
+  F_FLOAT iceConcFactor = std::exp(-exponentialIceStrengthCoeff * (1.0 - iceConcentration));
+  plasticFriction           = plasticFrictionCoeff  * ridgingThickness * iceConcFactor;
+  plasticHardeningStiffness = plasticHardeningCoeff * ridgingThickness*ridgingThickness * resolutionScaling;
 
 }
 
@@ -503,6 +509,8 @@ KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherElement,
 							      F_FLOAT overlap,
 							      F_FLOAT convergence,
+							      F_FLOAT iceConcentration1,
+							      F_FLOAT iceConcentration2,
 							      F_FLOAT meanIceThickness1,
 							      F_FLOAT meanIceThickness2,
 							      F_FLOAT radius1,
@@ -518,8 +526,9 @@ void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherEl
 							      F_FLOAT &changeEffectiveElementArea1,
 							      F_FLOAT &changeEffectiveElementArea2,
 							      F_FLOAT particleRadius,
-							      F_FLOAT plasticFrictionCoefficient,
-							      F_FLOAT plasticHardeningCoefficient,
+							      F_FLOAT plasticFrictionCoeff,
+							      F_FLOAT plasticHardeningCoeff,
+							      F_FLOAT exponentialIceStrengthCoeff,
 							      F_FLOAT bondLength,
 							      F_FLOAT &ridgeSlip,
 							      F_FLOAT &ridgeSlipUsed,
@@ -551,8 +560,11 @@ void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherEl
     F_FLOAT plasticFriction;
     F_FLOAT plasticHardeningStiffness;
     plastic_parameters(particleRadius,
-		       plasticFrictionCoefficient,
-		       plasticHardeningCoefficient,
+		       plasticFrictionCoeff,
+		       plasticHardeningCoeff,
+		       exponentialIceStrengthCoeff,
+		       iceConcentration1,
+		       iceConcentration2,
 		       ridgingIceThickness1,
 		       ridgingIceThickness2,
 		       ridgingIceThicknessWeight1,
@@ -642,13 +654,13 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
    F_FLOAT vnnr, vnx, vny;
    F_FLOAT wrz, vtrx, vtry, vtx, vty, vrel;
    F_FLOAT delta, delta_dot;
- 
+
    F_FLOAT fnx, fny;
    F_FLOAT sig_c = 0, hmin;
    F_FLOAT hprime, kp, kr, ke, L, kt0;
    F_FLOAT num, denom, fnmag_plastic, fnmag_elastic, fnmag;
    F_FLOAT ncrossF;
- 
+
    F_FLOAT ndisp, dispmag, scalefac;
    F_FLOAT ftx, fty, ftmag, ftcrit;
    F_FLOAT var1,var2;
@@ -739,8 +751,6 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
      else{
        kt0 = Gmod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
        F_FLOAT particleRadius = 5000.0;
-       F_FLOAT plasticFrictionCoefficient = 26126.0;
-       F_FLOAT plasticHardeningCoefficient = 9.28;
 
        F_FLOAT previousForce = d_firsthistory(i,size_history*jj+7);
        F_FLOAT ridgeSlip     = d_firsthistory(i,size_history*jj+10);
@@ -749,6 +759,8 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
        hopkins_ridging_model(NEWTON_PAIR || j < nlocal,
            delta,
            delta_dot,
+           iceConcentration(i),
+           iceConcentration(j),
            mean_thickness(i),
            mean_thickness(j),
            radius(i),
@@ -764,8 +776,9 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
            changeEffectiveElementArea(i),
            changeEffectiveElementArea(j),
            particleRadius,
-           plasticFrictionCoefficient,
-           plasticHardeningCoefficient,
+           plasticFrictionCoeff,
+           plasticHardeningCoeff,
+           exponentialIceStrengthCoeff,
            L,
            ridgeSlip,
            ridgeSlipUsed,
