@@ -266,7 +266,7 @@ void FixAddForceKokkos<DeviceType>::operator()(TagFixAddForceNonConstant, const 
 
 namespace LAMMPS_NS {
 template class FixAddForceKokkos<LMPDeviceType>;
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef KOKKOS_ENABLE_CUDA
 template class FixAddForceKokkos<LMPHostType>;
 #endif
 }

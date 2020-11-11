@@ -1243,7 +1243,7 @@ void PairGranHopkinsKokkos<DeviceType>::ev_tally_xyz_atom(EV_FLOAT &ev, int i, i
 
 namespace LAMMPS_NS {
 template class PairGranHopkinsKokkos<LMPDeviceType>;
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef KOKKOS_ENABLE_CUDA
 template class PairGranHopkinsKokkos<LMPHostType>;
 #endif
 }
