@@ -61,6 +61,7 @@ class AtomKokkos : public Atom {
   DAT::tdual_float_1d  k_netToGrossClosingRatio;
   DAT::tdual_float_1d  k_changeEffectiveElementArea;
   DAT::tdual_float_1d  k_ice_area,k_coriolis;
+  DAT::tdual_float_1d  k_iceConcentration;
   DAT::tdual_float_2d  k_forcing;
   DAT::tdual_float_2d  k_ocean_vel,k_bvector;
                        

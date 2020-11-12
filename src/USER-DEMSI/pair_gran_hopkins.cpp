@@ -640,7 +640,7 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
 
 void PairGranHopkins::settings(int narg, char **arg)
 {
-  if (narg != 12) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 15) error->all(FLERR,"Illegal pair_style command");
 
   Emod = force->numeric(FLERR, arg[0]);
   poiss = force->numeric(FLERR, arg[1]);
@@ -654,6 +654,9 @@ void PairGranHopkins::settings(int narg, char **arg)
   damp_normal = force->numeric(FLERR, arg[9]);
   damp_tangential = force->numeric(FLERR, arg[10]);
   hprime_0 = force->numeric(FLERR, arg[11]);
+  plasticFrictionCoeff = force->numeric(FLERR, arg[12]);
+  plasticHardeningCoeff = force->numeric(FLERR, arg[13]);
+  exponentialIceStrengthCoeff = force->numeric(FLERR, arg[14]);
 
   tanphi = tan(phi*MathConst::MY_PI/180.0);
   Gmod = Emod/(2*(1+poiss));

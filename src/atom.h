@@ -138,6 +138,7 @@ class Atom : protected Pointers {
   double *netToGrossClosingRatio;
   double *changeEffectiveElementArea;
   double *ice_area;
+  double *iceConcentration;
   double *coriolis;
   double **ocean_vel;
   double **bvector;
