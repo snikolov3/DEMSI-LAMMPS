@@ -57,8 +57,8 @@ FixRestartForces::~FixRestartForces()
 
 void FixRestartForces::post_constructor()
 {
-  //Alternatively, could use a locl rray. But in setup its possible atoms can be sorted
-  //So I'd need to register grow and restart call backs anyway. 
+  //Alternatively, one could use a local array but atoms could be sorted in setup
+  //One would also need to register grow and restart callbacks
   int n = strlen(id) + strlen("_restart_forces") + 1;
   id_fix = new char[n];
   strcpy(id_fix,id);
@@ -97,7 +97,8 @@ int FixRestartForces::setmask()
 
 void FixRestartForces::setup(int vflag)
 {
-  if(fix->restart_reset){ // Flagged in fix/store as it restarts peratom info
+  // Check if values in fix store were loaded from  restart file
+  if(fix->restart_reset){ 
     double **f = atom->f;
     double **torque = atom->torque;
     double **values = fix->astore;
@@ -105,8 +106,6 @@ void FixRestartForces::setup(int vflag)
     int nlocal = atom->nlocal;
     int i,m;
 
-    // Note atoms may be sorted in setup, so check first
-    // Maybe I should just convert to use fix/store
     for (i = 0; i < nlocal; i++) {
       if (mask[i] & groupbit) {
         for (m = 0; m < 3; m++) {
