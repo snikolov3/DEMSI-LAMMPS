@@ -131,6 +131,8 @@ class Atom : protected Pointers {
 
   //USER-DEMSI package
   double **forcing;
+  double *orientation;
+  double *momentOfInertia;
   double *mean_thickness;
   double *min_thickness;
   double *ridgingIceThickness;
