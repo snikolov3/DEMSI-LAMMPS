@@ -114,13 +114,16 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
 
  private:
   tagint *tag;
-  int *type,*mask;
+  int *type;
+  int *mask;
   imageint *image;
   double **x;
   double **v;
   double **f;
   double *radius;
   double *rmass;
+  double *orientation;
+  double *momentOfInertia;
   double **omega;
   double **torque;
   double **forcing;
@@ -130,11 +133,11 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
   double *ridgingIceThicknessWeight;
   double *netToGrossClosingRatio;
   double *changeEffectiveElementArea;
-  double * ice_area;
-  double * iceConcentration;
-  double * coriolis;
-  double ** ocean_vel;
-  double ** bvector;
+  double *ice_area;
+  double *iceConcentration;
+  double *coriolis;
+  double **ocean_vel;
+  double **bvector;
   int radvary;
 
   int **nspecial;
@@ -157,6 +160,10 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
   HAT::t_float_1d h_radius;
   DAT::t_float_1d d_rmass;
   HAT::t_float_1d h_rmass;
+  DAT::t_float_1d d_orientation;
+  HAT::t_float_1d h_orientation;
+  DAT::t_float_1d d_momentOfInertia;
+  HAT::t_float_1d h_momentOfInertia;
   DAT::t_v_array d_omega;
   HAT::t_v_array h_omega;
   DAT::t_f_array d_torque;

@@ -171,6 +171,8 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   // USER-DEMSI package
 
   forcing = NULL;
+  orientation = NULL;
+  momentOfInertia = NULL;
   mean_thickness = NULL;
   min_thickness = NULL;
   ridgingIceThickness = NULL;
@@ -488,6 +490,8 @@ void Atom::peratom_create()
 
   // USER-DEMSI package 
   add_peratom("forcing",&forcing,DOUBLE,1);
+  add_peratom("orientation",&orientation,DOUBLE,0);
+  add_peratom("momentOfInertia",&momentOfInertia,DOUBLE,0);
   add_peratom("mean_thickness",&mean_thickness,DOUBLE,0);
   add_peratom("min_thickness",&min_thickness,DOUBLE,0);
   add_peratom("ridgingIceThickness",&ridgingIceThickness,DOUBLE,0);
