@@ -66,7 +66,7 @@ class AtomVecDemsi : public AtomVec {
   int pack_vel_hybrid(int, double *);
   void write_vel(FILE *, int, double **);
   int write_vel_hybrid(FILE *, double *);
-  bigint memory_usage();
+  double memory_usage();
 
  private:
   tagint *tag;

@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -21,7 +21,6 @@ ComputeStyle(temp/drude,ComputeTempDrude)
 #define LMP_COMPUTE_TEMP_DRUDE_H
 
 #include "compute.h"
-#include "fix_drude.h"
 
 namespace LAMMPS_NS {
 
@@ -37,7 +36,7 @@ class ComputeTempDrude : public Compute {
 
  private:
   int fix_dof;
-  FixDrude * fix_drude;
+  class FixDrude * fix_drude;
   char *id_temp;
   class Compute *temperature;
   bigint dof_core, dof_drude;

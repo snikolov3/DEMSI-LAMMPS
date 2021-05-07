@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -14,11 +14,10 @@
 #ifndef LMP_NEIGHBOR_KOKKOS_H
 #define LMP_NEIGHBOR_KOKKOS_H
 
-#include "neighbor.h"
+#include "neighbor.h"           // IWYU pragma: export
 #include "neigh_list_kokkos.h"
 #include "neigh_bond_kokkos.h"
 #include "kokkos_type.h"
-#include <cmath>
 
 namespace LAMMPS_NS {
 
@@ -87,6 +86,7 @@ class NeighborKokkos : public Neighbor {
   void modify_ex_group_grow_kokkos();
   void modify_mol_group_grow_kokkos();
   void modify_mol_intra_grow_kokkos();
+  void set_binsize_kokkos();
 };
 
 }

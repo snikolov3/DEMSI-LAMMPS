@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -35,7 +35,7 @@ class ReaderMolfile : public Reader {
 
   virtual int read_time(bigint &);
   virtual void skip();
-  virtual bigint read_header(double [3][3], int &, int, int, int *, char **,
+  virtual bigint read_header(double [3][3], int &, int &, int, int, int *, char **,
                              int, int, int &, int &, int &, int &);
   virtual void read_atoms(int, int, double **);
 

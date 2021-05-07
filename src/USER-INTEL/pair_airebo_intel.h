@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -27,7 +27,6 @@ PairStyle(airebo/intel,PairAIREBOIntel)
 #include "pair.h"
 #include "fix_intel.h"
 #include "pair_airebo.h"
-//#include "airebo_common.h"
 
 namespace LAMMPS_NS {
 
@@ -110,7 +109,7 @@ path and name are correct.
 E: Cannot yet use airebo/intel with hybrid.
 
 Pair style airebo/intel cannot currently be used as part of a hybrid
-pair style (with the exception of hybrid/overlay). 
+pair style (with the exception of hybrid/overlay).
 
 
 */

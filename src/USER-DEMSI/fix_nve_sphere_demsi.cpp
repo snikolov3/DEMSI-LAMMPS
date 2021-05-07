@@ -22,7 +22,6 @@
 #include "respa.h"
 #include "force.h"
 #include "error.h"
-#include "math_vector.h"
 #include "math_extra.h"
 
 using namespace LAMMPS_NS;

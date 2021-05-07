@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -26,10 +26,11 @@ namespace LAMMPS_NS {
 
 class Ewald : public KSpace {
  public:
-  Ewald(class LAMMPS *, int, char **);
+  Ewald(class LAMMPS *);
   virtual ~Ewald();
   void init();
   void setup();
+  virtual void settings(int, char **);
   virtual void compute(int, int);
   double memory_usage();
 
@@ -98,7 +99,7 @@ E: Kspace style requires atom attribute q
 
 The atom style defined does not have these attributes.
 
-E: Cannot use nonperiodic boundaries with Ewald
+E: Cannot use non-periodic boundaries with Ewald
 
 For kspace style ewald, all 3 dimensions must have periodic boundaries
 unless you use the kspace_modify command to define a 2d slab with a

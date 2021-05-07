@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -56,6 +56,7 @@ class FixReaxC : public Fix {
   int maxhbonds;             // max # of Hbonds for any atom
   int *num_bonds;            // # of bonds for each atom
   int *num_hbonds;           // # of Hbonds for each atom
+  int oldnmax;               // arrays' size before growing
 };
 
 }

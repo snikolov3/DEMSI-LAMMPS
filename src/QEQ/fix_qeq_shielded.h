@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -32,6 +32,7 @@ class FixQEqShielded : public FixQEq {
   void pre_force(int);
 
  private:
+  void extract_reax();
   void init_shielding();
   void init_matvec();
   void compute_H();

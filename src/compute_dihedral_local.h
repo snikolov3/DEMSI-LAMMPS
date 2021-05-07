@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -33,7 +33,7 @@ class ComputeDihedralLocal : public Compute {
   double memory_usage();
 
  private:
-  int nvalues,nvar,ncount,setflag,tflag;
+  int nvalues,nvar,ncount,setflag;
 
   int pvar;
   int *bstyle,*vvar;

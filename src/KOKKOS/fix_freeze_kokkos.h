@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -26,7 +26,7 @@ FixStyle(freeze/kk/host,FixFreezeKokkos<LMPHostType>)
 #include "kokkos_type.h"
 
 namespace LAMMPS_NS {
-  
+
 template<class DeviceType>
 class FixFreezeKokkos : public FixFreeze {
  public:
@@ -66,7 +66,7 @@ class FixFreezeKokkos : public FixFreeze {
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const int i, OriginalForce &original) const;
-  
+
  private:
   typename ArrayTypes<DeviceType>::t_f_array f;
   typename ArrayTypes<DeviceType>::t_f_array torque;

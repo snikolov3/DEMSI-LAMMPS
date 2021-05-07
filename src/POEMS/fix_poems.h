@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -21,6 +21,8 @@ FixStyle(poems,FixPOEMS)
 #define LMP_FIX_POEMS_H
 
 #include "fix.h"
+
+class Workspace;
 
 namespace LAMMPS_NS {
 
@@ -94,7 +96,7 @@ class FixPOEMS : public Fix  {
 
   // POEMS object
 
-  class Workspace *poems;
+  Workspace *poems;
 
   // internal class functions
 
@@ -104,8 +106,6 @@ class FixPOEMS : public Fix  {
   void jointbuild();
   void sortlist(int, tagint **);
   int loopcheck(int, int, tagint **);
-  int jacobi(double **, double *, double **);
-  void rotate(double **, int, int, int, int, double, double);
   void omega_from_mq(double *, double *, double *, double *,
                      double *, double *);
   void set_v();

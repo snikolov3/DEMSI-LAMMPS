@@ -39,7 +39,20 @@ protected:
   void update_chi(double, double, double, double, double, double, double, double&, double&);
 
   int history_ndim;
-  double Emod, poiss, sig_c0, sig_t0, phi, damp_bonded, damp_tangential, damp_normal, tanphi, friction_tangential, hprime_0;
+  double Emod;
+  double poiss;
+  double sig_c0;
+  double sig_t0;
+  double phi;
+  double damp_bonded;
+  double damp_tangential;
+  double damp_normal;
+  double tanphi;
+  double friction_tangential;
+  double hprime_0;
+  double plasticFrictionCoeff;
+  double plasticHardeningCoeff;
+  double exponentialIceStrengthCoeff;
   double Gmod;
   char sig_c0_type[256];
   char sig_t0_type[256];

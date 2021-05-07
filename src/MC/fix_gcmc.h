@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -20,7 +20,6 @@ FixStyle(gcmc,FixGCMC)
 #ifndef LMP_FIX_GCMC_H
 #define LMP_FIX_GCMC_H
 
-#include <cstdio>
 #include "fix.h"
 
 namespace LAMMPS_NS {
@@ -120,6 +119,8 @@ class FixGCMC : public Fix {
   imageint imagezero;
   double overlap_cutoffsq; // square distance cutoff for overlap
   int overlap_flag;
+  int max_ngas;
+  int min_ngas;
 
   double energy_intra;
 

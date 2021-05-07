@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -26,7 +26,7 @@ namespace LAMMPS_NS {
 
 class PPPMStagger : public PPPM {
  public:
-  PPPMStagger(class LAMMPS *, int, char **);
+  PPPMStagger(class LAMMPS *);
   virtual ~PPPMStagger();
   virtual void init();
   virtual void compute(int, int);
@@ -49,7 +49,6 @@ class PPPMStagger : public PPPM {
   virtual void fieldforce_ik();
   virtual void fieldforce_ad();
   virtual void fieldforce_peratom();
-
 
   inline double gf_denom2(const double &x, const double &y,
                          const double &z) const

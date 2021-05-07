@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -39,7 +39,7 @@ class FixAddForce : public Fix {
   double compute_vector(int);
   double memory_usage();
 
- protected:
+ private:
   double xvalue,yvalue,zvalue;
   int varflag,iregion;
   char *xstr,*ystr,*zstr,*estr;

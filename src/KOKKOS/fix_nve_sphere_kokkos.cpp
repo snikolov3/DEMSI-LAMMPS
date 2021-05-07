@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -39,8 +39,8 @@ FixNVESphereKokkos<DeviceType>::FixNVESphereKokkos(LAMMPS *lmp, int narg, char *
 template<class DeviceType>
 void FixNVESphereKokkos<DeviceType>::cleanup_copy()
 {
-  id = style = NULL;
-  vatom = NULL;
+  id = style = nullptr;
+  vatom = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -58,7 +58,7 @@ void FixNVESphereKokkos<DeviceType>::init()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixNVESphereKokkos<DeviceType>::initial_integrate(int vflag)
+void FixNVESphereKokkos<DeviceType>::initial_integrate(int /*vflag*/)
 {
   atomKK->sync(execution_space,datamask_read);
   atomKK->modified(execution_space,datamask_modify);
@@ -75,7 +75,7 @@ void FixNVESphereKokkos<DeviceType>::initial_integrate(int vflag)
   int nlocal = atom->nlocal;
   if (igroup == atom->firstgroup) nlocal = atom->nfirst;
 
-  FixNVESphereKokkosInitialIntegrateFunctor<DeviceType> f(this); 
+  FixNVESphereKokkosInitialIntegrateFunctor<DeviceType> f(this);
   Kokkos::parallel_for(nlocal,f);
 }
 
@@ -95,7 +95,7 @@ void FixNVESphereKokkos<DeviceType>::initial_integrate_item(const int i) const
     x(i,0) += dtv * v(i,0);
     x(i,1) += dtv * v(i,1);
     x(i,2) += dtv * v(i,2);
-      
+
     const double dtirotate = dtfrotate / (radius(i)*radius(i)*rmass(i));
     omega(i,0) += dtirotate * torque(i,0);
     omega(i,1) += dtirotate * torque(i,1);
@@ -139,7 +139,7 @@ void FixNVESphereKokkos<DeviceType>::final_integrate_item(const int i) const
     v(i,0) += dtfm * f(i,0);
     v(i,1) += dtfm * f(i,1);
     v(i,2) += dtfm * f(i,2);
-      
+
     const double dtirotate = dtfrotate / (radius(i)*radius(i)*rmass(i));
     omega(i,0) += dtirotate * torque(i,0);
     omega(i,1) += dtirotate * torque(i,1);
@@ -149,7 +149,7 @@ void FixNVESphereKokkos<DeviceType>::final_integrate_item(const int i) const
 
 namespace LAMMPS_NS {
 template class FixNVESphereKokkos<LMPDeviceType>;
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class FixNVESphereKokkos<LMPHostType>;
 #endif
 }

@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -20,11 +20,11 @@ CommandStyle(change_box,ChangeBox)
 #ifndef LMP_CHANGE_BOX_H
 #define LMP_CHANGE_BOX_H
 
-#include "pointers.h"
+#include "command.h"
 
 namespace LAMMPS_NS {
 
-class ChangeBox : protected Pointers {
+class ChangeBox : public Command {
  public:
   ChangeBox(class LAMMPS *);
   void command(int, char **);
@@ -97,7 +97,7 @@ E: Cannot change box tilt factors for orthogonal box
 
 Cannot use tilt factors unless the simulation box is non-orthogonal.
 
-E: Cannot change box z boundary to nonperiodic for a 2d simulation
+E: Cannot change box z boundary to non-periodic for a 2d simulation
 
 Self-explanatory.
 

@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -26,8 +26,9 @@ namespace LAMMPS_NS {
 
 class PPPMCG : public PPPM {
  public:
-  PPPMCG(class LAMMPS *, int, char **);
+  PPPMCG(class LAMMPS *);
   virtual ~PPPMCG();
+  virtual void settings(int, char **);
   virtual void compute(int, int);
   virtual double memory_usage();
 

@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -20,7 +20,6 @@ AngleStyle(cosine/delta,AngleCosineDelta)
 #ifndef LMP_ANGLE_COSINE_DELTA_H
 #define LMP_ANGLE_COSINE_DELTA_H
 
-#include <cstdio>
 #include "angle_cosine_squared.h"
 
 namespace LAMMPS_NS {

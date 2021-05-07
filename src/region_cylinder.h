@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -43,8 +43,10 @@ class RegCylinder : public Region {
   double c1,c2;
   double radius;
   double lo,hi;
+  int c1style,c1var;
+  int c2style,c2var;
   int rstyle,rvar;
-  char *rstr;
+  char *c1str,*c2str,*rstr;
 
   void variable_check();
 

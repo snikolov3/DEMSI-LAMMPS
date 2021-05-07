@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -71,8 +71,7 @@ class DumpNetCDFMPIIO : public DumpCustom {
   int ncid;
 
   int frame_dim;
-  int spatial_dim;
-  int Voigt_dim;
+  int vector_dim[DUMP_NC_MPIIO_MAX_DIMS];
   int atom_dim;
   int cell_spatial_dim;
   int cell_angular_dim;

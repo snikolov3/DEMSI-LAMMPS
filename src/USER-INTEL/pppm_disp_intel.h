@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -31,7 +31,7 @@ namespace LAMMPS_NS {
 
   class PPPMDispIntel : public PPPMDisp {
   public:
-    PPPMDispIntel(class LAMMPS *, int, char **);
+    PPPMDispIntel(class LAMMPS *);
     virtual ~PPPMDispIntel();
     virtual void init();
     virtual void compute(int, int);
@@ -70,8 +70,6 @@ namespace LAMMPS_NS {
     FFT_SCALAR *particle_eky6;
     FFT_SCALAR *particle_ekz6;
 
-
-
     int _use_table;
     int rho_points;
     FFT_SCALAR **rho_lookup;
@@ -81,7 +79,6 @@ namespace LAMMPS_NS {
     FFT_SCALAR half_rho_scale, half_rho_scale_plus;
 
     int _use_packing;
-
 
     #ifdef _LMP_INTEL_OFFLOAD
     int _use_base;

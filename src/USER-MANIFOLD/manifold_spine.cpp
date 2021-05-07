@@ -1,3 +1,16 @@
+/* ----------------------------------------------------------------------
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   https://lammps.sandia.gov/, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
+
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
+
+   See the README file in the top-level LAMMPS directory.
+   ----------------------------------------------------------------------- */
+
 #include "manifold_spine.h"
 
 #include <cmath>
@@ -45,10 +58,10 @@ double manifold_spine::g_and_n( const double *x, double *nn )
   double AMs, AMc;
   double dazc, dAMs;
 
-  if( x[2] > 0 ){
+  if (x[2] > 0) {
     BB = B;
     cc = c;
-  }else{
+  } else {
     BB = B2;
     cc = 1.0;
   }
@@ -94,10 +107,10 @@ void manifold_spine::n( const double *x, double *nn )
   double AMs, AMc;
   double dazc, dAMs;
 
-  if( x[2] > 0 ){
+  if (x[2] > 0) {
     BB = B;
     cc = c;
-  }else{
+  } else {
     BB = B2;
     cc = 1.0;
   }
@@ -138,10 +151,10 @@ double manifold_spine::g( const double *x )
   double c2, As, azc, Apart;
   double AMs;
 
-  if( x[2] > 0 ){
+  if (x[2] > 0) {
     BB = B;
     cc = c;
-  }else{
+  } else {
     BB = B2;
     cc = 1.0;
   }

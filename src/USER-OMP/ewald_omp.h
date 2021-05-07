@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -27,13 +27,14 @@ namespace LAMMPS_NS {
 
   class EwaldOMP : public Ewald, public ThrOMP {
  public:
-  EwaldOMP(class LAMMPS *, int, char **);
+  EwaldOMP(class LAMMPS *);
   virtual ~EwaldOMP() { };
   virtual void allocate();
   virtual void compute(int, int);
 
  protected:
   virtual void eik_dot_r();
+  virtual void eik_dot_r_triclinic();
 };
 
 }

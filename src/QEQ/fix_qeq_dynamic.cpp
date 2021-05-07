@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -15,25 +15,22 @@
    Contributing author: Ray Shan (Sandia)
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include "fix_qeq_dynamic.h"
+
 #include "atom.h"
 #include "comm.h"
-#include "domain.h"
-#include "neighbor.h"
-#include "neigh_list.h"
-#include "neigh_request.h"
-#include "update.h"
+#include "error.h"
 #include "force.h"
 #include "group.h"
-#include "pair.h"
 #include "kspace.h"
+#include "neigh_list.h"
+#include "neigh_request.h"
+#include "neighbor.h"
 #include "respa.h"
-#include "memory.h"
-#include "error.h"
+#include "update.h"
+
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
@@ -81,7 +78,7 @@ void FixQEqDynamic::init()
       error->warning(FLERR,"Fix qeq/dynamic tolerance may be too small"
                     " for damped dynamics");
 
-  if (strstr(update->integrate_style,"respa"))
+  if (utils::strmatch(update->integrate_style,"^respa"))
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
 
 }
@@ -103,7 +100,7 @@ void FixQEqDynamic::pre_force(int /*vflag*/)
 
   if (update->ntimestep % nevery) return;
 
-  if( atom->nmax > nmax ) reallocate_storage();
+  if (atom->nmax > nmax) reallocate_storage();
 
   inum = list->inum;
   ilist = list->ilist;
@@ -116,7 +113,7 @@ void FixQEqDynamic::pre_force(int /*vflag*/)
     q1[i] = q2[i] = qf[i] = 0.0;
   }
 
-  for (iloop = 0; iloop < maxiter; iloop ++ ) {
+  for (iloop = 0; iloop < maxiter; iloop ++) {
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
       if (mask[i] & groupbit) {
@@ -157,14 +154,9 @@ void FixQEqDynamic::pre_force(int /*vflag*/)
     }
   }
 
-  if (comm->me == 0) {
-    if (iloop == maxiter) {
-      char str[128];
-      sprintf(str,"Charges did not converge at step " BIGINT_FORMAT
-                  ": %lg",update->ntimestep,enegchk);
-      error->warning(FLERR,str);
-    }
-  }
+  if ((comm->me == 0) && (iloop >= maxiter))
+      error->warning(FLERR,fmt::format("Charges did not converge at step "
+                                       "{}: {}",update->ntimestep,enegchk));
 
   if (force->kspace) force->kspace->qsum_qsq();
 }
@@ -251,10 +243,10 @@ int FixQEqDynamic::pack_forward_comm(int n, int *list, double *buf,
 {
   int m=0;
 
-  if( pack_flag == 1 )
-    for(m = 0; m < n; m++) buf[m] = atom->q[list[m]];
-  else if( pack_flag == 2 )
-    for(m = 0; m < n; m++) buf[m] = qf[list[m]];
+  if (pack_flag == 1)
+    for (m = 0; m < n; m++) buf[m] = atom->q[list[m]];
+  else if (pack_flag == 2)
+    for (m = 0; m < n; m++) buf[m] = qf[list[m]];
 
   return m;
 }
@@ -265,10 +257,10 @@ void FixQEqDynamic::unpack_forward_comm(int n, int first, double *buf)
 {
   int i, m;
 
-  if( pack_flag == 1)
-    for(m = 0, i = first; m < n; m++, i++) atom->q[i] = buf[m];
-  else if( pack_flag == 2)
-    for(m = 0, i = first; m < n; m++, i++) qf[i] = buf[m];
+  if (pack_flag == 1)
+    for (m = 0, i = first; m < n; m++, i++) atom->q[i] = buf[m];
+  else if ( pack_flag == 2)
+    for (m = 0, i = first; m < n; m++, i++) qf[i] = buf[m];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -276,7 +268,7 @@ void FixQEqDynamic::unpack_forward_comm(int n, int first, double *buf)
 int FixQEqDynamic::pack_reverse_comm(int n, int first, double *buf)
 {
   int i, m;
-  for(m = 0, i = first; m < n; m++, i++) buf[m] = qf[i];
+  for (m = 0, i = first; m < n; m++, i++) buf[m] = qf[i];
   return m;
 }
 
@@ -286,7 +278,7 @@ void FixQEqDynamic::unpack_reverse_comm(int n, int *list, double *buf)
 {
   int m;
 
-  for(m = 0; m < n; m++) qf[list[m]] += buf[m];
+  for (m = 0; m < n; m++) qf[list[m]] += buf[m];
 }
 
 /* ---------------------------------------------------------------------- */

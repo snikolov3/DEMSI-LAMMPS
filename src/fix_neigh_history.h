@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -21,8 +21,6 @@ FixStyle(NEIGH_HISTORY,FixNeighHistory)
 #define LMP_FIX_NEIGH_HISTORY_H
 
 #include "fix.h"
-#include "my_page.h"
-#include "pair_gran_hooke_history.h"
 
 namespace LAMMPS_NS {
 
@@ -32,7 +30,7 @@ class FixNeighHistory : public Fix {
   int nall_neigh;               // ditto for nlocal+nghost
   int **firstflag;              // ptr to each atom's neighbor flsg
   double **firstvalue;          // ptr to each atom's values
-  class PairGranHookeHistory *pair;             // ptr to pair style that uses neighbor history
+  class Pair *pair;             // ptr to pair style that uses neighbor history
 
   FixNeighHistory(class LAMMPS *, int, char **);
   ~FixNeighHistory();
@@ -55,6 +53,7 @@ class FixNeighHistory : public Fix {
   void unpack_reverse_comm(int, int *, double *);
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
+  void write_restart(FILE *);
   int pack_restart(int, double *);
   void unpack_restart(int, int);
   int size_restart(int);

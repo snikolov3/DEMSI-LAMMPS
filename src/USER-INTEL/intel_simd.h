@@ -1,6 +1,6 @@
 /* -*- c++ -*- -------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -29,7 +29,6 @@ authors for more details.
 #ifndef INTEL_SIMD_H
 #define INTEL_SIMD_H
 
-#include <cstdio>
 #include "intel_preprocess.h"
 #include "immintrin.h"
 

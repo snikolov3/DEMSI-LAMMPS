@@ -1,3 +1,16 @@
+/* ----------------------------------------------------------------------
+   LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
+   https://lammps.sandia.gov/, Sandia National Laboratories
+   Steve Plimpton, sjplimp@sandia.gov
+
+   Copyright (2003) Sandia Corporation.  Under the terms of Contract
+   DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
+   certain rights in this software.  This software is distributed under
+   the GNU General Public License.
+
+   See the README file in the top-level LAMMPS directory.
+   ----------------------------------------------------------------------- */
+
 #include <cmath>
 #include "manifold_torus.h"
 #include "error.h"
@@ -14,7 +27,7 @@ double manifold_torus::g( const double *x )
 {
   double R = params[0];
   double r = params[1];
-  if( R < r ){
+  if (R < r) {
     error->all(FLERR,"Large radius < small radius!");
   }
 
@@ -27,7 +40,7 @@ void   manifold_torus::n( const double *x, double *n )
 {
   double R = params[0];
   double r = params[1];
-  if( R < r ){
+  if (R < r) {
     error->all(FLERR,"Large radius < small radius!");
   }
 

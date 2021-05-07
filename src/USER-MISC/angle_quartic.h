@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -20,7 +20,6 @@ AngleStyle(quartic,AngleQuartic)
 #ifndef LMP_ANGLE_QUARTIC_H
 #define LMP_ANGLE_QUARTIC_H
 
-#include <cstdio>
 #include "angle.h"
 
 namespace LAMMPS_NS {

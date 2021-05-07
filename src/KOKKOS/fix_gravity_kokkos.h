@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -50,7 +50,7 @@ class FixGravityKokkos : public FixGravity {
     typename ArrayTypes<DeviceType>::t_int_1d type;
     typename ArrayTypes<DeviceType>::t_int_1d mask;
 };
-  
+
 } // namespace LAMMPS_NS
 
 #endif // LMP_FIX_GRAVITY_KOKKOS_H

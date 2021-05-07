@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -21,7 +21,12 @@ ComputeStyle(voronoi/atom,ComputeVoronoi)
 #define LMP_COMPUTE_VORONOI_H
 
 #include "compute.h"
-#include "voro++.hh"
+
+namespace voro {
+  class container;
+  class container_poly;
+  class voronoicell_neighbor;
+}
 
 namespace LAMMPS_NS {
 

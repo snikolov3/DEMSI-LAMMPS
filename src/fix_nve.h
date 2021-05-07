@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -35,9 +35,9 @@ class FixNVE : public Fix {
   virtual void initial_integrate_respa(int, int, int);
   virtual void final_integrate_respa(int, int);
   virtual void reset_dt();
-  double dtv,dtf;
 
  protected:
+  double dtv,dtf;
   double *step_respa;
   int mass_require;
 };

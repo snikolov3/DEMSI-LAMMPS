@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -15,18 +15,16 @@
      Contributing author: Efrem Braun (UC Berkeley)
 ------------------------------------------------------------------------- */
 
-#include <cmath>
-#include <cstdio>
-#include <cstring>
 #include "fix_nvk.h"
+
 #include "atom.h"
-#include "force.h"
-#include "update.h"
-#include "respa.h"
 #include "error.h"
-#include "compute.h"
+#include "force.h"
 #include "math_extra.h"
-#include "domain.h"
+#include "respa.h"
+#include "update.h"
+
+#include <cmath>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -61,7 +59,7 @@ void FixNVK::init()
   dtv = update->dt;
   dtf = 0.5 * update->dt;
 
-  if (strstr(update->integrate_style,"respa")) {
+  if (utils::strmatch(update->integrate_style,"^respa")) {
     error->all(FLERR,"Fix nvk not yet enabled for RESPA");
     step_respa = ((Respa *) update->integrate)->step;
   }

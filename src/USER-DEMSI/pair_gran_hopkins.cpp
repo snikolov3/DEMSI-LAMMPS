@@ -30,6 +30,7 @@
 #include "memory.h"
 #include "error.h"
 #include "math_const.h"
+#include "pair_gran_hooke_history.h"
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -41,8 +42,7 @@ using namespace MathConst;
 #define DEBUG_TIMESTEP 32696
 /* ---------------------------------------------------------------------- */
 
-PairGranHopkins::PairGranHopkins(LAMMPS *lmp) :
-              PairGranHookeHistory(lmp, 12)
+PairGranHopkins::PairGranHopkins(LAMMPS *lmp) : PairGranHookeHistory(lmp, 12)
 {
   nondefault_history_transfer = 1;
   beyond_contact = 1;
@@ -640,20 +640,23 @@ void PairGranHopkins::update_chi(double kn, double kt, double Dn, double Cn, dou
 
 void PairGranHopkins::settings(int narg, char **arg)
 {
-  if (narg != 12) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 15) error->all(FLERR,"Illegal pair_style command");
 
-  Emod = force->numeric(FLERR, arg[0]);
-  poiss = force->numeric(FLERR, arg[1]);
+  Emod = utils::numeric(FLERR,arg[0],false,lmp);
+  poiss = utils::numeric(FLERR,arg[1],false,lmp);
   strcpy(sig_c0_type,arg[2]);
-  sig_c0 = force->numeric(FLERR, arg[3]);
+  sig_c0 = utils::numeric(FLERR,arg[3],false,lmp);
   strcpy(sig_t0_type,arg[4]);
-  sig_t0 = force->numeric(FLERR, arg[5]);
-  phi = force->numeric(FLERR, arg[6]);
-  damp_bonded = force->numeric(FLERR, arg[7]);
-  friction_tangential = force->numeric(FLERR, arg[8]);
-  damp_normal = force->numeric(FLERR, arg[9]);
-  damp_tangential = force->numeric(FLERR, arg[10]);
-  hprime_0 = force->numeric(FLERR, arg[11]);
+  sig_t0 = utils::numeric(FLERR,arg[5],false,lmp);
+  phi = utils::numeric(FLERR,arg[6],false,lmp);
+  damp_bonded = utils::numeric(FLERR,arg[7],false,lmp);
+  friction_tangential = utils::numeric(FLERR,arg[8],false,lmp);
+  damp_normal = utils::numeric(FLERR,arg[9],false,lmp);
+  damp_tangential = utils::numeric(FLERR,arg[10],false,lmp);
+  hprime_0 = utils::numeric(FLERR,arg[11],false,lmp);
+  plasticFrictionCoeff = utils::numeric(FLERR,arg[12],false,lmp);
+  plasticHardeningCoeff = utils::numeric(FLERR,arg[13],false,lmp);
+  exponentialIceStrengthCoeff = utils::numeric(FLERR,arg[14],false,lmp);
 
   tanphi = tan(phi*MathConst::MY_PI/180.0);
   Gmod = Emod/(2*(1+poiss));

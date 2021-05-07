@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -21,7 +21,6 @@ KSpaceStyle(ewald/disp,EwaldDisp)
 #define LMP_EWALD_DISP_H
 
 #include "kspace.h"
-#include "math_complex.h"
 
 namespace LAMMPS_NS {
 
@@ -30,16 +29,13 @@ namespace LAMMPS_NS {
 #define EWALD_MAX_NSUMS     10
 #define EWALD_NSUMS        {1, 1, 7, 1}
 
-typedef struct cvector { complex x, y, z; } cvector;
-typedef struct hvector { double x, y, z; } hvector;
-typedef struct kvector { long x, y, z; } kvector;
-
 class EwaldDisp : public KSpace {
  public:
-  EwaldDisp(class LAMMPS *, int, char **);
+  EwaldDisp(class LAMMPS *);
   ~EwaldDisp();
   void init();
   void setup();
+  void settings(int, char **);
   void compute(int, int);
   double memory_usage() {return bytes;}
 
@@ -57,13 +53,13 @@ class EwaldDisp : public KSpace {
   double *kvirial, virial_self[EWALD_NFUNCS];
   double **energy_self_peratom;
   double **virial_self_peratom;
-  cvector *ekr_local;
-  hvector *hvec;
-  kvector *kvec;
+  struct cvector *ekr_local;
+  struct hvector *hvec;
+  struct kvector *kvec;
 
   double mumurd2e, dielectric, *B, volume;
   struct Sum { double x, x2; } sum[EWALD_MAX_NSUMS];
-  complex *cek_local, *cek_global;
+  struct complex *cek_local, *cek_global;
 
   double rms(int, double, bigint, double, double, double);
   void reallocate();
@@ -107,7 +103,7 @@ E: Cannot use EwaldDisp with 2d simulation
 
 This is a current restriction of this command.
 
-E: Cannot use nonperiodic boundaries with EwaldDisp
+E: Cannot use non-periodic boundaries with EwaldDisp
 
 For kspace style ewald/disp, all 3 dimensions must have periodic
 boundaries unless you use the kspace_modify command to define a 2d

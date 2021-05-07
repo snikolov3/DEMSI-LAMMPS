@@ -33,6 +33,7 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
   ~AtomVecDemsiKokkos() {}
   void init();
   void grow(int);
+  void grow_pointers();
   void grow_reset();
   void copy(int, int, int);
   int pack_comm(int, int *, double *, int, int *);
@@ -69,7 +70,7 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
   int pack_vel_hybrid(int, double *);
   void write_vel(FILE *, int, double **);
   int write_vel_hybrid(FILE *, double *);
-  bigint memory_usage();
+  double memory_usage();
 
   int pack_comm_kokkos(const int &n, const DAT::tdual_int_2d &k_sendlist,
                        const int & iswap,
@@ -115,16 +116,22 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
   tagint *tag;
   int *type,*mask;
   imageint *image;
-  double **x,**v,**f;
-  double *radius,*rmass;
-  double **omega,**torque;
+  double **x;
+  double **v;
+  double **f;
+  double *radius;
+  double *rmass;
+  double **omega;
+  double **torque;
   double **forcing;
-  double *mean_thickness,*min_thickness;
+  double *mean_thickness;
+  double *min_thickness;
   double *ridgingIceThickness;
   double *ridgingIceThicknessWeight;
   double *netToGrossClosingRatio;
   double *changeEffectiveElementArea;
   double * ice_area;
+  double * iceConcentration;
   double * coriolis;
   double ** ocean_vel;
   double ** bvector;
@@ -171,6 +178,8 @@ class AtomVecDemsiKokkos : public AtomVecKokkos {
   HAT::t_float_1d h_changeEffectiveElementArea;
   DAT::t_float_1d d_ice_area;
   HAT::t_float_1d h_ice_area;
+  DAT::t_float_1d d_iceConcentration;
+  HAT::t_float_1d h_iceConcentration;
   DAT::t_float_1d d_coriolis;
   HAT::t_float_1d h_coriolis;
   DAT::t_float_2d d_ocean_vel;

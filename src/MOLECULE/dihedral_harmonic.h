@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -20,7 +20,6 @@ DihedralStyle(harmonic,DihedralHarmonic)
 #ifndef LMP_DIHEDRAL_HARMONIC_H
 #define LMP_DIHEDRAL_HARMONIC_H
 
-#include <cstdio>
 #include "dihedral.h"
 
 namespace LAMMPS_NS {
@@ -30,16 +29,16 @@ class DihedralHarmonic : public Dihedral {
   DihedralHarmonic(class LAMMPS *);
   virtual ~DihedralHarmonic();
   virtual void compute(int, int);
-  void coeff(int, char **);
+  virtual void coeff(int, char **);
   void write_restart(FILE *);
-  void read_restart(FILE *);
+  virtual void read_restart(FILE *);
   void write_data(FILE *);
 
  protected:
   double *k,*cos_shift,*sin_shift;
   int *sign,*multiplicity;
 
-  void allocate();
+  virtual void allocate();
 };
 
 }

@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -20,12 +20,11 @@ CommandStyle(neb,NEB)
 #ifndef LMP_NEB_H
 #define LMP_NEB_H
 
-#include <cstdio>
-#include "pointers.h"
+#include "command.h"
 
 namespace LAMMPS_NS {
 
-class NEB : protected Pointers {
+class NEB : public Command {
  public:
   NEB(class LAMMPS *);
   NEB(class LAMMPS *, double, double, int, int, int, double *, double *);
@@ -47,7 +46,7 @@ class NEB : protected Pointers {
   double ftol;                 // force tolerance convergence criterion
   int n1steps, n2steps;        // number of steps in stage 1 and 2
   int nevery;                  // output interval
-  char *infile;                // name of file containing final state
+  char *inpfile;                // name of file containing final state
 
   class FixNEB *fneb;
   int numall;                  // per-replica dimension of array all

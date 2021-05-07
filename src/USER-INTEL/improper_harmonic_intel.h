@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -24,7 +24,6 @@ ImproperStyle(harmonic/intel,ImproperHarmonicIntel)
 #ifndef LMP_IMPROPER_HARMONIC_INTEL_H
 #define LMP_IMPROPER_HARMONIC_INTEL_H
 
-#include <cstdio>
 #include "improper_harmonic.h"
 #include "fix_intel.h"
 
@@ -63,7 +62,7 @@ class ImproperHarmonicIntel : public ImproperHarmonic {
     fc_packed1 *fc;
 
     ForceConst() : _nimpropertypes(0)  {}
-    ~ForceConst() { set_ntypes(0, NULL); }
+    ~ForceConst() { set_ntypes(0, nullptr); }
 
     void set_ntypes(const int nimpropertypes, Memory *memory);
 

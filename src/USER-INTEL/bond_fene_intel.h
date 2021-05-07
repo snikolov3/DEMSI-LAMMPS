@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -24,7 +24,6 @@ BondStyle(fene/intel,BondFENEIntel)
 #ifndef LMP_BOND_FENE_INTEL_H
 #define LMP_BOND_FENE_INTEL_H
 
-#include <cstdio>
 #include "bond_fene.h"
 #include "fix_intel.h"
 
@@ -62,7 +61,7 @@ class BondFENEIntel : public BondFENE {
     fc_packed1 *fc;
 
     ForceConst() : _nbondtypes(0)  {}
-    ~ForceConst() { set_ntypes(0, NULL); }
+    ~ForceConst() { set_ntypes(0, nullptr); }
 
     void set_ntypes(const int nbondtypes, Memory *memory);
 

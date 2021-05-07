@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -20,7 +20,6 @@ DihedralStyle(cosine/shift/exp,DihedralCosineShiftExp)
 #ifndef LMP_DIHEDRAL_COSINE_SHIFT_EXP_H
 #define LMP_DIHEDRAL_COSINE_SHIFT_EXP_H
 
-#include <cstdio>
 #include "dihedral.h"
 
 namespace LAMMPS_NS {

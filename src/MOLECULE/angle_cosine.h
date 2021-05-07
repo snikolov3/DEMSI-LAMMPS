@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -20,7 +20,6 @@ AngleStyle(cosine,AngleCosine)
 #ifndef LMP_ANGLE_COSINE_H
 #define LMP_ANGLE_COSINE_H
 
-#include <cstdio>
 #include "angle.h"
 
 namespace LAMMPS_NS {
@@ -30,17 +29,17 @@ class AngleCosine : public Angle {
   AngleCosine(class LAMMPS *);
   virtual ~AngleCosine();
   virtual void compute(int, int);
-  void coeff(int, char **);
+  virtual void coeff(int, char **);
   double equilibrium_angle(int);
   void write_restart(FILE *);
-  void read_restart(FILE *);
+  virtual void read_restart(FILE *);
   void write_data(FILE *);
   double single(int, int, int, int);
 
  protected:
   double *k;
 
-  void allocate();
+  virtual void allocate();
 };
 
 }

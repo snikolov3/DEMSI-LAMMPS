@@ -34,6 +34,8 @@
 #include "error.h"
 #include "modify.h"
 #include "math_const.h"
+//#include <cstdio>
+//#include <cstdlib>
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -53,6 +55,8 @@ PairGranHopkinsKokkos<DeviceType>::PairGranHopkinsKokkos(LAMMPS *lmp) : PairGran
   datamask_read = X_MASK | V_MASK | OMEGA_MASK | F_MASK | TORQUE_MASK | TYPE_MASK | MASK_MASK | 
                   ENERGY_MASK | VIRIAL_MASK | RMASS_MASK | RADIUS_MASK | THICKNESS_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
+
+  std::cout << "In pair gran hopkins kokkos... \n";
 }
 
 /* ---------------------------------------------------------------------- */
@@ -77,16 +81,17 @@ void PairGranHopkinsKokkos<DeviceType>::init_style()
     char dnumstr[16];
     sprintf(dnumstr,"%d",12);
     char **fixarg = new char*[4];
-    fixarg[0] = (char *) "NEIGH_HISTORY";
+    fixarg[0] = (char *) "NEIGH_HISTORY_HH";
     fixarg[1] = (char *) "all";
     if (execution_space == Device)
       fixarg[2] = (char *) "NEIGH_HISTORY/KK/DEVICE";
     else
       fixarg[2] = (char *) "NEIGH_HISTORY/KK/HOST";
     fixarg[3] = dnumstr;
-    modify->add_fix(4,fixarg,1);
+    modify->replace_fix("NEIGH_HISTORY_HH_DUMMY",4,fixarg,1);
     delete [] fixarg;
-    fix_history = (FixNeighHistory *) modify->fix[modify->nfix-1];
+    int ifix = modify->find_fix("NEIGH_HISTORY_HH");
+    fix_history = (FixNeighHistory *) modify->fix[ifix];
     fix_history->pair = this;
     fix_historyKK = (FixNeighHistoryKokkos<DeviceType> *)fix_history;
   }
@@ -100,10 +105,10 @@ void PairGranHopkinsKokkos<DeviceType>::init_style()
   int irequest = neighbor->nrequest - 1;
 
   neighbor->requests[irequest]->
-    kokkos_host = Kokkos::Impl::is_same<DeviceType,LMPHostType>::value &&
-    !Kokkos::Impl::is_same<DeviceType,LMPDeviceType>::value;
+    kokkos_host = std::is_same<DeviceType,LMPHostType>::value &&
+    !std::is_same<DeviceType,LMPDeviceType>::value;
   neighbor->requests[irequest]->
-    kokkos_device = Kokkos::Impl::is_same<DeviceType,LMPDeviceType>::value;
+    kokkos_device = std::is_same<DeviceType,LMPDeviceType>::value;
 
   if (neighflag == HALF || neighflag == HALFTHREAD) {
     neighbor->requests[irequest]->full = 0;
@@ -138,10 +143,10 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   }
   if (vflag_atom) {
     memoryKK->destroy_kokkos(k_vatom,vatom);
-    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,6,"pair:vatom");
+    memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"pair:vatom");
     d_vatom = k_vatom.view<DeviceType>();
   }
- 
+
   atomKK->sync(execution_space,datamask_read);
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
@@ -158,6 +163,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   radius = atomKK->k_radius.view<DeviceType>();
   min_thickness = atomKK->k_min_thickness.view<DeviceType>();
   mean_thickness = atomKK->k_mean_thickness.view<DeviceType>();
+  iceConcentration = atomKK->k_iceConcentration.view<DeviceType>();
   ridgingIceThickness = atomKK->k_ridgingIceThickness.view<DeviceType>();
   ridgingIceThicknessWeight = atomKK->k_ridgingIceThicknessWeight.view<DeviceType>();
   netToGrossClosingRatio = atomKK->k_netToGrossClosingRatio.view<DeviceType>();
@@ -174,7 +180,7 @@ void PairGranHopkinsKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_firsttouch = fix_historyKK->d_firstflag;
   d_firsthistory = fix_historyKK->d_firstvalue;
 
-  EV_FLOAT ev; 
+  EV_FLOAT ev;
 
   if (strcmp(sig_c0_type,"constant") == 0) {
     strcmp_sig_c0_type_constant = true;
@@ -301,9 +307,10 @@ KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE,EVFLAG>, const int ii, EV_FLOAT &ev) const {
 
   // The f and torque arrays are atomic for Half/Thread neighbor style
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
-  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_torque = torque;
-
+//  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+//  Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_torque = torque;
+    Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_f = f;
+    Kokkos::View<F_FLOAT*[3], typename DAT::t_f_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > a_torque = torque;
   int i = d_ilist[ii];
   int itype = type[i];
   int jnum = d_numneigh[i];
@@ -325,12 +332,14 @@ void PairGranHopkinsKokkos<DeviceType>::operator()(TagPairGranHopkinsCompute<NEI
 
     F_FLOAT chi1 = d_firsthistory(i,size_history*jj+8);
     F_FLOAT chi2 = d_firsthistory(i,size_history*jj+9);
+    //printf("%f %f \n", chi1, chi2);
     if (chi1 >= chi2){ // Un-bonded, chi1 >= chi2
       compute_nonbonded_kokkos<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE>(i,j,jj,fx,fy,torque_i,torque_j);
     }
     else { //Bonded
       compute_bonded_kokkos<NEIGHFLAG,NEWTON_PAIR,HISTORYUPDATE>(i,j,jj,fx,fy,torque_i,torque_j);
     }
+    //printf("%d %d %f %f %f %f\n", i, j, fx, fy, torque_i, torque_j);
 
     fx_sum += fx;
     fy_sum += fy;
@@ -374,9 +383,22 @@ void PairGranHopkinsKokkos<DeviceType>::elastic_stiffness(F_FLOAT meanIceThickne
 
   F_FLOAT stiffness1 = (Emod * meanIceThickness1) / (2.0 * radius1);
   F_FLOAT stiffness2 = (Emod * meanIceThickness2) / (2.0 * radius2);
-  elasticStiffness = std::min(stiffness1,stiffness2);
+//  elasticStiffness = std::min(stiffness1,stiffness2);
+  if (stiffness1 < stiffness2){
+        elasticStiffness = stiffness1;
+  }
+  else{
+        elasticStiffness = stiffness2;
+  }
 
-  elasticDamping = std::sqrt(2.0 * elasticStiffness * bondLength * std::min(mass1,mass2)) / bondLength;
+  if (mass1 < mass2){
+        elasticDamping = pow(2.0 * elasticStiffness * bondLength * mass1, 0.5) / bondLength;
+  }
+  else{
+        elasticDamping = pow(2.0 * elasticStiffness * bondLength * mass2, 0.5) / bondLength;
+  }
+
+//  elasticDamping = std::sqrt(2.0 * elasticStiffness * bondLength * std::min(mass1,mass2)) / bondLength;
   elasticDamping *= damp_normal;
 
 }
@@ -386,8 +408,11 @@ void PairGranHopkinsKokkos<DeviceType>::elastic_stiffness(F_FLOAT meanIceThickne
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::plastic_parameters(F_FLOAT particleRadius,
-							   F_FLOAT plasticFrictionCoefficient,
-							   F_FLOAT plasticHardeningCoefficient,
+							   F_FLOAT plasticFrictionCoeff,
+							   F_FLOAT plasticHardeningCoeff,
+							   F_FLOAT exponentialIceStrengthCoeff,
+							   F_FLOAT iceConcentration1,
+							   F_FLOAT iceConcentration2,
 							   F_FLOAT ridgingIceThickness1,
 							   F_FLOAT ridgingIceThickness2,
 							   F_FLOAT ridgingIceThicknessWeight1,
@@ -402,9 +427,22 @@ void PairGranHopkinsKokkos<DeviceType>::plastic_parameters(F_FLOAT particleRadiu
     (ridgingIceThicknessWeight1 + ridgingIceThicknessWeight2);
 
   F_FLOAT resolutionScaling = 10000.0 / (2.0*particleRadius);
-
-  plasticFriction           = plasticFrictionCoefficient  * ridgingThickness;
-  plasticHardeningStiffness = plasticHardeningCoefficient * ridgingThickness*ridgingThickness * resolutionScaling;
+  if (iceConcentration1 < iceConcentration2){
+//	F_FLOAT iceConcentration = iceConcentration1;
+        F_FLOAT iceConcFactor = std::exp( -1*exponentialIceStrengthCoeff * (1.0 - iceConcentration1) );
+        plasticFriction           = plasticFrictionCoeff  * ridgingThickness * iceConcFactor;
+        plasticHardeningStiffness = plasticHardeningCoeff * ridgingThickness*ridgingThickness * resolutionScaling;
+  }
+  else{
+//	F_FLOAT iceConcentration = iceConcentration2;
+        F_FLOAT iceConcFactor = std::exp( -1*exponentialIceStrengthCoeff * (1.0 - iceConcentration2) );
+        plasticFriction           = plasticFrictionCoeff  * ridgingThickness * iceConcFactor;
+        plasticHardeningStiffness = plasticHardeningCoeff * ridgingThickness*ridgingThickness * resolutionScaling;
+  }
+//  F_FLOAT iceConcentration = std::min(iceConcentration1, iceConcentration2);
+//  F_FLOAT iceConcFactor = std::exp( -1*exponentialIceStrengthCoeff * (1.0 - iceConcentration) );
+//  plasticFriction           = plasticFrictionCoeff  * ridgingThickness * iceConcFactor;
+//  plasticHardeningStiffness = plasticHardeningCoeff * ridgingThickness*ridgingThickness * resolutionScaling;
 
 }
 
@@ -496,6 +534,8 @@ KOKKOS_INLINE_FUNCTION
 void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherElement,
 							      F_FLOAT overlap,
 							      F_FLOAT convergence,
+							      F_FLOAT iceConcentration1,
+							      F_FLOAT iceConcentration2,
 							      F_FLOAT meanIceThickness1,
 							      F_FLOAT meanIceThickness2,
 							      F_FLOAT radius1,
@@ -511,8 +551,9 @@ void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherEl
 							      F_FLOAT &changeEffectiveElementArea1,
 							      F_FLOAT &changeEffectiveElementArea2,
 							      F_FLOAT particleRadius,
-							      F_FLOAT plasticFrictionCoefficient,
-							      F_FLOAT plasticHardeningCoefficient,
+							      F_FLOAT plasticFrictionCoeff,
+							      F_FLOAT plasticHardeningCoeff,
+							      F_FLOAT exponentialIceStrengthCoeff,
 							      F_FLOAT bondLength,
 							      F_FLOAT &ridgeSlip,
 							      F_FLOAT &ridgeSlipUsed,
@@ -544,8 +585,11 @@ void PairGranHopkinsKokkos<DeviceType>::hopkins_ridging_model(bool modifyOtherEl
     F_FLOAT plasticFriction;
     F_FLOAT plasticHardeningStiffness;
     plastic_parameters(particleRadius,
-		       plasticFrictionCoefficient,
-		       plasticHardeningCoefficient,
+		       plasticFrictionCoeff,
+		       plasticHardeningCoeff,
+		       exponentialIceStrengthCoeff,
+		       iceConcentration1,
+		       iceConcentration2,
 		       ridgingIceThickness1,
 		       ridgingIceThickness2,
 		       ridgingIceThicknessWeight1,
@@ -635,13 +679,13 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
    F_FLOAT vnnr, vnx, vny;
    F_FLOAT wrz, vtrx, vtry, vtx, vty, vrel;
    F_FLOAT delta, delta_dot;
- 
+
    F_FLOAT fnx, fny;
    F_FLOAT sig_c = 0, hmin;
    F_FLOAT hprime, kp, kr, ke, L, kt0;
    F_FLOAT num, denom, fnmag_plastic, fnmag_elastic, fnmag;
    F_FLOAT ncrossF;
- 
+
    F_FLOAT ndisp, dispmag, scalefac;
    F_FLOAT ftx, fty, ftmag, ftcrit;
    F_FLOAT var1,var2;
@@ -732,8 +776,6 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
      else{
        kt0 = Gmod/L*(1/(1/mean_thickness(i) + 1/mean_thickness(j)));
        F_FLOAT particleRadius = 5000.0;
-       F_FLOAT plasticFrictionCoefficient = 26126.0;
-       F_FLOAT plasticHardeningCoefficient = 9.28;
 
        F_FLOAT previousForce = d_firsthistory(i,size_history*jj+7);
        F_FLOAT ridgeSlip     = d_firsthistory(i,size_history*jj+10);
@@ -742,6 +784,8 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
        hopkins_ridging_model(NEWTON_PAIR || j < nlocal,
            delta,
            delta_dot,
+           iceConcentration(i),
+           iceConcentration(j),
            mean_thickness(i),
            mean_thickness(j),
            radius(i),
@@ -757,8 +801,9 @@ void PairGranHopkinsKokkos<DeviceType>::compute_nonbonded_kokkos(int i, int j, i
            changeEffectiveElementArea(i),
            changeEffectiveElementArea(j),
            particleRadius,
-           plasticFrictionCoefficient,
-           plasticHardeningCoefficient,
+           plasticFrictionCoeff,
+           plasticHardeningCoeff,
+           exponentialIceStrengthCoeff,
            L,
            ridgeSlip,
            ridgeSlipUsed,
@@ -1202,7 +1247,8 @@ void PairGranHopkinsKokkos<DeviceType>::ev_tally_xyz_atom(EV_FLOAT &ev, int i, i
                                                           F_FLOAT fx, F_FLOAT fy, F_FLOAT fz,
                                                           X_FLOAT delx, X_FLOAT dely, X_FLOAT delz) const
 {
-  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+//  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,DeviceType,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
+  Kokkos::View<F_FLOAT*[6], typename DAT::t_virial_array::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<AtomicF<NEIGHFLAG>::value> > v_vatom = k_vatom.view<DeviceType>();
 
   F_FLOAT v[6];
 
@@ -1235,7 +1281,7 @@ void PairGranHopkinsKokkos<DeviceType>::ev_tally_xyz_atom(EV_FLOAT &ev, int i, i
 
 namespace LAMMPS_NS {
 template class PairGranHopkinsKokkos<LMPDeviceType>;
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef KOKKOS_ENABLE_CUDA
 template class PairGranHopkinsKokkos<LMPHostType>;
 #endif
 }

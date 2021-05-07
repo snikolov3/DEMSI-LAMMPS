@@ -92,6 +92,9 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
   void plastic_parameters(F_FLOAT particleRadius,
 			  F_FLOAT plasticFrictionCoefficient,
 			  F_FLOAT plasticHardeningCoefficient,
+			  F_FLOAT exponentialIceStrengthCoeff,
+			  F_FLOAT iceConcentration1,
+			  F_FLOAT iceConcentration2,
 			  F_FLOAT ridgingIceThickness1,
 			  F_FLOAT ridgingIceThickness2,
 			  F_FLOAT ridgingIceThicknessWeight1,
@@ -138,6 +141,8 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
   void hopkins_ridging_model(bool modifyOtherElement,
 			     F_FLOAT overlap,
 			     F_FLOAT convergence,
+			     F_FLOAT iceConcentration1,
+			     F_FLOAT iceConcentration2,
 			     F_FLOAT meanIceThickness1,
 			     F_FLOAT meanIceThickness2,
 			     F_FLOAT radius1,
@@ -155,6 +160,7 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
 			     F_FLOAT particleRadius,
 			     F_FLOAT plasticFrictionCoefficient,
 			     F_FLOAT plasticHardeningCoefficient,
+			     F_FLOAT exponentialIceStrengthCoeff,
 			     F_FLOAT bondLength,
 			     F_FLOAT &ridgeSlip,
 			     F_FLOAT &ridgeSlipUsed,
@@ -174,6 +180,7 @@ class PairGranHopkinsKokkos : public PairGranHopkins {
   typename AT::t_float_1d_randomread radius;
   typename AT::t_float_1d_randomread mean_thickness;
   typename AT::t_float_1d_randomread min_thickness;
+  typename AT::t_float_1d_randomread iceConcentration;
   typename AT::t_float_1d_randomread ridgingIceThickness;
   typename AT::t_float_1d_randomread ridgingIceThicknessWeight;
   typename AT::t_float_1d_randomread netToGrossClosingRatio;

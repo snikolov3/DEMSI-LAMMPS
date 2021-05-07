@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -20,12 +20,11 @@ CommandStyle(read_data,ReadData)
 #ifndef LMP_READ_DATA_H
 #define LMP_READ_DATA_H
 
-#include <cstdio>
-#include "pointers.h"
+#include "command.h"
 
 namespace LAMMPS_NS {
 
-class ReadData : protected Pointers {
+class ReadData : public Command {
  public:
   ReadData(class LAMMPS *);
   ~ReadData();
@@ -33,10 +32,10 @@ class ReadData : protected Pointers {
 
  private:
   int me,compressed;
-  char *line,*copy,*keyword,*buffer,*style;
+  char *line,*keyword,*buffer,*style;
   FILE *fp;
-  char **arg;
-  int narg,maxarg;
+  char **coeffarg;
+  int ncoeffarg,maxcoeffarg;
   char argoffset1[8],argoffset2[8];
 
   bigint id_offset, mol_offset;
@@ -98,7 +97,7 @@ class ReadData : protected Pointers {
   void impropers(int);
 
   void bonus(bigint, class AtomVec *, const char *);
-  void bodies(int);
+  void bodies(int, class AtomVec *);
 
   void mass();
   void paircoeffs();
@@ -160,7 +159,7 @@ E: Fix ID for read_data does not exist
 
 Self-explanatory.
 
-E: Cannot run 2d simulation with nonperiodic Z dimension
+E: Cannot run 2d simulation with non-periodic Z dimension
 
 Use the boundary command to make the z dimension periodic in order to
 run a 2d simulation.
@@ -533,25 +532,25 @@ E: Too many lines in one body in data file - boost MAXBODY
 MAXBODY is a setting at the top of the src/read_data.cpp file.
 Set it larger and re-compile the code.
 
-E: Unexpected end of PairCoeffs section
+E: Unexpected empty line in PairCoeffs section
 
-Read a blank line.
+Read a blank line where there should be coefficient data.
 
-E: Unexpected end of BondCoeffs section
+E: Unexpected empty line in BondCoeffs section
 
-Read a blank line.
+Read a blank line where there should be coefficient data.
 
-E: Unexpected end of AngleCoeffs section
+E: Unexpected empty line in AngleCoeffs section
 
-Read a blank line.
+Read a blank line where there should be coefficient data.
 
-E: Unexpected end of DihedralCoeffs section
+E: Unexpected empty line in DihedralCoeffs section
 
-Read a blank line.
+Read a blank line where there should be coefficient data.
 
-E: Unexpected end of ImproperCoeffs section
+E: Unexpected empty line in ImproperCoeffs section
 
-Read a blank line.
+Read a blank line where there should be coefficient data.
 
 E: Cannot open gzipped file
 

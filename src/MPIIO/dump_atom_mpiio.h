@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -21,7 +21,6 @@ DumpStyle(atom/mpiio,DumpAtomMPIIO)
 #define LMP_DUMP_ATOM_MPIIO_H
 
 #include "dump_atom.h"
-#include <cstdlib>
 
 namespace LAMMPS_NS {
 
