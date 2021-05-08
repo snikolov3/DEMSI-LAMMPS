@@ -373,6 +373,12 @@ foreach(PKG ${STANDARD_PACKAGES} ${SUFFIX_PACKAGES})
   endif()
 endforeach()
 
+file(GLOB my_HEADERS ../src/*.h)
+file(GLOB my_fmtlib ../src/fmtlib*)
+install(DIRECTORY ../src/fmt DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
+install(FILES ${my_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
+install(FILES ${my_fmtlib} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
+
 ##############################################
 # add sources of enabled packages
 ############################################
@@ -384,10 +390,6 @@ foreach(PKG ${STANDARD_PACKAGES})
 
   # temporary way to deal with installing headers for DEMSI-LAMMPS
   install(FILES ${${PKG}_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
-  install(DIRECTORY ../src/fmt DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
-  install(DIRECTORY ../src/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps FILES_MATCHING PATTERN "*.h")
-  install(FILES ../src/fmtlib_os.cpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
-  install(FILES ../src/fmtlib_format.cpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
 
   DetectBuildSystemConflict(${LAMMPS_SOURCE_DIR} ${${PKG}_SOURCES} ${${PKG}_HEADERS})
 
@@ -418,10 +420,6 @@ foreach(PKG ${SUFFIX_PACKAGES})
 
   # temporary way to deal with installing headers for DEMSI-LAMMPS
   install(FILES ${${PKG}_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
-  install(DIRECTORY ../src/fmt DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
-  install(DIRECTORY ../src/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps FILES_MATCHING PATTERN "*.h")
-  install(FILES ../src/fmtlib_os.cpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
-  install(FILES ../src/fmtlib_format.cpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lammps)
 
   # check for package files in src directory due to old make system
   DetectBuildSystemConflict(${LAMMPS_SOURCE_DIR} ${${PKG}_SOURCES} ${${PKG}_HEADERS})
