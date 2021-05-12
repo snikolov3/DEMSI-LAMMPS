@@ -137,20 +137,6 @@ class Atom : protected Pointers {
   double *edpd_cv;               // heat capacity
   int cc_species;
 
-  //USER-DEMSI package
-  double **forcing;
-  double *mean_thickness;
-  double *min_thickness;
-  double *ridgingIceThickness;
-  double *ridgingIceThicknessWeight;
-  double *netToGrossClosingRatio;
-  double *changeEffectiveElementArea;
-  double *ice_area;
-  double *iceConcentration;
-  double *coriolis;
-  double **ocean_vel;
-  double **bvector;
-
   // USER-MESONT package
 
   double *length;
@@ -165,9 +151,6 @@ class Atom : protected Pointers {
   double *eff_plastic_strain;
   double *eff_plastic_strain_rate;
   double *damage;
-
-  //USER-DEMSI package
-  int demsi_flag;
 
   // USER-SPH package
 

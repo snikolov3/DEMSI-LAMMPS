@@ -77,24 +77,10 @@ AtomKokkos::~AtomKokkos()
   memoryKK->destroy_kokkos(k_improper_atom4, improper_atom4);
 
   // SPIN package
+
   memoryKK->destroy_kokkos(k_sp, sp);
   memoryKK->destroy_kokkos(k_fm, fm);
   memoryKK->destroy_kokkos(k_fm_long, fm_long);
-
-
-  // USER-DEMSI package
-  memoryKK->destroy_kokkos(k_mean_thickness,mean_thickness);
-  memoryKK->destroy_kokkos(k_min_thickness,min_thickness);
-  memoryKK->destroy_kokkos(k_ridgingIceThickness,ridgingIceThickness);
-  memoryKK->destroy_kokkos(k_ridgingIceThicknessWeight,ridgingIceThicknessWeight);
-  memoryKK->destroy_kokkos(k_netToGrossClosingRatio,netToGrossClosingRatio);
-  memoryKK->destroy_kokkos(k_changeEffectiveElementArea,changeEffectiveElementArea);
-  memoryKK->destroy_kokkos(k_forcing,forcing);
-  memoryKK->destroy_kokkos(k_ice_area,ice_area);
-  memoryKK->destroy_kokkos(k_iceConcentration,iceConcentration);
-  memoryKK->destroy_kokkos(k_coriolis,coriolis);
-  memoryKK->destroy_kokkos(k_ocean_vel,ocean_vel);
-  memoryKK->destroy_kokkos(k_bvector,bvector);
 
   // USER-DPD package
   memoryKK->destroy_kokkos(k_uCond,uCond);

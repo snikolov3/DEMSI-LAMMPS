@@ -198,21 +198,6 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   rho = drho = esph = desph = cv = nullptr;
   vest = nullptr;
 
-  // USER-DEMSI package
-
-  forcing = NULL;
-  mean_thickness = NULL;
-  min_thickness = NULL;
-  ridgingIceThickness = NULL;
-  ridgingIceThicknessWeight = NULL;
-  netToGrossClosingRatio = NULL;
-  changeEffectiveElementArea = NULL;
-  ice_area = NULL;
-  iceConcentration = NULL;
-  coriolis = NULL;
-  ocean_vel = NULL;
-  bvector = NULL;
-
   // end of customization section
   // --------------------------------------------------------------------
 
@@ -524,20 +509,6 @@ void Atom::peratom_create()
   add_peratom("eff_plastic_strain",&eff_plastic_strain,DOUBLE,0);
   add_peratom("eff_plastic_strain_rate",&eff_plastic_strain_rate,DOUBLE,0);
   add_peratom("damage",&damage,DOUBLE,0);
-
-  // USER-DEMSI package 
-  add_peratom("forcing",&forcing,DOUBLE,1);
-  add_peratom("mean_thickness",&mean_thickness,DOUBLE,0);
-  add_peratom("min_thickness",&min_thickness,DOUBLE,0);
-  add_peratom("ridgingIceThickness",&ridgingIceThickness,DOUBLE,0);
-  add_peratom("ridgingIceThicknessWeight",&ridgingIceThicknessWeight,DOUBLE,0);
-  add_peratom("netToGrossClosingRatio",&netToGrossClosingRatio,DOUBLE,0);
-  add_peratom("changeEffectiveElementArea",&changeEffectiveElementArea,DOUBLE,0);
-  add_peratom("ice_area",&ice_area,DOUBLE,0);
-  add_peratom("iceConcentration",&iceConcentration,DOUBLE,0);
-  add_peratom("coriolis",&coriolis,DOUBLE,0);
-  add_peratom("ocean_vel",&ocean_vel,DOUBLE,1);
-  add_peratom("bvector",&bvector,DOUBLE,1);
 
   // end of customization section
   // --------------------------------------------------------------------

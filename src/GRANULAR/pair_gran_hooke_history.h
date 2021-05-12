@@ -26,7 +26,7 @@ namespace LAMMPS_NS {
 
 class PairGranHookeHistory : public Pair {
  public:
-  PairGranHookeHistory(class LAMMPS *, int _size_history=3);
+  PairGranHookeHistory(class LAMMPS *);
   virtual ~PairGranHookeHistory();
   virtual void compute(int, int);
   virtual void settings(int, char **);
