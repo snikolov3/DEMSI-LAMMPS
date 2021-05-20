@@ -27,7 +27,7 @@ be quickly post-processed into a movie using commands described on the
 :doc:`dump image <dump_image>` doc page.
 
 Animations of many of the examples can be viewed on the Movies section
-of the `LAMMPS web site <lws_>`_.
+of the `LAMMPS web site <https://lammps.sandia.gov/movies.html>`_.
 
 There are two kinds of sub-directories in the examples folder.  Lower
 case named directories contain one or a few simple, quick-to-run
@@ -107,6 +107,8 @@ Lowercase directories
 | mscg        | parameterize a multi-scale coarse-graining (MSCG) model          |
 +-------------+------------------------------------------------------------------+
 | msst        | MSST shock dynamics                                              |
++-------------+------------------------------------------------------------------+
+| multi       | multi neighboring for systems with large interaction disparities |
 +-------------+------------------------------------------------------------------+
 | nb3b        | use of non-bonded 3-body harmonic pair style                     |
 +-------------+------------------------------------------------------------------+
@@ -223,4 +225,3 @@ instructions.  See the :doc:`Packages_details <Packages_details>` doc
 page for more info on specific USER packages.
 
 .. _openkim: https://openkim.org
-.. _lws: https://lammps.sandia.gov

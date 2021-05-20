@@ -1,4 +1,6 @@
 .. index:: pair_style thole
+.. index:: pair_style lj/cut/thole/long
+.. index:: pair_style lj/cut/thole/long/omp
 
 pair_style thole command
 ========================
@@ -6,8 +8,7 @@ pair_style thole command
 pair_style lj/cut/thole/long command
 ====================================
 
-pair_style lj/cut/thole/long/omp command
-========================================
+Accelerator Variants: *lj/cut/thole/long/omp*
 
 Syntax
 """"""
@@ -40,6 +41,8 @@ Examples
    pair_coeff * 2 thole 1.0 2.6
 
    pair_style lj/cut/thole/long 2.6 12.0
+
+Example input scripts available: examples/USER/drude
 
 Description
 """""""""""

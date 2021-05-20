@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -17,14 +17,16 @@
 ------------------------------------------------------------------------- */
 
 #include "fix_spring_rg.h"
-#include <cstring>
+
 #include "atom.h"
-#include "update.h"
-#include "group.h"
-#include "respa.h"
+#include "comm.h"
 #include "domain.h"
 #include "error.h"
-#include "force.h"
+#include "group.h"
+#include "respa.h"
+#include "update.h"
+
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -36,10 +38,10 @@ FixSpringRG::FixSpringRG(LAMMPS *lmp, int narg, char **arg) :
 {
   if (narg != 5) error->all(FLERR,"Illegal fix spring/rg command");
 
-  k = force->numeric(FLERR,arg[3]);
+  k = utils::numeric(FLERR,arg[3],false,lmp);
   rg0_flag = 0;
   if (strcmp(arg[4],"NULL") == 0) rg0_flag = 1;
-  else rg0 = force->numeric(FLERR,arg[4]);
+  else rg0 = utils::numeric(FLERR,arg[4],false,lmp);
 
   dynamic_group_allow = 1;
   respa_level_support = 1;
@@ -62,7 +64,7 @@ void FixSpringRG::init()
 {
   masstotal = group->mass(igroup);
 
-  // if rg0 was specified as NULL, compute current Rg
+  // Compute current Rg
   // only occurs on 1st run
 
   if (rg0_flag) {
@@ -72,7 +74,7 @@ void FixSpringRG::init()
     rg0_flag = 0;
   }
 
-  if (strstr(update->integrate_style,"respa")) {
+  if (utils::strmatch(update->integrate_style,"^respa")) {
     ilevel_respa = ((Respa *) update->integrate)->nlevels-1;
     if (respa_level >= 0) ilevel_respa = MIN(respa_level,ilevel_respa);
   }
@@ -82,7 +84,7 @@ void FixSpringRG::init()
 
 void FixSpringRG::setup(int vflag)
 {
-  if (strstr(update->integrate_style,"verlet"))
+  if (utils::strmatch(update->integrate_style,"^verlet"))
     post_force(vflag);
   else {
     ((Respa *) update->integrate)->copy_flevel_f(ilevel_respa);

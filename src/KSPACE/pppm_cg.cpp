@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -16,20 +16,18 @@
 ------------------------------------------------------------------------- */
 
 #include "pppm_cg.h"
-#include <mpi.h>
-#include <cmath>
-#include <cstring>
+
 #include "atom.h"
-#include "gridcomm.h"
 #include "domain.h"
 #include "error.h"
-#include "force.h"
-#include "neighbor.h"
-#include "memory.h"
+#include "gridcomm.h"
 #include "math_const.h"
+#include "memory.h"
+#include "neighbor.h"
 #include "remap.h"
-#include "utils.h"
-#include "fmt/format.h"
+
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -49,7 +47,7 @@ enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
 /* ---------------------------------------------------------------------- */
 
 PPPMCG::PPPMCG(LAMMPS *lmp) : PPPM(lmp),
-  is_charged(NULL)
+  is_charged(nullptr)
 {
   num_charged = -1;
   group_group_enable = 1;
@@ -66,7 +64,7 @@ void PPPMCG::settings(int narg, char **arg)
 
   PPPM::settings(narg,arg);
 
-  if (narg == 2) smallq = fabs(force->numeric(FLERR,arg[1]));
+  if (narg == 2) smallq = fabs(utils::numeric(FLERR,arg[1],false,lmp));
   else smallq = SMALLQ;
 }
 
@@ -150,11 +148,10 @@ void PPPMCG::compute(int eflag, int vflag)
                    / static_cast<double>(atom->natoms);
 
     if (me == 0)
-      utils::logmesg(lmp,fmt::format("  PPPM/cg optimization cutoff: {:.8g}\n"
-                                     "  Total charged atoms: {:.1f}%\n"
-                                     "  Min/max charged atoms/proc: {:.1f}%"
-                                     " {:.1f}%\n",smallq,
-                                     charged_frac,charged_fmin,charged_fmax));
+      utils::logmesg(lmp,"  PPPM/cg optimization cutoff: {:.8g}\n"
+                     "  Total charged atoms: {:.1f}%\n"
+                     "  Min/max charged atoms/proc: {:.1f}% {:.1f}%\n",
+                     smallq,charged_frac,charged_fmin,charged_fmax);
   }
 
   // only need to rebuild this list after a neighbor list update
@@ -737,6 +734,6 @@ void PPPMCG::make_rho_groups(int groupbit_A, int groupbit_B, int BA_flag)
 double PPPMCG::memory_usage()
 {
   double bytes = PPPM::memory_usage();
-  bytes += nmax * sizeof(int);
+  bytes += (double)nmax * sizeof(int);
   return bytes;
 }

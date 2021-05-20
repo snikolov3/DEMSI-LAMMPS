@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -12,12 +12,11 @@
 ------------------------------------------------------------------------- */
 
 #include "timer.h"
-#include <mpi.h>
-#include <cstring>
-#include <cstdlib>
+
 #include "comm.h"
 #include "error.h"
-#include "force.h"
+
+#include <cstring>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -276,7 +275,6 @@ double Timer::get_timeout_remain()
 ------------------------------------------------------------------------- */
 static const char *timer_style[] = { "off", "loop", "normal", "full" };
 static const char *timer_mode[]  = { "nosync", "(dummy)", "sync" };
-static const char  timer_fmt[]   = "New timer settings: style=%s  mode=%s  timeout=%s\n";
 
 void Timer::modify_params(int narg, char **arg)
 {
@@ -297,16 +295,16 @@ void Timer::modify_params(int narg, char **arg)
     } else if (strcmp(arg[iarg],"timeout") == 0) {
       ++iarg;
       if (iarg < narg) {
-        _timeout = timespec2seconds(arg[iarg]);
-      } else error->all(FLERR,"Illegal timers command");
+        _timeout = utils::timespec2seconds(arg[iarg]);
+      } else error->all(FLERR,"Illegal timer command");
     } else if (strcmp(arg[iarg],"every") == 0) {
       ++iarg;
       if (iarg < narg) {
-        _checkfreq = force->inumeric(FLERR,arg[iarg]);
+        _checkfreq = utils::inumeric(FLERR,arg[iarg],false,lmp);
         if (_checkfreq <= 0)
-          error->all(FLERR,"Illegal timers command");
-      } else error->all(FLERR,"Illegal timers command");
-    } else error->all(FLERR,"Illegal timers command");
+          error->all(FLERR,"Illegal timer command");
+      } else error->all(FLERR,"Illegal timer command");
+    } else error->all(FLERR,"Illegal timer command");
     ++iarg;
   }
 
@@ -322,9 +320,7 @@ void Timer::modify_params(int narg, char **arg)
       strftime(timebuf,32,"%H:%M:%S",tm);
     }
 
-    if (screen)
-      fprintf(screen,timer_fmt,timer_style[_level],timer_mode[_sync],timebuf);
-    if (logfile)
-      fprintf(logfile,timer_fmt,timer_style[_level],timer_mode[_sync],timebuf);
+    utils::logmesg(lmp,"New timer settings: style={}  mode={}  timeout={}\n",
+                   timer_style[_level],timer_mode[_sync],timebuf);
   }
 }

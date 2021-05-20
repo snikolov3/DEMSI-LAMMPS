@@ -1,4 +1,7 @@
 .. index:: pair_style edpd
+.. index:: pair_style mdpd
+.. index:: pair_style mdpd/rhosum
+.. index:: pair_style tdpd
 
 pair_style edpd command
 =======================
@@ -250,8 +253,12 @@ from :ref:`(Li2013_POF) <Li2013_POF>`.  The short mDPD run (about 2 minutes
 on a single core) generates a particle trajectory which can
 be visualized as follows.
 
+.. only:: html
+
+   .. image:: JPG/examples_mdpd.gif
+      :align: center
+
 .. image:: JPG/examples_mdpd_first.jpg
-   :target: JPG/examples_mdpd.gif
    :align: center
 
 .. image:: JPG/examples_mdpd_last.jpg

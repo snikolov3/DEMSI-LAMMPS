@@ -6,7 +6,7 @@ name gives more details.
 
 User packages have been contributed by users, and begin with the
 "user" prefix.  If a contribution is a single command (single file),
-it is typically in the user-misc package.  User packages don't
+it is typically in the USER-MISC package.  User packages don't
 necessarily meet the requirements of the :doc:`standard packages <Packages_standard>`. This means the developers will try
 to keep things working and usually can answer technical questions
 about compiling the package. If you have problems using a specific
@@ -38,6 +38,8 @@ package:
 | :ref:`USER-AWPMD <PKG-USER-AWPMD>`             | wave packet MD                                                  | :doc:`pair_style awpmd/cut <pair_awpmd>`                                      | USER/awpmd                                           | int     |
 +------------------------------------------------+-----------------------------------------------------------------+-------------------------------------------------------------------------------+------------------------------------------------------+---------+
 | :ref:`USER-BOCS <PKG-USER-BOCS>`               | BOCS bottom up coarse graining                                  | :doc:`fix bocs <fix_bocs>`                                                    | USER/bocs                                            | no      |
++------------------------------------------------+-----------------------------------------------------------------+-------------------------------------------------------------------------------+------------------------------------------------------+---------+
+| :ref:`USER-BROWNIAN <PKG-USER-BROWNIAN>`       | Brownian dynamics and self-propelled particles                  | :doc:`fix brownian <fix_brownian>`, :doc:`fix propel/self <fix_propel_self>`  | USER/brownian                                        | no      |
 +------------------------------------------------+-----------------------------------------------------------------+-------------------------------------------------------------------------------+------------------------------------------------------+---------+
 | :ref:`USER-CGDNA <PKG-USER-CGDNA>`             | coarse-grained DNA force fields                                 | src/USER-CGDNA/README                                                         | USER/cgdna                                           | no      |
 +------------------------------------------------+-----------------------------------------------------------------+-------------------------------------------------------------------------------+------------------------------------------------------+---------+
@@ -80,6 +82,8 @@ package:
 | :ref:`USER-NETCDF <PKG-USER-NETCDF>`           | dump output via NetCDF                                          | :doc:`dump netcdf <dump_netcdf>`                                              | n/a                                                  | ext     |
 +------------------------------------------------+-----------------------------------------------------------------+-------------------------------------------------------------------------------+------------------------------------------------------+---------+
 | :ref:`USER-OMP <PKG-USER-OMP>`                 | OpenMP-enabled styles                                           | :doc:`Speed omp <Speed_omp>`                                                  | `Benchmarks <https://lammps.sandia.gov/bench.html>`_ | no      |
++------------------------------------------------+-----------------------------------------------------------------+-------------------------------------------------------------------------------+------------------------------------------------------+---------+
+| :ref:`USER-PACE <PKG-USER-PACE>`               | Fast implementation of Atomic Cluster Expansion (ACE) potential | :doc:`pair pace <pair_pace>`                                                  | USER/pace                                            | ext     |
 +------------------------------------------------+-----------------------------------------------------------------+-------------------------------------------------------------------------------+------------------------------------------------------+---------+
 | :ref:`USER-PHONON <PKG-USER-PHONON>`           | phonon dynamical matrix                                         | :doc:`fix phonon <fix_phonon>`                                                | USER/phonon                                          | no      |
 +------------------------------------------------+-----------------------------------------------------------------+-------------------------------------------------------------------------------+------------------------------------------------------+---------+

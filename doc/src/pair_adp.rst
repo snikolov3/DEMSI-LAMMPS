@@ -1,10 +1,10 @@
 .. index:: pair_style adp
+.. index:: pair_style adp/omp
 
 pair_style adp command
 ======================
 
-pair_style adp/omp command
-==========================
+Accelerator Variants: *adp/omp*
 
 Syntax
 """"""
@@ -59,7 +59,7 @@ command to specify them.
 * The OpenKIM Project at
   `https://openkim.org/browse/models/by-type <https://openkim.org/browse/models/by-type>`_
   provides ADP potentials that can be used directly in LAMMPS with the
-  :doc:`kim_commands <kim_commands>` interface.
+  :doc:`kim command <kim_commands>` interface.
 
 ----------
 

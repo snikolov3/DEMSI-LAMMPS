@@ -1,7 +1,8 @@
 ---
-lammps_version: 21 Jul 2020
-date_generated: Thu Aug 20 23:05:29 202
+lammps_version: 10 Feb 2021
+date_generated: Fri Feb 26 23:09:31 2021
 epsilon: 2.5e-13
+skip_tests: intel
 prerequisites: ! |
   atom full
   pair lj/long/coul/long

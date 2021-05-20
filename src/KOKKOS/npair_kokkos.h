@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   http://lammps.sandia.gov, Sandia National Laboratories
+   https://lammps.sandia.gov/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -312,14 +312,16 @@ class NeighborKokkosExecute
   KOKKOS_FUNCTION
   void build_ItemSize(const int &i) const;
 
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
   template<int HalfNeigh, int Newton, int Tri>
-  __device__ inline
-  void build_ItemCuda(typename Kokkos::TeamPolicy<DeviceType>::member_type dev) const;
+  LAMMPS_DEVICE_FUNCTION inline
+  void build_ItemGPU(typename Kokkos::TeamPolicy<DeviceType>::member_type dev,
+                     size_t sharedsize) const;
 
   template<int HalfNeigh, int Newton, int Tri>
-  __device__ inline
-  void build_ItemSizeCuda(typename Kokkos::TeamPolicy<DeviceType>::member_type dev) const;
+  LAMMPS_DEVICE_FUNCTION inline
+  void build_ItemSizeGPU(typename Kokkos::TeamPolicy<DeviceType>::member_type dev,
+                         size_t sharedsize) const;
 #endif
 
   KOKKOS_INLINE_FUNCTION
@@ -389,11 +391,10 @@ struct NPairKokkosBuildFunctor {
   void operator() (const int & i) const {
     c.template build_Item<HALF_NEIGH,GHOST_NEWTON,TRI>(i);
   }
-#ifdef KOKKOS_ENABLE_CUDA
-  __device__ inline
-
+#ifdef LMP_KOKKOS_GPU
+  LAMMPS_DEVICE_FUNCTION inline
   void operator() (typename Kokkos::TeamPolicy<DeviceType>::member_type dev) const {
-    c.template build_ItemCuda<HALF_NEIGH,GHOST_NEWTON,TRI>(dev);
+    c.template build_ItemGPU<HALF_NEIGH,GHOST_NEWTON,TRI>(dev, sharedsize);
   }
   size_t team_shmem_size(const int team_size) const { (void) team_size; return sharedsize; }
 #endif
@@ -447,10 +448,10 @@ struct NPairKokkosBuildFunctorSize {
     c.template build_ItemSize<HALF_NEIGH,GHOST_NEWTON,TRI>(i);
   }
 
-#ifdef KOKKOS_ENABLE_CUDA
-  __device__ inline
+#ifdef LMP_KOKKOS_GPU
+  LAMMPS_DEVICE_FUNCTION inline
   void operator() (typename Kokkos::TeamPolicy<DeviceType>::member_type dev) const {
-    c.template build_ItemSizeCuda<HALF_NEIGH,GHOST_NEWTON,TRI>(dev);
+    c.template build_ItemSizeGPU<HALF_NEIGH,GHOST_NEWTON,TRI>(dev, sharedsize);
   }
   size_t team_shmem_size(const int team_size) const { (void) team_size; return sharedsize; }
 #endif

@@ -1,64 +1,75 @@
 .. index:: pair_style lj/cut/soft
+.. index:: pair_style lj/cut/soft/omp
+.. index:: pair_style lj/cut/coul/cut/soft
+.. index:: pair_style lj/cut/coul/cut/soft/omp
+.. index:: pair_style lj/cut/coul/long/soft
+.. index:: pair_style lj/cut/coul/long/soft/omp
+.. index:: pair_style lj/cut/tip4p/long/soft
+.. index:: pair_style lj/cut/tip4p/long/soft/omp
+.. index:: pair_style lj/charmm/coul/long/soft
+.. index:: pair_style lj/charmm/coul/long/soft/omp
+.. index:: pair_style lj/class2/soft
+.. index:: pair_style lj/class2/coul/cut/soft
+.. index:: pair_style lj/class2/coul/long/soft
+.. index:: pair_style coul/cut/soft
+.. index:: pair_style coul/cut/soft/omp
+.. index:: pair_style coul/long/soft
+.. index:: pair_style coul/long/soft/omp
+.. index:: pair_style tip4p/long/soft
+.. index:: pair_style tip4p/long/soft/omp
+.. index:: pair_style morse/soft
 
 pair_style lj/cut/soft command
 ==============================
 
-pair_style lj/cut/soft/omp command
-==================================
+Accelerator Variants: *lj/cut/soft/omp*
 
 pair_style lj/cut/coul/cut/soft command
 =======================================
 
-pair_style lj/cut/coul/cut/soft/omp command
-===========================================
+Accelerator Variants: *lj/cut/coul/cut/soft/omp*
 
 pair_style lj/cut/coul/long/soft command
 ========================================
 
-pair_style lj/cut/coul/long/soft/omp command
-============================================
+Accelerator Variants: *lj/cut/coul/long/soft/omp*
 
 pair_style lj/cut/tip4p/long/soft command
-==========================================
+=========================================
 
-pair_style lj/cut/tip4p/long/soft/omp command
-==============================================
+Accelerator Variants: *lj/cut/tip4p/long/soft/omp*
 
 pair_style lj/charmm/coul/long/soft command
-============================================
-
-pair_style lj/charmm/coul/long/soft/omp command
-================================================
-
-pair_style lj/class2/soft command
-==================================
-
-pair_style lj/class2/coul/cut/soft command
 ===========================================
 
-pair_style lj/class2/coul/long/soft command
-============================================
+Accelerator Variants: *lj/charmm/coul/long/soft/omp*
 
-pair_style coul/cut/soft command
+pair_style lj/class2/soft command
 =================================
 
-pair_style coul/cut/soft/omp command
-=====================================
+pair_style lj/class2/coul/cut/soft command
+==========================================
+
+pair_style lj/class2/coul/long/soft command
+===========================================
+
+pair_style coul/cut/soft command
+================================
+
+Accelerator Variants: *coul/cut/soft/omp*
 
 pair_style coul/long/soft command
-==================================
+=================================
 
-pair_style coul/long/soft/omp command
-======================================
+Accelerator Variants: *coul/long/soft/omp*
 
 pair_style tip4p/long/soft command
-===================================
+==================================
 
-pair_style tip4p/long/soft/omp command
-=======================================
+Accelerator Variants: *tip4p/long/soft/omp*
 
 pair_style morse/soft command
-==============================
+=============================
 
 Syntax
 """"""
@@ -170,6 +181,8 @@ Examples
    pair_style morse/soft 4 0.9 10.0
    pair_coeff * * 100.0 2.0 1.5 1.0
    pair_coeff 1 1 100.0 2.0 1.5 1.0 3.0
+
+Example input scripts available: examples/USER/fep
 
 Description
 """""""""""
@@ -352,7 +365,7 @@ Mixing, shift, table, tail correction, restart, rRESPA info
 
 The different versions of the *lj/cut/soft* pair styles support mixing.  For
 atom type pairs I,J and I != J, the :math:`\epsilon` and :math:`\sigma`
-coefficients and cutoff distance for these pair style can be mixed.  The default
+coefficients and cutoff distance for these pair styles can be mixed.  The default
 mix value is *geometric* for 12-6 styles.
 
 The mixing rule for epsilon and sigma for *lj/class2/soft* 9-6 potentials is to

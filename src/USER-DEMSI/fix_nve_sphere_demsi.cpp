@@ -22,7 +22,6 @@
 #include "respa.h"
 #include "force.h"
 #include "error.h"
-#include "math_vector.h"
 #include "math_extra.h"
 #include <iostream>
 
@@ -86,8 +85,6 @@ void FixNVESphereDemsi::initial_integrate(int /*vflag*/)
   double **torque = atom->torque;
   double *radius = atom->radius;
   double *rmass = atom->rmass;
-  double *orientation = atom->orientation;
-  double *momentOfInertia = atom->momentOfInertia;
   double *ice_area = atom->ice_area;
   double *coriolis = atom->coriolis;
   double **ocean_vel = atom->ocean_vel;
@@ -106,7 +103,7 @@ void FixNVESphereDemsi::initial_integrate(int /*vflag*/)
 
   // set timestep here since dt may have changed or come via rRESPA
 
-  double dtfrotate = dtf;
+  double dtfrotate = dtf / inertia;
   double dtirotate;
   // update v,x,omega for all particles
   // d_omega/dt = torque / inertia
@@ -131,10 +128,8 @@ void FixNVESphereDemsi::initial_integrate(int /*vflag*/)
       x[i][0] += dtv * v[i][0];
       x[i][1] += dtv * v[i][1];
 
-      dtirotate = dtfrotate / momentOfInertia[i];
+      dtirotate = dtfrotate / (radius[i]*radius[i]*rmass[i]);
       omega[i][2] += dtirotate * torque[i][2];
-
-      orientation[i] += dtv * omega[i][2];
 
     }
   }
@@ -151,7 +146,6 @@ void FixNVESphereDemsi::final_integrate()
   double **omega = atom->omega;
   double **torque = atom->torque;
   double *rmass = atom->rmass;
-  double *momentOfInertia = atom->momentOfInertia;
   double *ice_area = atom->ice_area;
   double *coriolis = atom->coriolis;
   double **ocean_vel = atom->ocean_vel;
@@ -171,7 +165,7 @@ void FixNVESphereDemsi::final_integrate()
 
   // set timestep here since dt may have changed or come via rRESPA
 
-  double dtfrotate = dtf;
+  double dtfrotate = dtf / inertia;
 
   // update v,omega for all particles
   // d_omega/dt = torque / inertia
@@ -194,9 +188,10 @@ void FixNVESphereDemsi::final_integrate()
       v[i][0] = detinv*( a11*b0 - a01*b1);
       v[i][1] = detinv*(-a10*b0 + a00*b1);
 
-      dtirotate = dtfrotate / momentOfInertia[i];
+      dtirotate = dtfrotate / (radius[i]*radius[i]*rmass[i]);
       omega[i][2] += dtirotate * torque[i][2];
-
+      rke += (omega[i][0]*omega[i][0] + omega[i][1]*omega[i][1] +
+              omega[i][2]*omega[i][2])*radius[i]*radius[i]*rmass[i];
     }
 
 }

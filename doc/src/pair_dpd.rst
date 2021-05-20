@@ -1,25 +1,20 @@
 .. index:: pair_style dpd
+.. index:: pair_style dpd/gpu
+.. index:: pair_style dpd/intel
+.. index:: pair_style dpd/omp
+.. index:: pair_style dpd/tstat
+.. index:: pair_style dpd/tstat/gpu
+.. index:: pair_style dpd/tstat/omp
 
 pair_style dpd command
 ======================
 
-pair_style dpd/gpu command
-==========================
-
-pair_style dpd/intel command
-============================
-
-pair_style dpd/omp command
-==========================
+Accelerator Variants: *dpd/gpu*, *dpd/intel*, *dpd/omp*
 
 pair_style dpd/tstat command
 ============================
 
-pair_style dpd/tstat/gpu command
-================================
-
-pair_style dpd/tstat/omp command
-================================
+Accelerator Variants: *dpd/tstat/gpu*, *dpd/tstat/omp*
 
 Syntax
 """"""
@@ -155,7 +150,7 @@ shifted to be 0.0 at the cutoff distance Rc.
 The :doc:`pair_modify <pair_modify>` table option is not relevant
 for these pair styles.
 
-These pair style do not support the :doc:`pair_modify <pair_modify>`
+These pair styles do not support the :doc:`pair_modify <pair_modify>`
 tail option for adding long-range tail corrections to energy and
 pressure.
 

@@ -1,7 +1,7 @@
 ---
-lammps_version: 21 Jul 2020
-date_generated: Thu Aug 20 11:37:30 202
-epsilon: 2e-14
+lammps_version: 10 Feb 2021
+date_generated: Fri Feb 26 23:09:55 2021
+epsilon: 4e-14
 prerequisites: ! |
   atom full
   fix oneway
