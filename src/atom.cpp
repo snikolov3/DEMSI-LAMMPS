@@ -204,6 +204,24 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   rho = drho = esph = desph = cv = nullptr;
   vest = nullptr;
 
+  // DEMSI
+  
+  forcing = nullptr;
+  orientation = nullptr;
+  momentOfInertia = nullptr;
+  mean_thickness = nullptr;
+  min_thickness = nullptr;
+  ridgingIceThickness = nullptr;
+  ridgingIceThicknessWeight = nullptr;
+  netToGrossClosingRatio = nullptr;
+  changeEffectiveElementArea = nullptr;
+  ice_area = nullptr;
+  iceConcentration = nullptr;
+  coriolis = nullptr;
+  ocean_vel = nullptr;
+  bvector = nullptr;
+  vn = nullptr;
+
   // DIELECTRIC package
 
   area = ed = em = epsilon = curvature = q_unscaled = nullptr;

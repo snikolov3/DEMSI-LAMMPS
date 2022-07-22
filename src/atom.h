@@ -162,6 +162,24 @@ class Atom : protected Pointers {
   double *rho, *drho, *esph, *desph, *cv;
   double **vest;
 
+  // DEMSI
+  
+  double **forcing;
+  double *orientation;
+  double *momentOfInertia;
+  double *mean_thickness;
+  double *min_thickness;
+  double *ridgingIceThickness;
+  double *ridgingIceThicknessWeight;
+  double *netToGrossClosingRatio;
+  double *changeEffectiveElementArea;
+  double *ice_area;
+  double *iceConcentration;
+  double *coriolis;
+  double **ocean_vel;
+  double **bvector;
+  double **vn;
+
   // DIELECTRIC package
 
   double *area, *ed, *em, *epsilon, *curvature, *q_unscaled;
@@ -202,6 +220,9 @@ class Atom : protected Pointers {
   // Peridynamics scale factor, used by dump cfg
 
   double pdscale;
+
+  // DEMSI
+  int demsi_flag;
 
   // DIELECTRIC package
 
