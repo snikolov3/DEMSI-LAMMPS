@@ -162,11 +162,23 @@ class Atom : protected Pointers {
   double *rho, *drho, *esph, *desph, *cv;
   double **vest;
 
-  // AMOEBA package
-
-  int *nspecial15;              // # of 1-5 neighs
-  tagint **special15;           // IDs of 1-5 neighs of each atom
-  int maxspecial15;             // special15[nlocal][maxspecial15]
+  // DEMSI
+  
+  double **forcing;
+  double *orientation;
+  double *momentOfInertia;
+  double *mean_thickness;
+  double *min_thickness;
+  double *ridgingIceThickness;
+  double *ridgingIceThicknessWeight;
+  double *netToGrossClosingRatio;
+  double *changeEffectiveElementArea;
+  double *ice_area;
+  double *iceConcentration;
+  double *coriolis;
+  double **ocean_vel;
+  double **bvector;
+  double **vn;
 
   // DIELECTRIC package
 
@@ -205,13 +217,12 @@ class Atom : protected Pointers {
   int contact_radius_flag, smd_data_9_flag, smd_stress_flag;
   int eff_plastic_strain_flag, eff_plastic_strain_rate_flag;
 
-  // AMOEBA package
-
-  int nspecial15_flag;
-
   // Peridynamics scale factor, used by dump cfg
 
   double pdscale;
+
+  // DEMSI
+  int demsi_flag;
 
   // DIELECTRIC package
 
