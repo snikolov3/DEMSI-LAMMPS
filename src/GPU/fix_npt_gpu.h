@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -16,9 +16,9 @@
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
-
-FixStyle(npt/gpu,FixNPTGPU)
-
+// clang-format off
+FixStyle(npt/gpu,FixNPTGPU);
+// clang-format on
 #else
 
 #ifndef LMP_FIX_NPT_GPU_H
@@ -31,22 +31,9 @@ namespace LAMMPS_NS {
 class FixNPTGPU : public FixNHGPU {
  public:
   FixNPTGPU(class LAMMPS *, int, char **);
-  ~FixNPTGPU() {}
 };
 
-}
+}    // namespace LAMMPS_NS
 
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Temperature control must be used with fix npt
-
-Self-explanatory.
-
-E: Pressure control must be used with fix npt
-
-Self-explanatory.
-
-*/

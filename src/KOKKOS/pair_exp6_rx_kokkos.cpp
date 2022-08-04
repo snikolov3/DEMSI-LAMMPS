@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -16,9 +17,7 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_exp6_rx_kokkos.h"
-#include <cmath>
 
-#include <cstring>
 #include "atom.h"
 #include "comm.h"
 #include "force.h"
@@ -27,12 +26,14 @@
 #include "memory_kokkos.h"
 #include "error.h"
 #include "fix.h"
-#include <cfloat>
 #include "atom_masks.h"
 #include "neigh_request.h"
 #include "atom_kokkos.h"
 #include "kokkos.h"
 
+#include <cmath>
+#include <cfloat>
+#include <cstring>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -55,22 +56,6 @@ using namespace MathSpecialKokkos;
 
 #define exp6PotentialType (1)
 #define isExp6PotentialType(_type) ( (_type) == exp6PotentialType )
-
-namespace /* anonymous */
-{
-
-//typedef double TimerType;
-//TimerType getTimeStamp(void) { return MPI_Wtime(); }
-//double getElapsedTime( const TimerType &t0, const TimerType &t1) { return t1-t0; }
-
-typedef struct timespec TimerType;
-TimerType getTimeStamp(void) { TimerType tick; clock_gettime( CLOCK_MONOTONIC, &tick); return tick; }
-double getElapsedTime( const TimerType &t0, const TimerType &t1)
-{
-   return (t1.tv_sec - t0.tv_sec) + 1e-9*(t1.tv_nsec - t0.tv_nsec);
-}
-
-} // end namespace
 
 /* ---------------------------------------------------------------------- */
 
@@ -114,26 +99,14 @@ void PairExp6rxKokkos<DeviceType>::init_style()
 {
   PairExp6rx::init_style();
 
-  // irequest = neigh request made by parent class
+  // adjust neighbor list request for KOKKOS
 
   neighflag = lmp->kokkos->neighflag;
-  int irequest = neighbor->nrequest - 1;
-
-  neighbor->requests[irequest]->
-    kokkos_host = std::is_same<DeviceType,LMPHostType>::value &&
-    !std::is_same<DeviceType,LMPDeviceType>::value;
-  neighbor->requests[irequest]->
-    kokkos_device = std::is_same<DeviceType,LMPDeviceType>::value;
-
-  if (neighflag == FULL) {
-    neighbor->requests[irequest]->full = 1;
-    neighbor->requests[irequest]->half = 0;
-  } else if (neighflag == HALF || neighflag == HALFTHREAD) {
-    neighbor->requests[irequest]->full = 0;
-    neighbor->requests[irequest]->half = 1;
-  } else {
-    error->all(FLERR,"Cannot use chosen neighbor list style with exp6/rx/kk");
-  }
+  auto request = neighbor->find_request(this);
+  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
+                           !std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
+  if (neighflag == FULL) request->enable_full();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -141,8 +114,6 @@ void PairExp6rxKokkos<DeviceType>::init_style()
 template<class DeviceType>
 void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
-  TimerType t_start = getTimeStamp();
-
   copymode = 1;
 
   eflag = eflag_in;
@@ -186,11 +157,10 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // and ghost atoms. Make the parameter data persistent
   // and exchange like any other atom property later.
 
-  TimerType t_mix_start = getTimeStamp();
   {
      const int np_total = nlocal + atom->nghost;
 
-     if (np_total > PairExp6ParamData.epsilon1.extent(0)) {
+     if (np_total > (int)PairExp6ParamData.epsilon1.extent(0)) {
        PairExp6ParamData.epsilon1      = typename AT::t_float_1d("PairExp6ParamData.epsilon1"     ,np_total);
        PairExp6ParamData.alpha1        = typename AT::t_float_1d("PairExp6ParamData.alpha1"       ,np_total);
        PairExp6ParamData.rm1           = typename AT::t_float_1d("PairExp6ParamData.rm1"          ,np_total);
@@ -233,7 +203,7 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
      } else
        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairExp6rxZeroMixingWeights>(0,np_total),*this);
 
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
      Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairExp6rxgetMixingWeights>(0,np_total),*this);
 #else
      int errorFlag = 0;
@@ -259,7 +229,6 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
        error->all(FLERR,"Computed fraction less than -10*DBL_EPSILON");
 #endif
   }
-  TimerType t_mix_stop = getTimeStamp();
 
   k_error_flag.template modify<DeviceType>();
   k_error_flag.template sync<LMPHostType>();
@@ -278,7 +247,7 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   EV_FLOAT ev;
 
-#ifdef KOKKOS_ENABLE_CUDA  // Use atomics
+#ifdef LMP_KOKKOS_GPU  // Use atomics
 
   if (neighflag == HALF) {
     if (newton_pair) {
@@ -310,7 +279,7 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   nthreads = lmp->kokkos->nthreads;
   int nmax = f.extent(0);
-  if (nmax > t_f.extent(1)) {
+  if (nmax > (int)t_f.extent(1)) {
     t_f = t_f_array_thread("pair_exp6_rx:t_f",nthreads,nmax);
     t_uCG = t_efloat_1d_thread("pair_exp6_rx:t_uCG",nthreads,nmax);
     t_uCGnew = t_efloat_1d_thread("pair_exp6_rx:t_UCGnew",nthreads,nmax);
@@ -376,9 +345,6 @@ void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   }
 
   copymode = 0;
-
-  //TimerType t_stop = getTimeStamp();
-  //printf("PairExp6rxKokkos::compute %f %f\n", getElapsedTime(t_start, t_stop), getElapsedTime(t_mix_start, t_mix_stop));
 }
 
 template<class DeviceType>
@@ -1288,7 +1254,7 @@ void PairExp6rxKokkos<DeviceType>::vectorized_operator(const int &ii, EV_FLOAT& 
         delx_j [niters] = delx;
         dely_j [niters] = dely;
         delz_j [niters] = delz;
-        if (OneType == false)
+        if (!OneType)
           cutsq_j[niters] = cutsq_ij;
 
         neigh_j[niters] = d_neighbors(i,jptr);
@@ -1298,7 +1264,9 @@ void PairExp6rxKokkos<DeviceType>::vectorized_operator(const int &ii, EV_FLOAT& 
     }
 
     // reduction here.
+    #ifdef KOKKOS_ENABLE_PRAGMA_SIMD
     #pragma simd reduction(+: fx_i, fy_i, fz_i, uCG_i, uCGnew_i) reduction(|: hasError)
+    #endif
     for (int jlane = 0; jlane < niters; jlane++)
     {
       int j = neigh_j[jlane];
@@ -1569,27 +1537,26 @@ void PairExp6rxKokkos<DeviceType>::vectorized_operator(const int &ii, EV_FLOAT& 
     {
       const int j = neigh_j[jlane] & NEIGHMASK;
 
-      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal))
-        if (UseAtomics)
-          a_uCG(j) += 0.5*evdwlOld_j[jlane];
-        else
-          t_uCG(tid,j) += 0.5*evdwlOld_j[jlane];
-
-      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal))
-        if (UseAtomics)
-          a_uCGnew(j) += uCGnew_j[jlane];
-        else
-          t_uCGnew(tid,j) += uCGnew_j[jlane];
-
       if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal)) {
-        if (UseAtomics)
-        {
+        if (UseAtomics) {
+          a_uCG(j) += 0.5*evdwlOld_j[jlane];
+        } else {
+          t_uCG(tid,j) += 0.5*evdwlOld_j[jlane];
+        }
+      }
+      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal)) {
+        if (UseAtomics) {
+          a_uCGnew(j) += uCGnew_j[jlane];
+        } else {
+          t_uCGnew(tid,j) += uCGnew_j[jlane];
+        }
+      }
+      if ((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal)) {
+        if (UseAtomics) {
           a_f(j,0) -= delx_j[jlane]*fpair_j[jlane];
           a_f(j,1) -= dely_j[jlane]*fpair_j[jlane];
           a_f(j,2) -= delz_j[jlane]*fpair_j[jlane];
-        }
-        else
-        {
+        } else {
           t_f(tid,j,0) -= delx_j[jlane]*fpair_j[jlane];
           t_f(tid,j,1) -= dely_j[jlane]*fpair_j[jlane];
           t_f(tid,j,2) -= delz_j[jlane]*fpair_j[jlane];
@@ -1738,7 +1705,7 @@ void PairExp6rxKokkos<DeviceType>::read_file(char *file)
   char line[MAXLINE],*ptr;
   int eof = 0;
 
-  while (1) {
+  while (true) {
     if (comm->me == 0) {
       ptr = fgets(line,MAXLINE,fp);
       if (ptr == nullptr) {
@@ -1786,7 +1753,7 @@ void PairExp6rxKokkos<DeviceType>::read_file(char *file)
     while ((words[nwords++] = strtok(nullptr," \t\n\r\f"))) continue;
 
     for (ispecies = 0; ispecies < nspecies; ispecies++)
-      if (strcmp(words[0],&atom->dname[ispecies][0]) == 0) break;
+      if (strcmp(words[0],&atom->dvname[ispecies][0]) == 0) break;
     if (ispecies == nspecies) continue;
 
     // load up parameter settings and error check their values
@@ -1799,8 +1766,9 @@ void PairExp6rxKokkos<DeviceType>::read_file(char *file)
     }
 
     params[nparams].ispecies = ispecies;
-    params[nparams].name = utils::strdup(&atom->dname[ispecies][0]);
+    params[nparams].name = utils::strdup(&atom->dvname[ispecies][0]);
     params[nparams].potential = utils::strdup(words[1]);
+
     if (strcmp(params[nparams].potential,"exp6") == 0) {
       params[nparams].alpha = atof(words[2]);
       params[nparams].epsilon = atof(words[3]);
@@ -2167,7 +2135,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
 #endif
 
   // Zero out all of the terms first.
+  #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
   #pragma ivdep
+  #endif
   for (int id = idx_begin; id < idx_end; ++id)
   {
      rm3[id] = 0.0;
@@ -2187,7 +2157,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
   // Compute the total number of molecules in the old and new CG particle as well as the total number of molecules in the fluid portion of the old and new CG particle
   for (int ispecies = 0; ispecies < nspecies; ispecies++)
   {
+    #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
     #pragma ivdep
+    #endif
     for (int id = idx_begin; id < idx_end; ++id)
     {
       nTotal[id] += dvector(ispecies,id);
@@ -2200,7 +2172,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
     if (isOneFluidApprox(isite1) || isOneFluidApprox(isite2)) {
       if (isite1 == d_params[iparam].ispecies || isite2 == d_params[iparam].ispecies) continue;
 
+      #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
       #pragma ivdep
+      #endif
       for (int id = idx_begin; id < idx_end; ++id)
       {
         nMoleculesOFAold[id] += dvector(ispecies+nspecies,id);
@@ -2210,7 +2184,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
   }
 
   // Make a reduction.
+  #ifdef KOKKOS_ENABLE_PRAGMA_simd
   #pragma omp simd reduction(+:errorFlag1)
+  #endif
   for (int id = idx_begin; id < idx_end; ++id)
   {
     if (nTotal[id] < MY_EPSILON || nTotalold[id] < MY_EPSILON)
@@ -2228,7 +2204,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
     // If Site1 matches a pure species, then grab the parameters
     if (isite1 == d_params[iparam].ispecies)
     {
+      #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
       #pragma ivdep
+      #endif
       for (int id = idx_begin; id < idx_end; ++id)
       {
         rm1_old[id] = d_params[iparam].rm;
@@ -2249,7 +2227,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
     // If Site2 matches a pure species, then grab the parameters
     if (isite2 == d_params[iparam].ispecies)
     {
+      #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
       #pragma ivdep
+      #endif
       for (int id = idx_begin; id < idx_end; ++id)
       {
         rm2_old[id] = d_params[iparam].rm;
@@ -2275,7 +2255,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
       const double epsiloni = d_params[iparam].epsilon;
       const double alphai = d_params[iparam].alpha;
 
+      #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
       #pragma ivdep
+      #endif
       for (int id = idx_begin; id < idx_end; ++id)
       {
         if (nMoleculesOFA[id]<MY_EPSILON) xMolei[id] = 0.0;
@@ -2298,7 +2280,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
         const double epsilonij = sqrt(epsiloni*epsilonj);
         const double alphaij = sqrt(alphai*alphaj);
 
+        #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
         #pragma ivdep
+        #endif
         for (int id = idx_begin; id < idx_end; ++id)
         {
           double xMolej, xMolej_old;
@@ -2324,7 +2308,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
 
   if (isOneFluidApprox(isite1))
   {
+    #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
     #pragma ivdep
+    #endif
     for (int id = idx_begin; id < idx_end; ++id)
     {
       rm1[id] = cbrt(rm3[id]);
@@ -2355,6 +2341,7 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
     if (scalingFlag == EXPONENT) {
       #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
       #pragma ivdep
+      #endif
       for (int id = idx_begin; id < idx_end; ++id)
       {
         exponentScaling(nMoleculesOFA[id],epsilon1[id],rm1[id]);
@@ -2364,6 +2351,7 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
     else if (scalingFlag == POLYNOMIAL) {
       #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
       #pragma ivdep
+      #endif
       for (int id = idx_begin; id < idx_end; ++id)
       {
         polynomialScaling(nMoleculesOFA[id],alpha1[id],epsilon1[id],rm1[id]);
@@ -2374,7 +2362,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
 
   if (isOneFluidApprox(isite2))
   {
+    #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
     #pragma ivdep
+    #endif
     for (int id = idx_begin; id < idx_end; ++id)
     {
       rm2[id] = cbrt(rm3[id]);
@@ -2405,6 +2395,7 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
     if (scalingFlag == EXPONENT) {
       #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
       #pragma ivdep
+      #endif
       for (int id = idx_begin; id < idx_end; ++id)
       {
         exponentScaling(nMoleculesOFA[id],epsilon2[id],rm2[id]);
@@ -2414,6 +2405,7 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
     else if (scalingFlag == POLYNOMIAL) {
       #ifdef KOKKOS_ENABLE_PRAGMA_IVDEP
       #pragma ivdep
+      #endif
       for (int id = idx_begin; id < idx_end; ++id)
       {
         polynomialScaling(nMoleculesOFA[id],alpha2[id],epsilon2[id],rm2[id]);
@@ -2423,7 +2415,9 @@ void PairExp6rxKokkos<DeviceType>::getMixingWeightsVect(const int np_total, int 
   }
 
   // Check that no fractions are less than zero
+  #ifdef KOKKOS_ENABLE_PRAGMA_SIMD
   #pragma omp simd reduction(+:errorFlag2)
+  #endif
   for (int id = idx_begin; id < idx_end; ++id)
   {
     if (fraction1[id] < 0.0 || nMolecules1[id] < 0.0) {
@@ -2653,7 +2647,7 @@ int PairExp6rxKokkos<DeviceType>::sbmask(const int& j) const {
 
 namespace LAMMPS_NS {
 template class PairExp6rxKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class PairExp6rxKokkos<LMPHostType>;
 #endif
 }

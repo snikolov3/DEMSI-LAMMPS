@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -173,8 +174,7 @@ void EwaldDisp::init()
         case 6:
           if (ewald_mix==Pair::GEOMETRIC) { k = 1; break; }
           else if (ewald_mix==Pair::ARITHMETIC) { k = 2; break; }
-          error->all(FLERR,
-                     "Unsupported mixing rule in kspace_style ewald/disp");
+          error->all(FLERR,"Unsupported mixing rule in kspace_style ewald/disp");
           break;
         default:
           error->all(FLERR,"Unsupported order in kspace_style ewald/disp");
@@ -213,11 +213,10 @@ void EwaldDisp::init()
     error->all(FLERR,"Cannot (yet) use 'electron' units with dipoles");
 
   if (qsqsum == 0.0 && bsbsum == 0.0 && M2 == 0.0)
-      error->all(FLERR,"Cannot use Ewald/disp solver "
-                 "on system with no charge, dipole, or LJ particles");
+      error->all(FLERR,"Cannot use Ewald/disp solver on system without "
+                 "charged, dipole, or LJ particles");
   if (fabs(qsum) > SMALL && comm->me == 0)
-    error->warning(FLERR,fmt::format("System is not charge neutral, "
-                                     "net charge = {:.8g}",qsum));
+    error->warning(FLERR,"System is not charge neutral, net charge = {:.8g}",qsum);
 
   if (!function[1] && !function[2]) dispersionflag = 0;
   if (!function[3]) dipoleflag = 0;
@@ -544,7 +543,7 @@ void EwaldDisp::init_coeffs()
   int n = atom->ntypes;
 
   if (function[1]) {                                        // geometric 1/r^6
-    double **b = (double **) force->pair->extract("B",tmp);
+    auto b = (double **) force->pair->extract("B",tmp);
     delete [] B;
     B = new double[n+1];
     B[0] = 0.0;
@@ -552,8 +551,8 @@ void EwaldDisp::init_coeffs()
     for (int i=1; i<=n; ++i) B[i] = sqrt(fabs(b[i][i]));
   }
   if (function[2]) {                                        // arithmetic 1/r^6
-    double **epsilon = (double **) force->pair->extract("epsilon",tmp);
-    double **sigma = (double **) force->pair->extract("sigma",tmp);
+    auto epsilon = (double **) force->pair->extract("epsilon",tmp);
+    auto sigma = (double **) force->pair->extract("sigma",tmp);
     delete [] B;
     double eps_i, sigma_i, sigma_n, *bi = B = new double[7*n+7];
     double c[7] = {
@@ -773,7 +772,7 @@ void EwaldDisp::compute_ek()
   int lbytes = (2*nbox+1)*sizeof(cvector);
   hvector *h = nullptr;
   kvector *k, *nk = kvec+nkvec;
-  cvector *z = new cvector[2*nbox+1];
+  auto z = new cvector[2*nbox+1];
   cvector z1, *zx, *zy, *zz, *zn = z+2*nbox;
   complex *cek, zxyz, zxy = COMPLEX_NULL, cx = COMPLEX_NULL;
   double mui[3];

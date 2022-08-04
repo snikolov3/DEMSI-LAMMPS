@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -124,10 +125,8 @@ void remap_3d(FFT_SCALAR *in, FFT_SCALAR *out, FFT_SCALAR *buf,
       for (int i=0;i<plan->nrecv;i++)
         recvBufferSize += plan->recv_size[i];
 
-      FFT_SCALAR *packedSendBuffer
-        = (FFT_SCALAR *) malloc(sizeof(FFT_SCALAR) * sendBufferSize);
-      FFT_SCALAR *packedRecvBuffer
-        = (FFT_SCALAR *) malloc(sizeof(FFT_SCALAR) * recvBufferSize);
+      auto packedSendBuffer = (FFT_SCALAR *) malloc(sizeof(FFT_SCALAR) * sendBufferSize);
+      auto packedRecvBuffer = (FFT_SCALAR *) malloc(sizeof(FFT_SCALAR) * recvBufferSize);
 
       int *sendcnts = (int *) malloc(sizeof(int) * plan->commringlen);
       int *rcvcnts = (int *) malloc(sizeof(int) * plan->commringlen);

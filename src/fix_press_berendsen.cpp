@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -269,7 +270,7 @@ void FixPressBerendsen::init()
 
   for (int i = 0; i < modify->nfix; i++)
     if (strcmp(modify->fix[i]->style,"deform") == 0) {
-      int *dimflag = ((FixDeform *) modify->fix[i])->dimflag;
+      int *dimflag = (dynamic_cast<FixDeform *>( modify->fix[i]))->dimflag;
       if ((p_flag[0] && dimflag[0]) || (p_flag[1] && dimflag[1]) ||
           (p_flag[2] && dimflag[2]))
         error->all(FLERR,"Cannot use fix press/berendsen and "

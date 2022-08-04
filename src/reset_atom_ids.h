@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -12,9 +12,9 @@
 ------------------------------------------------------------------------- */
 
 #ifdef COMMAND_CLASS
-
-CommandStyle(reset_atom_ids,ResetIDs)
-
+// clang-format off
+CommandStyle(reset_atom_ids,ResetIDs);
+// clang-format on
 #else
 
 #ifndef LMP_RESET_IDS_H
@@ -28,7 +28,7 @@ class ResetIDs : public Command {
  public:
   struct AtomRvous {
     bigint ibin;
-    int proc,ilocal;
+    int proc, ilocal;
     double x[3];
   };
 
@@ -43,10 +43,10 @@ class ResetIDs : public Command {
 #endif
 
   ResetIDs(class LAMMPS *);
-  void command(int, char **);
+  void command(int, char **) override;
 
  private:
-  bigint binlo,binhi;
+  bigint binlo, binhi;
 
   // callback functions for rendezvous communication
 
@@ -55,27 +55,7 @@ class ResetIDs : public Command {
   void sort();
 };
 
-}
+}    // namespace LAMMPS_NS
 
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Reset_ids command before simulation box is defined
-
-UNDOCUMENTED
-
-E: Illegal ... command
-
-UNDOCUMENTED
-
-E: Cannot use reset_atom_ids unless atoms have IDs
-
-UNDOCUMENTED
-
-E: Reset_ids missing %d bond topology atom IDs - use comm_modify cutoff
-
-UNDOCUMENTED
-
-*/

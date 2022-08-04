@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -63,14 +64,12 @@ FixPrint::FixPrint(LAMMPS *lmp, int narg, char **arg) :
         else fp = fopen(arg[iarg+1],"a");
         if (fp == nullptr)
           error->one(FLERR,"Cannot open fix print file {}: {}",
-                                       arg[iarg+1], utils::getsyserror());
+                     arg[iarg+1], utils::getsyserror());
       }
       iarg += 2;
     } else if (strcmp(arg[iarg],"screen") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix print command");
-      if (strcmp(arg[iarg+1],"yes") == 0) screenflag = 1;
-      else if (strcmp(arg[iarg+1],"no") == 0) screenflag = 0;
-      else error->all(FLERR,"Illegal fix print command");
+      screenflag = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"title") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix print command");
@@ -159,7 +158,7 @@ void FixPrint::end_of_step()
 
   modify->clearstep_compute();
 
-  strcpy(copy,text);
+  strncpy(copy,text,maxcopy);
   input->substitute(copy,work,maxcopy,maxwork,0);
 
   if (var_print) {
@@ -174,10 +173,9 @@ void FixPrint::end_of_step()
   modify->addstep_compute(next_print);
 
   if (me == 0) {
-    if (screenflag && screen) fprintf(screen,"%s\n",copy);
-    if (screenflag && logfile) fprintf(logfile,"%s\n",copy);
+    if (screenflag) utils::logmesg(lmp,std::string(copy) + "\n");
     if (fp) {
-      fprintf(fp,"%s\n",copy);
+      fmt::print(fp,"{}\n",copy);
       fflush(fp);
     }
   }

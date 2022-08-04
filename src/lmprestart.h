@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -10,14 +10,14 @@
 
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
-
+// clang-format off
 #ifndef LMP_RESTART_H
 #define LMP_RESTART_H
 
 #define MAGIC_STRING "LammpS RestartT"
 #define ENDIAN 0x0001
 #define ENDIANSWAP 0x1000
-#define FORMAT_REVISION 2
+#define FORMAT_REVISION 3
 
 enum{VERSION,SMALLINT,TAGINT,BIGINT,
      UNITS,NTIMESTEP,DIMENSION,NPROCS,PROCGRID,
@@ -37,7 +37,8 @@ enum{VERSION,SMALLINT,TAGINT,BIGINT,
      COMM_MODE,COMM_CUTOFF,COMM_VEL,NO_PAIR,
      EXTRA_BOND_PER_ATOM,EXTRA_ANGLE_PER_ATOM,EXTRA_DIHEDRAL_PER_ATOM,
      EXTRA_IMPROPER_PER_ATOM,EXTRA_SPECIAL_PER_ATOM,ATOM_MAXSPECIAL,
-     NELLIPSOIDS,NLINES,NTRIS,NBODIES};
+     NELLIPSOIDS,NLINES,NTRIS,NBODIES,
+     ATIME,ATIMESTEP};
 
 #define LB_FACTOR 1.1
 

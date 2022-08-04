@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -64,8 +65,8 @@ double ComputeKERigid::compute_scalar()
 
   if (strncmp(modify->fix[irfix]->style,"rigid",5) == 0) {
     if (strstr(modify->fix[irfix]->style,"/small")) {
-      scalar = ((FixRigidSmall *) modify->fix[irfix])->extract_ke();
-    } else scalar = ((FixRigid *) modify->fix[irfix])->extract_ke();
+      scalar = (dynamic_cast<FixRigidSmall *>( modify->fix[irfix]))->extract_ke();
+    } else scalar = (dynamic_cast<FixRigid *>( modify->fix[irfix]))->extract_ke();
   }
   scalar *= force->mvv2e;
   return scalar;

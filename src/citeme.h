@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -22,32 +22,21 @@ namespace LAMMPS_NS {
 class CiteMe : protected Pointers {
  public:
   CiteMe(class LAMMPS *, int, int, const char *);
-  virtual ~CiteMe();
-  void add(const std::string &); // register publication for output
-  void flush();                  // flush buffers to screen and logfile
-  enum {VERBOSE, TERSE};
+  ~CiteMe() override;
+  void add(const std::string &);    // register publication for output
+  void flush();                     // flush buffers to screen and logfile
+  enum { VERBOSE, TERSE };
 
  private:
-  FILE *fp;                    // explicit citation file pointer or NULL
-  std::string citefile;        // name of the explicit citation file.
-  int screen_flag;             // determine whether verbose or terse output
-  int logfile_flag;            // determine whether verbose or terse output
-  std::string scrbuffer;       // output buffer for screen
-  std::string logbuffer;       // output buffer for logfile
+  FILE *fp;                 // explicit citation file pointer or NULL
+  std::string citefile;     // name of the explicit citation file.
+  int screen_flag;          // determine whether verbose or terse output
+  int logfile_flag;         // determine whether verbose or terse output
+  std::string scrbuffer;    // output buffer for screen
+  std::string logbuffer;    // output buffer for logfile
   typedef std::set<std::size_t> citeset;
-  citeset *cs;                 // registered set of publications
+  citeset *cs;    // registered set of publications
 };
-}
+}    // namespace LAMMPS_NS
 
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Cannot open citation file
-
-This file is created when you use some LAMMPS features, to indicate
-what paper you should cite on behalf of those who implemented
-the feature.  Check that you have write privileges in the directory
-you are running in.
-
-*/

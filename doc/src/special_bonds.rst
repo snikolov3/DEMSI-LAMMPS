@@ -88,7 +88,7 @@ The Coulomb factors are applied to any Coulomb (charge interaction)
 term that the potential calculates.  The LJ factors are applied to the
 remaining terms that the potential calculates, whether they represent
 LJ interactions or not.  The weighting factors are a scaling
-pre-factor on the energy and force between the pair of atoms.  A value
+prefactor on the energy and force between the pair of atoms.  A value
 of 1.0 means include the full interaction; a value of 0.0 means
 exclude it completely.
 
@@ -148,7 +148,7 @@ LJ and Coulombic interactions, which is consistent with a
 coarse-grained polymer model with :doc:`FENE bonds <bond_fene>`.  See
 :ref:`(Kremer) <Kremer>` for a description of FENE bonds.
 
-The *lj/coul*\ , *lj*\ , and *coul* keywords allow the 3 coefficients to
+The *lj/coul*, *lj*, and *coul* keywords allow the 3 coefficients to
 be set explicitly.  The *lj/coul* keyword sets both the LJ and
 Coulombic coefficients to the same 3 values.  The *lj* and *coul*
 keywords only set either the LJ or Coulombic coefficients.  Use both
@@ -165,7 +165,7 @@ as an angle, but does not define 2-3-4 as an angle or 1-2-3-4 as a
 dihedral, then the pairwise interaction between atoms 1 and 3 will
 always be weighted by 0.5, but different force fields use different
 rules for weighting the pairwise interaction between atoms 2 and 4.
-If the *angle* keyword is specified as *yes*\ , then the pairwise
+If the *angle* keyword is specified as *yes*, then the pairwise
 interaction between atoms 2 and 4 will be unaffected (full weighting
 of 1.0).  If the *angle* keyword is specified as *no* which is the
 default, then the 2,4 interaction will also be weighted by 0.5.
@@ -179,7 +179,7 @@ defines 1-2-3-4 as a dihedral, but does not define 2-3-4-5 as a
 dihedral, then the pairwise interaction between atoms 1 and 4 will
 always be weighted by 0.5, but different force fields use different
 rules for weighting the pairwise interaction between atoms 2 and 5.
-If the *dihedral* keyword is specified as *yes*\ , then the pairwise
+If the *dihedral* keyword is specified as *yes*, then the pairwise
 interaction between atoms 2 and 5 will be unaffected (full weighting
 of 1.0).  If the *dihedral* keyword is specified as *no* which is the
 default, then the 2,5 interaction will also be weighted by 0.5.

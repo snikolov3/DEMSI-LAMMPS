@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -12,13 +12,14 @@
 ------------------------------------------------------------------------- */
 
 #ifdef PAIR_CLASS
-
-PairStyle(lj/expand/kk,PairLJExpandKokkos<LMPDeviceType>)
-PairStyle(lj/expand/kk/device,PairLJExpandKokkos<LMPDeviceType>)
-PairStyle(lj/expand/kk/host,PairLJExpandKokkos<LMPHostType>)
-
+// clang-format off
+PairStyle(lj/expand/kk,PairLJExpandKokkos<LMPDeviceType>);
+PairStyle(lj/expand/kk/device,PairLJExpandKokkos<LMPDeviceType>);
+PairStyle(lj/expand/kk/host,PairLJExpandKokkos<LMPHostType>);
+// clang-format on
 #else
 
+// clang-format off
 #ifndef LMP_PAIR_LJ_EXPAND_KOKKOS_H
 #define LMP_PAIR_LJ_EXPAND_KOKKOS_H
 
@@ -36,13 +37,13 @@ class PairLJExpandKokkos : public PairLJExpand {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   PairLJExpandKokkos(class LAMMPS *);
-  ~PairLJExpandKokkos();
+  ~PairLJExpandKokkos() override;
 
-  void compute(int, int);
+  void compute(int, int) override;
 
-  void settings(int, char **);
-  void init_style();
-  double init_one(int, int);
+  void settings(int, char **) override;
+  void init_style() override;
+  double init_one(int, int) override;
 
   struct params_lj{
     KOKKOS_INLINE_FUNCTION
@@ -53,8 +54,6 @@ class PairLJExpandKokkos : public PairLJExpand {
   };
 
  protected:
-  void cleanup_copy();
-
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
   F_FLOAT compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
@@ -65,16 +64,13 @@ class PairLJExpandKokkos : public PairLJExpand {
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_ecoul(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
-    return 0.0;
-  }
+  F_FLOAT compute_ecoul(const F_FLOAT& /*rsq*/, const int& /*i*/, const int& /*j*/,
+                        const int& /*itype*/, const int& /*jtype*/) const { return 0; }
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_fcoul(const F_FLOAT& rsq, const int& i, const int&j, const int& itype,
-                        const int& jtype, const F_FLOAT& factor_coul, const F_FLOAT& qtmp) const {
-    return 0.0;
-  }
+  F_FLOAT compute_fcoul(const F_FLOAT& /*rsq*/, const int& /*i*/, const int& /*j*/, const int& /*itype*/,
+                        const int& /*jtype*/, const F_FLOAT& /*factor_coul*/, const F_FLOAT& /*qtmp*/) const { return 0; }
 
   Kokkos::DualView<params_lj**,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_lj**,Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
@@ -101,13 +97,13 @@ class PairLJExpandKokkos : public PairLJExpand {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
-  void allocate();
-  friend class PairComputeFunctor<PairLJExpandKokkos,FULL,true>;
-  friend class PairComputeFunctor<PairLJExpandKokkos,HALF,true>;
-  friend class PairComputeFunctor<PairLJExpandKokkos,HALFTHREAD,true>;
-  friend class PairComputeFunctor<PairLJExpandKokkos,FULL,false>;
-  friend class PairComputeFunctor<PairLJExpandKokkos,HALF,false>;
-  friend class PairComputeFunctor<PairLJExpandKokkos,HALFTHREAD,false>;
+  void allocate() override;
+  friend struct PairComputeFunctor<PairLJExpandKokkos,FULL,true>;
+  friend struct PairComputeFunctor<PairLJExpandKokkos,HALF,true>;
+  friend struct PairComputeFunctor<PairLJExpandKokkos,HALFTHREAD,true>;
+  friend struct PairComputeFunctor<PairLJExpandKokkos,FULL,false>;
+  friend struct PairComputeFunctor<PairLJExpandKokkos,HALF,false>;
+  friend struct PairComputeFunctor<PairLJExpandKokkos,HALFTHREAD,false>;
   friend EV_FLOAT pair_compute_neighlist<PairLJExpandKokkos,FULL,void>(PairLJExpandKokkos*,NeighListKokkos<DeviceType>*);
   friend EV_FLOAT pair_compute_neighlist<PairLJExpandKokkos,HALF,void>(PairLJExpandKokkos*,NeighListKokkos<DeviceType>*);
   friend EV_FLOAT pair_compute_neighlist<PairLJExpandKokkos,HALFTHREAD,void>(PairLJExpandKokkos*,NeighListKokkos<DeviceType>*);
@@ -120,20 +116,3 @@ class PairLJExpandKokkos : public PairLJExpand {
 #endif
 #endif
 
-/* ERROR/WARNING messages:
-
-E: Illegal ... command
-
-Self-explanatory.  Check the input script syntax and compare to the
-documentation for the command.  You can use -echo screen as a
-command-line option when running LAMMPS to see the offending line.
-
-E: Cannot use Kokkos pair style with rRESPA inner/middle
-
-Self-explanatory.
-
-E: Cannot use chosen neighbor list style with lj/expand/kk
-
-Self-explanatory.
-
-*/

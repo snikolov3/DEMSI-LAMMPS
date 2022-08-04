@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -12,13 +12,14 @@
 ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
-
-ComputeStyle(orientorder/atom/kk,ComputeOrientOrderAtomKokkos<LMPDeviceType>)
-ComputeStyle(orientorder/atom/kk/device,ComputeOrientOrderAtomKokkos<LMPDeviceType>)
-ComputeStyle(orientorder/atom/kk/host,ComputeOrientOrderAtomKokkos<LMPHostType>)
-
+// clang-format off
+ComputeStyle(orientorder/atom/kk,ComputeOrientOrderAtomKokkos<LMPDeviceType>);
+ComputeStyle(orientorder/atom/kk/device,ComputeOrientOrderAtomKokkos<LMPDeviceType>);
+ComputeStyle(orientorder/atom/kk/host,ComputeOrientOrderAtomKokkos<LMPHostType>);
+// clang-format on
 #else
 
+// clang-format off
 #ifndef LMP_COMPUTE_ORIENTORDER_ATOM_KOKKOS_H
 #define LMP_COMPUTE_ORIENTORDER_ATOM_KOKKOS_H
 
@@ -66,10 +67,11 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   typedef int value_type;
 
   ComputeOrientOrderAtomKokkos(class LAMMPS *, int, char **);
-  ~ComputeOrientOrderAtomKokkos();
-  void init();
-  void compute_peratom();
+  ~ComputeOrientOrderAtomKokkos() override;
+  void init() override;
+  void compute_peratom() override;
   t_sna_1i d_qlist;
+  t_sna_1d d_qnormfac,d_qnormfac2;
 
   template<class TagStyle>
   void check_team_size_for(int, int&, int);
@@ -126,8 +128,8 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   KOKKOS_INLINE_FUNCTION
   double associated_legendre(int, int, double) const;
 
-  void init_clebsch_gordan();
-  t_sna_1d d_cglist;                     // Clebsch-Gordan coeffs
+  void init_wigner3j() override;
+  t_sna_1d d_w3jlist;                     // Wigner coeffs
 };
 
 }
@@ -135,6 +137,3 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
 #endif
 #endif
 
-/* ERROR/WARNING messages:
-
-*/

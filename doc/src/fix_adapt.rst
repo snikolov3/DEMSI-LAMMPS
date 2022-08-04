@@ -14,7 +14,7 @@ Syntax
 * adapt = style name of this fix command
 * N = adapt simulation settings every this many timesteps
 * one or more attribute/arg pairs may be appended
-* attribute = *pair* or *bond* or *kspace* or *atom*
+* attribute = *pair* or *bond* or *angle* or *kspace* or *atom*
 
   .. parsed-literal::
 
@@ -28,11 +28,16 @@ Syntax
          bparam = parameter to adapt over time
          I = type bond to set parameter for
          v_name = variable with name that calculates value of bparam
+       *angle* args = astyle aparam I v_name
+         astyle = angle style name, e.g. harmonic
+         aparam = parameter to adapt over time
+         I = type angle to set parameter for
+         v_name = variable with name that calculates value of aparam
        *kspace* arg = v_name
          v_name = variable with name that calculates scale factor on K-space terms
-       *atom* args = aparam v_name
-         aparam = parameter to adapt over time
-         v_name = variable with name that calculates value of aparam
+       *atom* args = atomparam v_name
+         atomparam = parameter to adapt over time
+         v_name = variable with name that calculates value of atomparam
 
 * zero or more keyword/value pairs may be appended
 * keyword = *scale* or *reset* or *mass*
@@ -85,19 +90,19 @@ variable that is time-dependent.
 
 Depending on the value of the *reset* keyword, attributes changed by
 this fix will or will not be reset back to their original values at
-the end of a simulation.  Even if *reset* is specified as *yes*\ , a
+the end of a simulation.  Even if *reset* is specified as *yes*, a
 restart file written during a simulation will contain the modified
 settings.
 
-If the *scale* keyword is set to *no*\ , which is the default, then
+If the *scale* keyword is set to *no*, which is the default, then
 the value of the altered parameter will be whatever the variable
-generates.  If the *scale* keyword is set to *yes*\ , then the value
+generates.  If the *scale* keyword is set to *yes*, then the value
 of the altered parameter will be the initial value of that parameter
 multiplied by whatever the variable generates.  I.e. the variable is
 now a "scale factor" applied in (presumably) a time-varying fashion to
 the parameter.
 
-Note that whether scale is *no* or *yes*\ , internally, the parameters
+Note that whether scale is *no* or *yes*, internally, the parameters
 themselves are actually altered by this fix.  Make sure you use the
 *reset yes* option if you want the parameters to be restored to their
 initial values after the run.
@@ -186,7 +191,9 @@ formulas for the meaning of these parameters:
 +------------------------------------------------------------------------------+--------------------------------------------------+-------------+
 | :doc:`nm/cut/coul/cut, nm/cut/coul/long <pair_nm>`                           | E0,R0,m,n,coulombic_cutoff                       | type pairs  |
 +------------------------------------------------------------------------------+--------------------------------------------------+-------------+
-| :doc:`reax/c <pair_reaxc>`                                                   | chi, eta, gamma                                  | type global |
+| :doc:`reaxff <pair_reaxff>`                                                  | chi, eta, gamma                                  | type global |
++------------------------------------------------------------------------------+--------------------------------------------------+-------------+
+| :doc:`snap <pair_snap>`                                                      | scale                                            | type pairs  |
 +------------------------------------------------------------------------------+--------------------------------------------------+-------------+
 | :doc:`spin/dmi <pair_spin_dmi>`                                              | coulombic_cutoff                                 | type global |
 +------------------------------------------------------------------------------+--------------------------------------------------+-------------+
@@ -281,30 +288,62 @@ operates. The only difference is that now a bond coefficient for a
 given bond type is adapted.
 
 A wild-card asterisk can be used in place of or in conjunction with
-the bond type argument to set the coefficients for multiple bond types.
-This takes the form "\*" or "\*n" or "n\*" or "m\*n".  If N = the number of
-atom types, then an asterisk with no numeric values means all types
-from 1 to N.  A leading asterisk means all types from 1 to n (inclusive).
-A trailing asterisk means all types from n to N (inclusive).  A middle
-asterisk means all types from m to n (inclusive).
+the bond type argument to set the coefficients for multiple bond
+types.  This takes the form "\*" or "\*n" or "n\*" or "m\*n".  If N =
+the number of bond types, then an asterisk with no numeric values
+means all types from 1 to N.  A leading asterisk means all types from
+1 to n (inclusive).  A trailing asterisk means all types from n to N
+(inclusive).  A middle asterisk means all types from m to n
+(inclusive).
 
 Currently *bond* does not support bond_style hybrid nor bond_style
-hybrid/overlay as bond styles. The only bonds that currently are
-working with fix_adapt are
+hybrid/overlay as bond styles. The bond styles that currently work
+with fix_adapt are
 
-+------------------------------------+-------+------------+
-| :doc:`class2 <bond_class2>`        | r0    | type bonds |
-+------------------------------------+-------+------------+
-| :doc:`fene <bond_fene>`            | k, r0 | type bonds |
-+------------------------------------+-------+------------+
-| :doc:`gromos <bond_gromos>`        | k, r0 | type bonds |
-+------------------------------------+-------+------------+
-| :doc:`harmonic <bond_harmonic>`    | k,r0  | type bonds |
-+------------------------------------+-------+------------+
-| :doc:`morse <bond_morse>`          | r0    | type bonds |
-+------------------------------------+-------+------------+
-| :doc:`nonlinear <bond_nonlinear>`  | r0    | type bonds |
-+------------------------------------+-------+------------+
++------------------------------------+-------+-----------------+
+| :doc:`class2 <bond_class2>`        | r0         | type bonds |
++------------------------------------+-------+-----------------+
+| :doc:`fene <bond_fene>`            | k,r0       | type bonds |
++------------------------------------+-------+-----------------+
+| :doc:`fene/nm <bond_fene>`         | k,r0       | type bonds |
++------------------------------------+-------+-----------------+
+| :doc:`gromos <bond_gromos>`        | k,r0       | type bonds |
++------------------------------------+-------+-----------------+
+| :doc:`harmonic <bond_harmonic>`    | k,r0       | type bonds |
++------------------------------------+-------+-----------------+
+| :doc:`morse <bond_morse>`          | r0         | type bonds |
++------------------------------------+-------+-----------------+
+| :doc:`nonlinear <bond_nonlinear>`  | epsilon,r0 | type bonds |
++------------------------------------+-------+-----------------+
+
+----------
+
+The *angle* keyword uses the specified variable to change the value of
+an angle coefficient over time, very similar to how the *pair* keyword
+operates. The only difference is that now an angle coefficient for a
+given angle type is adapted.
+
+A wild-card asterisk can be used in place of or in conjunction with
+the angle type argument to set the coefficients for multiple angle
+types.  This takes the form "\*" or "\*n" or "n\*" or "m\*n".  If N =
+the number of angle types, then an asterisk with no numeric values
+means all types from 1 to N.  A leading asterisk means all types from
+1 to n (inclusive).  A trailing asterisk means all types from n to N
+(inclusive).  A middle asterisk means all types from m to n
+(inclusive).
+
+Currently *angle* does not support angle_style hybrid nor angle_style
+hybrid/overlay as angle styles. The angle styles that currently work
+with fix_adapt are
+
++------------------------------------+-------+-----------------+
+| :doc:`harmonic <angle_harmonic>`    | k,theta0 | type angles |
++------------------------------------+-------+-----------------+
+| :doc:`cosine <angle_cosine>`        | k        | type angles |
++------------------------------------+-------+-----------------+
+
+Note that internally, theta0 is stored in radians, so the variable
+this fix uses to reset theta0 needs to generate values in radians.
 
 ----------
 

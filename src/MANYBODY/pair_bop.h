@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -28,22 +28,21 @@ PairStyle(bop,PairBOP);
 #include "pair.h"
 
 namespace LAMMPS_NS {
-  class TabularFunction;
+class TabularFunction;
 
 class PairBOP : public Pair {
 
  public:
   PairBOP(class LAMMPS *);
-  virtual ~PairBOP();
-  void compute(int, int);
-  void settings(int, char **);
-  void coeff(int, char **);
-  void init_style();
-  double init_one(int, int);
-  double memory_usage();
+  ~PairBOP() override;
+  void compute(int, int) override;
+  void settings(int, char **) override;
+  void coeff(int, char **) override;
+  void init_style() override;
+  double init_one(int, int) override;
+  double memory_usage() override;
 
  private:
-
   struct PairParameters {
     double cutB, cutBsq, cutL, cutLsq;
     TabularFunction *betaS;
@@ -106,13 +105,14 @@ class PairBOP : public Pair {
   double *sigma_f, *sigma_k, *small3;
   double *pro_delta, *pro;
 
-  int bop_types;                // number of elments in potential file
-  int npairs;                   // number of element pairs
-  int ntriples;                 // number of all triples
-  char **bop_elements;          // names of elements in potential file
+  int bop_types;          // number of elments in potential file
+  int npairs;             // number of element pairs
+  int ntriples;           // number of all triples
+  char **bop_elements;    // names of elements in potential file
+  double *bop_masses;     // masses of elements in potential file
   double bytes;
 
-  int otfly;       // = 1 faster, more memory, = 0 slower, less memory
+  int otfly;    // = 1 faster, more memory, = 0 slower, less memory
 
   PairList1 *pairlist1;
   PairList2 *pairlist2;
@@ -156,50 +156,3 @@ class PairBOP : public Pair {
 
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Illegal pair_style command
-
-Self-explanatory.
-
-E: Incorrect args for pair coefficients
-
-Self-explanatory. Check the input script or data file.
-
-E: Pair style BOP requires atom IDs
-
-This is a requirement to use the BOP potential.
-
-E: Pair style BOP requires newton pair on
-
-This is a restriction to use the BOP potential.
-
-E: Pair style bop requires a comm ghost cutoff of at least %lf
-
-Use the comm_modify cutoff to set this. See the pair bop doc page for
-more details.
-
-E: All pair coeffs are not set
-
-Self-explanatory.
-
-E: Cannot open BOP potential file %s
-
-Self-explanatory.
-
-E: Incorrect table format check for element types
-
-Self-explanatory.
-
-E: Unsupported BOP potential file format
-
-Self-explanatory.
-
-E: Pair style bop requires system dimension of at least %g
-
-Self-explanatory.
-
-UNDOCUMENTED
-
-*/

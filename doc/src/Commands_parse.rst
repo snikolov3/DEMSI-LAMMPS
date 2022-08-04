@@ -47,7 +47,7 @@ LAMMPS:
    named "x" followed by an "x" character.
 
    How the variable is converted to a text string depends on what style
-   of variable it is; see the :doc:`variable <variable>` doc page for
+   of variable it is; see the :doc:`variable <variable>` page for
    details.  It can be a variable that stores multiple text strings, and
    return one of them.  The returned text string can be multiple "words"
    (space separated) which will then be interpreted as multiple
@@ -77,18 +77,19 @@ LAMMPS:
    so that you do not have to define (or discard) a temporary variable,
    "X" in this case.
 
-   Additionally, the "immediate" variable expression may be followed by
-   a colon, followed by a C-style format string, e.g. ":%f" or ":%.10g".
-   The format string must be appropriate for a double-precision
-   floating-point value.  The format string is used to output the result
-   of the variable expression evaluation.  If a format string is not
-   specified a high-precision "%.20g" is used as the default.
+   Additionally, the entire "immediate" variable expression may be
+   followed by a colon, followed by a C-style format string,
+   e.g. ":%f" or ":%.10g".  The format string must be appropriate for
+   a double-precision floating-point value.  The format string is used
+   to output the result of the variable expression evaluation.  If a
+   format string is not specified, a high-precision "%.20g" is used as
+   the default format.
 
    This can be useful for formatting print output to a desired precision:
 
    .. code-block:: LAMMPS
 
-      print "Final energy per atom: $(pe/atoms:%10.3f) eV/atom"
+      print "Final energy per atom: $(v_ke_per_atom+v_pe_per_atom:%10.3f) eV/atom"
 
    Note that neither the curly-bracket or immediate form of variables
    can contain nested $ characters for other variables to substitute
@@ -164,7 +165,7 @@ LAMMPS:
    allowed, but that should be sufficient for most use cases.
 
 .. admonition:: ASCII versus UTF-8
-        :class: note
+   :class: note
 
    LAMMPS expects and processes 7-bit ASCII format text internally.
    Many modern environments use UTF-8 encoding, which is a superset

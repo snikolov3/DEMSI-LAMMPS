@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -17,20 +18,18 @@
 
 #include "pair_eam.h"
 
-#include <cmath>
-
-#include <cstring>
 #include "atom.h"
-#include "force.h"
 #include "comm.h"
+#include "error.h"
+#include "force.h"
+#include "memory.h"
 #include "neighbor.h"
 #include "neigh_list.h"
-#include "memory.h"
-#include "error.h"
+#include "potential_file_reader.h"
 #include "update.h"
 
-#include "tokenizer.h"
-#include "potential_file_reader.h"
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
@@ -222,7 +221,7 @@ void PairEAM::compute(int eflag, int vflag)
 
   // communicate and sum densities
 
-  if (newton_pair) comm->reverse_comm_pair(this);
+  if (newton_pair) comm->reverse_comm(this);
 
   // fp = derivative of embedding energy at each atom
   // phi = embedding energy at each atom
@@ -249,7 +248,7 @@ void PairEAM::compute(int eflag, int vflag)
 
   // communicate derivative of embedding function
 
-  comm->forward_comm_pair(this);
+  comm->forward_comm(this);
   embedstep = update->ntimestep;
 
   // compute forces on each atom
@@ -320,8 +319,7 @@ void PairEAM::compute(int eflag, int vflag)
         }
 
         if (eflag) evdwl = scale[itype][jtype]*phi;
-        if (evflag) ev_tally(i,j,nlocal,newton_pair,
-                             evdwl,0.0,fpair,delx,dely,delz);
+        if (evflag) ev_tally(i,j,nlocal,newton_pair,evdwl,0.0,fpair,delx,dely,delz);
       }
     }
   }
@@ -393,9 +391,7 @@ void PairEAM::coeff(int narg, char **arg)
     funcfl = (Funcfl *)
       memory->srealloc(funcfl,nfuncfl*sizeof(Funcfl),"pair:funcfl");
     read_file(arg[2]);
-    int n = strlen(arg[2]) + 1;
-    funcfl[ifuncfl].file = new char[n];
-    strcpy(funcfl[ifuncfl].file,arg[2]);
+    funcfl[ifuncfl].file = utils::strdup(arg[2]);
   }
 
   // set setflag and map only for i,i type pairs
@@ -428,7 +424,7 @@ void PairEAM::init_style()
   file2array();
   array2spline();
 
-  neighbor->request(this,instance_me);
+  neighbor->add_request(this);
   embedstep = -1;
 }
 

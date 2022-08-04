@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -98,7 +99,7 @@ void FixWallLJ93Kokkos<DeviceType>::wall_particle_item(int i, value_type ewall) 
 
 namespace LAMMPS_NS {
 template class FixWallLJ93Kokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class FixWallLJ93Kokkos<LMPHostType>;
 #endif
 }

@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -68,7 +69,7 @@ void ComputeEventDisplace::init()
     int ifix = modify->find_fix(id_event);
     if (ifix < 0) error->all(FLERR,
                              "Could not find compute event/displace fix ID");
-    fix_event = (FixEvent*) modify->fix[ifix];
+    fix_event = dynamic_cast<FixEvent*>( modify->fix[ifix]);
 
     if (strcmp(fix_event->style,"EVENT/PRD") != 0 &&
         strcmp(fix_event->style,"EVENT/TAD") != 0 &&

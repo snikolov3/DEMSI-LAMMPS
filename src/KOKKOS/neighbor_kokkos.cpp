@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -164,8 +165,6 @@ int NeighborKokkos::check_distance()
 template<class DeviceType>
 int NeighborKokkos::check_distance_kokkos()
 {
-  typedef DeviceType device_type;
-
   double delx,dely,delz;
   double delta,delta1,delta2;
 
@@ -217,7 +216,6 @@ int NeighborKokkos::check_distance_kokkos()
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void NeighborKokkos::operator()(TagNeighborCheckDistance<DeviceType>, const int &i, int &flag) const {
-  typedef DeviceType device_type;
   const X_FLOAT delx = x.view<DeviceType>()(i,0) - xhold.view<DeviceType>()(i,0);
   const X_FLOAT dely = x.view<DeviceType>()(i,1) - xhold.view<DeviceType>()(i,1);
   const X_FLOAT delz = x.view<DeviceType>()(i,2) - xhold.view<DeviceType>()(i,2);
@@ -228,7 +226,7 @@ void NeighborKokkos::operator()(TagNeighborCheckDistance<DeviceType>, const int 
 /* ----------------------------------------------------------------------
    build perpetuals neighbor lists
    called at setup and every few timesteps during run or minimization
-   topology lists also built if topoflag = 1, USER-CUDA calls with topoflag = 0
+   topology lists also built if topoflag = 1, CUDA calls with topoflag = 0
 ------------------------------------------------------------------------- */
 
 
@@ -243,8 +241,6 @@ void NeighborKokkos::build(int topoflag)
 template<class DeviceType>
 void NeighborKokkos::build_kokkos(int topoflag)
 {
-  typedef DeviceType device_type;
-
   int i,m;
 
   ago = 0;
@@ -327,7 +323,6 @@ void NeighborKokkos::build_kokkos(int topoflag)
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void NeighborKokkos::operator()(TagNeighborXhold<DeviceType>, const int &i) const {
-  typedef DeviceType device_type;
   xhold.view<DeviceType>()(i,0) = x.view<DeviceType>()(i,0);
   xhold.view<DeviceType>()(i,1) = x.view<DeviceType>()(i,1);
   xhold.view<DeviceType>()(i,2) = x.view<DeviceType>()(i,2);
@@ -382,7 +377,7 @@ void NeighborKokkos::init_topology() {
 
 /* ----------------------------------------------------------------------
    build all topology neighbor lists every few timesteps
-   normally built with pair lists, but USER-CUDA separates them
+   normally built with pair lists, but CUDA separates them
 ------------------------------------------------------------------------- */
 
 void NeighborKokkos::build_topology() {

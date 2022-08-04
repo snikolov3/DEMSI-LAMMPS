@@ -25,7 +25,7 @@ Syntax
        f_ID = global scalar calculated by a fix with ID
        f_ID[I] = Ith component of global vector calculated by a fix with ID, I can include wildcard (see below)
        v_name = global value calculated by an equal-style variable with name
-       v_name[I] = Ith component of a vector-style variable with name
+       v_name[I] = Ith component of a vector-style variable with name, I can include wildcard (see below)
 
 * zero or more keyword/arg pairs may be appended
 * keyword = *type* or *ave* or *start* or *prefactor* or *file* or *overwrite* or *title1* or *title2* or *title3*
@@ -105,20 +105,21 @@ individual fixes for info on which ones produce such values.
 ones that can be used with this fix.  Variables of style *atom* cannot
 be used, since they produce per-atom values.
 
-Note that for values from a compute or fix, the bracketed index I can
-be specified using a wildcard asterisk with the index to effectively
-specify multiple values.  This takes the form "\*" or "\*n" or "n\*" or
-"m\*n".  If N = the size of the vector (for *mode* = scalar) or the
-number of columns in the array (for *mode* = vector), then an asterisk
-with no numeric values means all indices from 1 to N.  A leading
-asterisk means all indices from 1 to n (inclusive).  A trailing
-asterisk means all indices from n to N (inclusive).  A middle asterisk
-means all indices from m to n (inclusive).
+----------
+
+For input values from a compute or fix or variable , the bracketed
+index I can be specified using a wildcard asterisk with the index to
+effectively specify multiple values.  This takes the form "\*" or
+"\*n" or "n\*" or "m\*n".  If N = the size of the vector, then an
+asterisk with no numeric values means all indices from 1 to N.  A
+leading asterisk means all indices from 1 to n (inclusive).  A
+trailing asterisk means all indices from n to N (inclusive).  A middle
+asterisk means all indices from m to n (inclusive).
 
 Using a wildcard is the same as if the individual elements of the
 vector had been listed one by one.  E.g. these 2 fix ave/correlate
-commands are equivalent, since the :doc:`compute pressure <compute_pressure>` command creates a global vector with 6
-values.
+commands are equivalent, since the :doc:`compute pressure
+<compute_pressure>` command creates a global vector with 6 values.
 
 .. code-block:: LAMMPS
 
@@ -128,9 +129,17 @@ values.
              c_myPress[1] c_myPress[2] c_myPress[3] &
              c_myPress[4] c_myPress[5] c_myPress[6]
 
+.. note::
+
+   For a vector-style variable, only the wildcard forms "\*n" or
+   "m\*n" are allowed.  You must specify the upper bound, because
+   vector-style variable lengths are not determined until the variable
+   is evaluated.  If n is specified larger than the vector length
+   turns out to be, zeroes are output for missing vector values.
+
 ----------
 
-The *Nevery*\ , *Nrepeat*\ , and *Nfreq* arguments specify on what
+The *Nevery*, *Nrepeat*, and *Nfreq* arguments specify on what
 timesteps the input values will be used to calculate correlation data.
 The input values are sampled every *Nevery* timesteps.  The
 correlation data for the preceding samples is computed on timesteps
@@ -194,7 +203,7 @@ be specified with a wildcard asterisk to effectively specify multiple
 values.
 
 Note that some fixes only produce their values on certain timesteps,
-which must be compatible with *Nevery*\ , else an error will result.
+which must be compatible with *Nevery*, else an error will result.
 Users can also write code for their own fix styles and :doc:`add them to LAMMPS <Modify>`.
 
 If a value begins with "v\_", a variable name must follow which has
@@ -237,14 +246,14 @@ pair Vi(t)\*Vj(t+delta) is always the one sampled at the later time.
 
 The *ave* keyword determines what happens to the accumulation of
 correlation samples every *Nfreq* timesteps.  If the *ave* setting is
-*one*\ , then the accumulation is restarted or zeroed every *Nfreq*
+*one*, then the accumulation is restarted or zeroed every *Nfreq*
 timesteps.  Thus the outputs on successive *Nfreq* timesteps are
 essentially independent of each other.  The exception is that the
 Cij(0) = Vi(T)\*Vj(T) value at a timestep T, where T is a multiple of
-*Nfreq*\ , contributes to the correlation output both at time T and at
+*Nfreq*, contributes to the correlation output both at time T and at
 time T+Nfreq.
 
-If the *ave* setting is *running*\ , then the accumulation is never
+If the *ave* setting is *running*, then the accumulation is never
 zeroed.  Thus the output of correlation data at any timestep is the
 average over samples accumulated every *Nevery* steps since the fix
 was defined.  it can only be restarted by deleting the fix via the
@@ -263,7 +272,7 @@ the size of the time window or other unit conversions.
 
 The *file* keyword allows a filename to be specified.  Every *Nfreq*
 steps, an array of correlation data is written to the file.  The
-number of rows is *Nrepeat*\ , as described above.  The number of
+number of rows is *Nrepeat*, as described above.  The number of
 columns is the Npair+2, also as described above.  Thus the file ends
 up to be a series of these array sections.
 
@@ -327,19 +336,19 @@ samples contributing to the correlation average, as described above.
 The remaining Npair columns are for I,J pairs of the N input values,
 as determined by the *type* keyword, as described above.
 
-* For *type* = *auto*\ , the Npair = N columns are ordered: C11, C22, ...,
+* For *type* = *auto*, the Npair = N columns are ordered: C11, C22, ...,
   CNN.
-* For *type* = *upper*\ , the Npair = N\*(N-1)/2 columns are ordered: C12,
+* For *type* = *upper*, the Npair = N\*(N-1)/2 columns are ordered: C12,
   C13, ..., C1N, C23, ..., C2N, C34, ..., CN-1N.
-* For *type* = *lower*\ , the Npair = N\*(N-1)/2 columns are ordered: C21,
+* For *type* = *lower*, the Npair = N\*(N-1)/2 columns are ordered: C21,
   C31, C32, C41, C42, C43, ..., CN1, CN2, ..., CNN-1.
-* For *type* = *auto/upper*\ , the Npair = N\*(N+1)/2 columns are ordered:
+* For *type* = *auto/upper*, the Npair = N\*(N+1)/2 columns are ordered:
   C11, C12, C13, ..., C1N, C22, C23, ..., C2N, C33, C34, ..., CN-1N,
   CNN.
-* For *type* = *auto/lower*\ , the Npair = N\*(N+1)/2 columns are ordered:
+* For *type* = *auto/lower*, the Npair = N\*(N+1)/2 columns are ordered:
   C11, C21, C22, C31, C32, C33, C41, ..., C44, CN1, CN2, ..., CNN-1,
   CNN.
-* For *type* = *full*\ , the Npair = N\^2 columns are ordered: C11, C12,
+* For *type* = *full*, the Npair = N\^2 columns are ordered: C11, C12,
   ..., C1N, C21, C22, ..., C2N, C31, ..., C3N, ..., CN1, ..., CNN-1,
   CNN.
 

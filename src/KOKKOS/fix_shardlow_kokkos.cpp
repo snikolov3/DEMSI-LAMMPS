@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -34,22 +35,23 @@
 ------------------------------------------------------------------------- */
 
 #include "fix_shardlow_kokkos.h"
-#include <cmath>
 
 #include "atom.h"
-#include "atom_masks.h"
 #include "atom_kokkos.h"
-#include "force.h"
-#include "update.h"
-#include "error.h"
+#include "atom_masks.h"
 #include "comm.h"
-#include "neighbor.h"
+#include "domain.h"
+#include "error.h"
+#include "force.h"
+#include "memory_kokkos.h"
 #include "neigh_list_kokkos.h"
 #include "neigh_request.h"
-#include "memory_kokkos.h"
-#include "domain.h"
-#include "pair_dpd_fdt_energy_kokkos.h"
+#include "neighbor.h"
 #include "npair_ssa_kokkos.h"
+#include "pair_dpd_fdt_energy_kokkos.h"
+#include "update.h"
+
+#include <cmath>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -57,7 +59,6 @@ using namespace random_external_state;
 
 #define EPSILON 1.0e-10
 #define EPSILON_SQUARED ((EPSILON) * (EPSILON))
-
 
 /* ---------------------------------------------------------------------- */
 
@@ -124,18 +125,12 @@ void FixShardlowKokkos<DeviceType>::init()
 {
   FixShardlow::init();
 
-  int irequest = neighbor->nrequest - 1;
+  // adjust neighbor list request for KOKKOS
 
-  neighbor->requests[irequest]->
-    kokkos_host = std::is_same<DeviceType,LMPHostType>::value &&
-    !std::is_same<DeviceType,LMPDeviceType>::value;
-  neighbor->requests[irequest]->
-    kokkos_device = std::is_same<DeviceType,LMPDeviceType>::value;
-
-//  neighbor->requests[irequest]->pair = 0;
-//  neighbor->requests[irequest]->fix  = 1;
-//  neighbor->requests[irequest]->ghost= 1;
-//  neighbor->requests[irequest]->ssa  = 1;
+  auto request = neighbor->find_request(this);
+  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
+                           !std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
 
   int ntypes = atom->ntypes;
   k_params = Kokkos::DualView<params_ssa**,Kokkos::LayoutRight,DeviceType>
@@ -557,7 +552,7 @@ void FixShardlowKokkos<DeviceType>::ssa_update_dpde(
 
 
 template<class DeviceType>
-void FixShardlowKokkos<DeviceType>::initial_integrate(int vflag)
+void FixShardlowKokkos<DeviceType>::initial_integrate(int /*vflag*/)
 {
   d_numneigh = k_list->d_numneigh;
   d_neighbors = k_list->d_neighbors;
@@ -641,7 +636,7 @@ void FixShardlowKokkos<DeviceType>::initial_integrate(int vflag)
 
     // Communicate the updated velocities to all nodes
     atomKK->sync(Host,V_MASK);
-    comm->forward_comm_fix(this);
+    comm->forward_comm(this);
     atomKK->modified(Host,V_MASK);
 
     if (k_pairDPDE) {
@@ -671,7 +666,7 @@ void FixShardlowKokkos<DeviceType>::initial_integrate(int vflag)
 
     // Communicate the ghost deltas to the atom owners
     atomKK->sync(Host,V_MASK | UCOND_MASK | UMECH_MASK);
-    comm->reverse_comm_fix(this);
+    comm->reverse_comm(this);
     atomKK->modified(Host,V_MASK | UCOND_MASK | UMECH_MASK);
 
   }  //End Loop over all directions For airnum = Top, Top-Right, Right, Bottom-Right, Back
@@ -712,7 +707,7 @@ void FixShardlowKokkos<DeviceType>::operator()(TagFixShardlowSSAUpdateDPDEGhost<
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixShardlowKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int pbc_flag, int *pbc)
+int FixShardlowKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
 {
   int ii,jj,m;
 
@@ -796,7 +791,7 @@ double FixShardlowKokkos<DeviceType>::memory_usage()
 
 namespace LAMMPS_NS {
 template class FixShardlowKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class FixShardlowKokkos<LMPHostType>;
 #endif
 }

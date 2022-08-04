@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -51,12 +52,6 @@ EwaldDipoleSpin::EwaldDipoleSpin(LAMMPS *lmp) :
 }
 
 /* ----------------------------------------------------------------------
-   free all memory
-------------------------------------------------------------------------- */
-
-EwaldDipoleSpin::~EwaldDipoleSpin() {}
-
-/* ----------------------------------------------------------------------
    called once before run
 ------------------------------------------------------------------------- */
 
@@ -81,7 +76,7 @@ void EwaldDipoleSpin::init()
 
   if (!atom->sp) error->all(FLERR,"Kspace style requires atom attribute sp");
 
-  if ((spinflag && strcmp(update->unit_style,"metal")) != 0)
+  if ((spinflag && strcmp(update->unit_style,"metal") != 0) != 0)
     error->all(FLERR,"'metal' units have to be used with spins");
 
   if (slabflag == 0 && domain->nonperiodic > 0)
@@ -101,7 +96,7 @@ void EwaldDipoleSpin::init()
   pair_check();
 
   int itmp;
-  double *p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
+  auto p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
   if (p_cutoff == nullptr)
     error->all(FLERR,"KSpace style is incompatible with Pair style");
   double cutoff = *p_cutoff;

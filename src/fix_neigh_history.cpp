@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -13,7 +14,6 @@
 
 #include "fix_neigh_history.h"
 
-#include <cstring>
 #include "my_page.h"
 #include "atom.h"
 #include "comm.h"
@@ -24,6 +24,8 @@
 #include "pair.h"
 #include "memory.h"
 #include "error.h"
+
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -44,6 +46,7 @@ FixNeighHistory::FixNeighHistory(LAMMPS *lmp, int narg, char **arg) :
 
   create_attribute = 1;
   maxexchange_dynamic = 1;
+  use_bit_flag = 1;
 
   newton_pair = force->newton_pair;
 
@@ -59,12 +62,12 @@ FixNeighHistory::FixNeighHistory(LAMMPS *lmp, int narg, char **arg) :
 
   if (newton_pair) comm_reverse = 1;   // just for single npartner value
                                        // variable-size history communicated via
-                                       // reverse_comm_fix_variable()
+                                       // reverse_comm_variable()
 
   // perform initial allocation of atom-based arrays
   // register with atom class
 
-  grow_arrays(atom->nmax);
+  FixNeighHistory::grow_arrays(atom->nmax);
   atom->add_callback(Atom::GROW);
   atom->add_callback(Atom::RESTART);
 
@@ -151,7 +154,7 @@ void FixNeighHistory::init()
     error->all(FLERR,"Neighbor history requires atoms have IDs");
 
   // this fix must come before any fix which migrates atoms in its pre_exchange()
-  // b/c this fix's pre_exchange() creates per-atom data structure
+  // because this fix's pre_exchange() creates per-atom data structure
   // that data must be current for atom migration to carry it along
 
   for (int i = 0; i < modify->nfix; i++) {
@@ -217,7 +220,7 @@ void FixNeighHistory::setup_post_neighbor()
    called during run before atom exchanges, including for restart files
    called at end of run via post_run()
    do not call during setup of run (setup_pre_exchange)
-     b/c there is no guarantee of a current NDS (even on continued run)
+     because there is no guarantee of a current NDS (even on continued run)
    if run command does a 2nd run with pre = no, then no neigh list
      will be built, but old neigh list will still have the info
    onesided and newton on and newton off versions
@@ -244,7 +247,7 @@ void FixNeighHistory::pre_exchange_onesided()
   double *allvalues,*onevalues;
 
   // NOTE: all operations until very end are with nlocal_neigh <= current nlocal
-  // b/c previous neigh list was built with nlocal_neigh
+  // because previous neigh list was built with nlocal_neigh
   // nlocal can be larger if other fixes added atoms at this pre_exchange()
 
   // clear two paged data structures
@@ -337,7 +340,7 @@ void FixNeighHistory::pre_exchange_newton()
 
   // NOTE: all operations until very end are with
   //   nlocal_neigh  <= current nlocal and nall_neigh
-  // b/c previous neigh list was built with nlocal_neigh & nghost_neigh
+  // because previous neigh list was built with nlocal_neigh & nghost_neigh
   // nlocal can be larger if other fixes added atoms at this pre_exchange()
 
   // clear two paged data structures
@@ -376,7 +379,7 @@ void FixNeighHistory::pre_exchange_newton()
   // perform reverse comm to augment owned npartner counts with ghost counts
 
   commflag = NPARTNER;
-  comm->reverse_comm_fix(this,0);
+  comm->reverse_comm(this);
 
   // get page chunks to store partner IDs and values for owned+ghost atoms
 
@@ -423,7 +426,6 @@ void FixNeighHistory::pre_exchange_newton()
         m = npartner[j]++;
         partner[j][m] = tag[i];
         jvalues = &valuepartner[j][dnum*m];
-        //if (pair->nondefault_history_transfer) pair->transfer_history(onevalues, jvalues);
         if (pair->nondefault_history_transfer)
           pair->transfer_history(onevalues,jvalues);
         else for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
@@ -433,11 +435,11 @@ void FixNeighHistory::pre_exchange_newton()
 
   // perform reverse comm to augment
   // owned atom partner/valuepartner with ghost info
-  // use variable variant b/c size of packed data can be arbitrarily large
-  //  if many touching neighbors for large particle
+  // use variable variant because size of packed data can be arbitrarily large
+  //   if many touching neighbors for large particle
 
   commflag = PERPARTNER;
-  comm->reverse_comm_fix_variable(this);
+  comm->reverse_comm_variable(this);
 
   // set maxpartner = max # of partners of any owned atom
   // maxexchange = max # of values for any Comm::exchange() atom
@@ -466,7 +468,7 @@ void FixNeighHistory::pre_exchange_no_newton()
   double *allvalues,*onevalues,*jvalues;
 
   // NOTE: all operations until very end are with nlocal_neigh <= current nlocal
-  // b/c previous neigh list was built with nlocal_neigh
+  // because previous neigh list was built with nlocal_neigh
   // nlocal can be larger if other fixes added atoms at this pre_exchange()
 
   // clear two paged data structures
@@ -538,7 +540,6 @@ void FixNeighHistory::pre_exchange_no_newton()
           m = npartner[j]++;
           partner[j][m] = tag[i];
           jvalues = &valuepartner[j][dnum*m];
-          //if (pair->nondefault_history_transfer) pair->transfer_history(onevalues, jvalues);
           if (pair->nondefault_history_transfer)
             pair->transfer_history(onevalues, jvalues);
           else for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
@@ -625,20 +626,28 @@ void FixNeighHistory::post_neighbor()
 
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
-      rflag = sbmask(j);
-      if (pair->beyond_contact) rflag = 1;
-      //rflag = sbmask(j) | pair->beyond_contact;
-      j &= NEIGHMASK;
-      jlist[jj] = j;
 
-      // rflag = 1 if r < radsum in npair_size() method
+      if (use_bit_flag) {
+        rflag = histmask(j) | pair->beyond_contact;
+        j &= HISTMASK;
+        jlist[jj] = j;
+      } else {
+        rflag = 1;
+      }
+
+      // Remove special bond bits
+      j &= NEIGHMASK;
+
+      // rflag = 1 if r < radsum in npair_size() method or if pair interactions extend further
       // preserve neigh history info if tag[j] is in old-neigh partner list
       // this test could be more geometrically precise for two sphere/line/tri
+      // if use_bit_flag is turned off, always record data since not all npair classes
+      // apply a mask for history (and they could use the bits for special bonds)
 
-      if (rflag){
+      if (rflag) {
         jtag = tag[j];
         for (m = 0; m < np; m++)
-          if (partner[i][m] == jtag) break;       
+          if (partner[i][m] == jtag) break;
         if (m < np) {
           allflags[jj] = 1;
           memcpy(&allvalues[nn],&valuepartner[i][dnum*m],dnumbytes);
@@ -714,10 +723,10 @@ void FixNeighHistory::grow_arrays(int nmax)
 void FixNeighHistory::copy_arrays(int i, int j, int /*delflag*/)
 {
   // just copy pointers for partner and valuepartner
-  // b/c can't overwrite chunk allocation inside ipage_atom,dpage_atom
+  // because can't overwrite chunk allocation inside ipage_atom,dpage_atom
   // incoming atoms in unpack_exchange just grab new chunks
   // so are orphaning chunks for migrating atoms
-  // OK, b/c will reset ipage_atom,dpage_atom on next reneighboring
+  // OK, because will reset ipage_atom,dpage_atom on next reneighboring
 
   npartner[j] = npartner[i];
   partner[j] = partner[i];
@@ -734,7 +743,7 @@ void FixNeighHistory::set_arrays(int i)
 }
 
 /* ----------------------------------------------------------------------
-   only called by Comm::reverse_comm_fix_variable for PERPARTNER mode
+   only called by Comm::reverse_comm_variable for PERPARTNER mode
 ------------------------------------------------------------------------- */
 
 int FixNeighHistory::pack_reverse_comm_size(int n, int first)
@@ -876,6 +885,7 @@ int FixNeighHistory::pack_restart(int i, double *buf)
     memcpy(&buf[m],&valuepartner[i][dnum*n],dnumbytes);
     m += dnum;
   }
+  // pack buf[0] this way because other fixes unpack it
   buf[0] = m;
   return m;
 }
@@ -891,6 +901,7 @@ void FixNeighHistory::unpack_restart(int nlocal, int nth)
   if (ipage_atom == nullptr) allocate_pages();
 
   // skip to Nth set of extra values
+  // unpack the Nth first values this way because other fixes pack them
 
   double **extra = atom->extra;
 

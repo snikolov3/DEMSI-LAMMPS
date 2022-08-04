@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -12,17 +12,17 @@
 ------------------------------------------------------------------------- */
 
 #include "fix_wall_morse.h"
-#include <cmath>
 #include "atom.h"
 #include "error.h"
+
+#include <cmath>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixWallMorse::FixWallMorse(LAMMPS *lmp, int narg, char **arg) :
-  FixWall(lmp, narg, arg)
+FixWallMorse::FixWallMorse(LAMMPS *lmp, int narg, char **arg) : FixWall(lmp, narg, arg)
 {
   dynamic_group_allow = 1;
 }
@@ -33,7 +33,7 @@ void FixWallMorse::precompute(int m)
 {
   coeff1[m] = 2.0 * epsilon[m] * alpha[m];
   const double alpha_dr = -alpha[m] * (cutoff[m] - sigma[m]);
-  offset[m] = epsilon[m] * (exp(2.0*alpha_dr) - 2.0*exp(alpha_dr));
+  offset[m] = epsilon[m] * (exp(2.0 * alpha_dr) - 2.0 * exp(alpha_dr));
 }
 
 /* ----------------------------------------------------------------------
@@ -45,7 +45,7 @@ void FixWallMorse::precompute(int m)
 
 void FixWallMorse::wall_particle(int m, int which, double coord)
 {
-  double delta,fwall;
+  double delta, fwall;
   double vn;
 
   double **x = atom->x;
@@ -61,8 +61,10 @@ void FixWallMorse::wall_particle(int m, int which, double coord)
 
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
-      if (side < 0) delta = x[i][dim] - coord;
-      else delta = coord - x[i][dim];
+      if (side < 0)
+        delta = x[i][dim] - coord;
+      else
+        delta = coord - x[i][dim];
       if (delta >= cutoff[m]) continue;
       if (delta <= 0.0) {
         onflag = 1;
@@ -70,18 +72,20 @@ void FixWallMorse::wall_particle(int m, int which, double coord)
       }
       double dr = delta - sigma[m];
       double dexp = exp(-alpha[m] * dr);
-      fwall = side * coeff1[m] * (dexp*dexp - dexp) / delta;
-      ewall[0] += epsilon[m] * (dexp*dexp - 2.0*dexp) - offset[m];
+      fwall = side * coeff1[m] * (dexp * dexp - dexp) / delta;
+      ewall[0] += epsilon[m] * (dexp * dexp - 2.0 * dexp) - offset[m];
       f[i][dim] -= fwall;
-      ewall[m+1] += fwall;
+      ewall[m + 1] += fwall;
 
       if (evflag) {
-        if (side < 0) vn = -fwall*delta;
-        else vn = fwall*delta;
+        if (side < 0)
+          vn = -fwall * delta;
+        else
+          vn = fwall * delta;
         v_tally(dim, i, vn);
       }
     }
   }
 
-  if (onflag) error->one(FLERR,"Particle on or inside fix wall surface");
+  if (onflag) error->one(FLERR, "Particle on or inside fix wall surface");
 }

@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -29,7 +30,7 @@
    pairbop v 1.0 comes with no warranty of any kind.  pairbop v 1.0 is a
    copyrighted code that is distributed free-of-charge, under the terms
    of the GNU Public License (GPL).  See "Open-Source Rules"
-   https://lammps.sandia.gov/open_source.html
+   https://www.lammps.org/open_source.html
 ------------------------------------------------------------------------- */
 
 // uncomment define to enable writing table files for debugging
@@ -42,19 +43,20 @@
 #include "domain.h"
 #include "error.h"
 #include "force.h"
+#include "math_special.h"
 #include "memory.h"
 #include "neigh_list.h"
-#include "neigh_request.h"
 #include "neighbor.h"
 #include "potential_file_reader.h"
 #include "tabular_function.h"
-#include "utils.h"
 
 #include <cmath>
 #include <cstring>
-#include <string>
 
 using namespace LAMMPS_NS;
+using MathSpecial::square;
+using MathSpecial::cube;
+
 
 /* ---------------------------------------------------------------------- */
 
@@ -93,6 +95,7 @@ PairBOP::PairBOP(LAMMPS *lmp) : Pair(lmp)
   pairParameters = nullptr;
   tripletParameters = nullptr;
   bop_elements = nullptr;
+  bop_masses = nullptr;
   bop_types = 0;
 
   pairlist1 = nullptr;
@@ -181,17 +184,13 @@ PairBOP::~PairBOP()
   if (bop_elements)
     for (int i = 0; i < bop_types; i++) delete[] bop_elements[i];
   delete[] bop_elements;
+  delete[] bop_masses;
 }
 
 /* ---------------------------------------------------------------------- */
 
 void PairBOP::compute(int eflag, int vflag)
 {
-  double minbox = MIN(MIN(domain->xprd, domain->yprd), domain->zprd);
-  if (minbox < 6.0*cutmax)
-    error->all(FLERR,"Pair style bop requires system dimension "
-               "of at least {:.4}",6.0*cutmax);
-
   int i, ii, j, jj;
   int nlisti, *ilist;
   tagint i_tag,j_tag, itype, jtype;
@@ -201,6 +200,7 @@ void PairBOP::compute(int eflag, int vflag)
 
   int newton_pair = force->newton_pair;
   int nlocal = atom->nlocal;
+  double **x = atom->x;
   double **f = atom->f;
   int *type = atom->type;
   tagint *tag = atom->tag;
@@ -224,7 +224,15 @@ void PairBOP::compute(int eflag, int vflag)
       temp_ij = BOP_index[i] + jj;
       j = ilist[neigh_index[temp_ij]];
       j_tag = tag[j];
-      if (j_tag <= i_tag) continue;
+      if (i_tag > j_tag) {
+        if ((i_tag+j_tag) % 2 == 0) continue;
+      } else if (i_tag < j_tag) {
+        if ((i_tag+j_tag) % 2 == 1) continue;
+      } else {
+        if (x[j][2] < x[i][2]) continue;
+        if (x[j][2] == x[i][2] && x[j][1] < x[i][1]) continue;
+        if (x[j][2] == x[i][2] && x[j][1] == x[i][1] && x[j][0] < x[i][0]) continue;
+      }
       jtype = map[type[j]];
       int param_ij = elem2param[itype][jtype];
       sigB_0 = SigmaBo(ii,jj);
@@ -246,17 +254,23 @@ void PairBOP::compute(int eflag, int vflag)
       f[j][1] -= ftmp2;
       f[j][2] -= ftmp3;
       dE = pl_ij.rep - 2.0*pl_ij.betaS*sigB_0 - 2.0*pl_ij.betaP*piB_0;
-      if (evflag) {
-        ev_tally(i,j,nlocal,newton_pair, dE, 0.0, dpr1,
-                 pl_ij.dis[0],pl_ij.dis[1],pl_ij.dis[2]);
-      }
+      if (evflag) ev_tally(i,j,nlocal,newton_pair, dE, 0.0, -dpr1,
+                           pl_ij.dis[0],pl_ij.dis[1],pl_ij.dis[2]);
     }
     nlisti = BOP_total2[i];
     for (jj = 0; jj < nlisti; jj++) {
       temp_ij = BOP_index2[i] + jj;
       j = ilist[neigh_index2[temp_ij]];
       j_tag = tag[j];
-      if (j_tag <= i_tag) continue;
+      if (i_tag > j_tag) {
+        if ((i_tag+j_tag) % 2 == 0) continue;
+      } else if (i_tag < j_tag) {
+        if ((i_tag+j_tag) % 2 == 1) continue;
+      } else {
+        if (x[j][2] < x[i][2]) continue;
+        if (x[j][2] == x[i][2] && x[j][1] < x[i][1]) continue;
+        if (x[j][2] == x[i][2] && x[j][1] == x[i][1] && x[j][0] < x[i][0]) continue;
+      }
       PairList2 & p2_ij = pairlist2[temp_ij];
       dpr2 = -p2_ij.dRep / p2_ij.r;
       ftmp1 = dpr2 * p2_ij.dis[0];
@@ -269,10 +283,8 @@ void PairBOP::compute(int eflag, int vflag)
       f[j][1] -= ftmp2;
       f[j][2] -= ftmp3;
       dE = -p2_ij.rep;
-      if (evflag) {
-        ev_tally(i,j,nlocal,newton_pair, dE, 0.0, dpr2,
-                 p2_ij.dis[0],p2_ij.dis[1],p2_ij.dis[2]);
-      }
+      if (evflag) ev_tally(i,j,nlocal,newton_pair, dE, 0.0, -dpr2,
+                           p2_ij.dis[0],p2_ij.dis[1],p2_ij.dis[2]);
     }
   }
   if (vflag_fdotr) virial_fdotr_compute();
@@ -308,9 +320,9 @@ void PairBOP::allocate()
   tripletParameters = new TabularFunction[ntriples];
   memory->create(elem2param,bop_types,bop_types,"BOP:elem2param");
   memory->create(elem3param,bop_types,bop_types,bop_types,"BOP:elem3param");
-  bytes += npairs*sizeof(PairParameters) +
-    ntriples*sizeof(TabularFunction) + bop_types*bop_types*sizeof(int) +
-    bop_types*bop_types*bop_types*sizeof(int);
+  bytes += (double)npairs*sizeof(PairParameters) +
+    (double)ntriples*sizeof(TabularFunction) + square(bop_types)*sizeof(int) +
+    cube(bop_types)*sizeof(int);
 
   memory->create(pi_a,npairs,"BOP:pi_a");
   memory->create(pro_delta,bop_types,"BOP:pro_delta");
@@ -351,16 +363,16 @@ void PairBOP::settings(int narg, char **arg)
 
 void PairBOP::coeff(int narg, char **arg)
 {
-  const int n = atom->ntypes;
-  delete [] map;
-  map = new int[n+1];
+  const int np1 = atom->ntypes+1;
+  delete[] map;
+  map = new int[np1];
   memory->destroy(setflag);
   memory->destroy(cutsq);
   memory->destroy(cutghost);
-  memory->create(setflag,n+1,n+1,"BOP:setflag");
-  memory->create(cutsq,n+1,n+1,"BOP:cutsq");
-  memory->create(cutghost,n+1,n+1,"BOP:cutghost");
-  bytes = (n+1)*(n+1) * (sizeof (int) + 2.0*sizeof (double));
+  memory->create(setflag,np1,np1,"BOP:setflag");
+  memory->create(cutsq,np1,np1,"BOP:cutsq");
+  memory->create(cutghost,np1,np1,"BOP:cutghost");
+  bytes = np1*np1*(sizeof (int) + 2.0*sizeof (double));
 
   map_element2type(narg-3, arg+3);
 
@@ -372,22 +384,23 @@ void PairBOP::coeff(int narg, char **arg)
   // and check for missing elements
 
   if (comm->me == 0) {
-    for (int i = 1; i <= n; i++) {
+    for (int i = 1; i < np1; i++) {
       int j;
       if (map[i] >= 0) {
         for (j = 0; j < bop_types; j++) {
-          if (strcmp(elements[map[i]],bop_elements[j]) == 0) {
+          if (strcmp(elements[map[i]], bop_elements[j]) == 0) {
             map[i] = j;
+            atom->set_mass(FLERR, i, bop_masses[j]);
             break;
           }
         }
         if (j == bop_types)
           error->one(FLERR,"Element {} not found in bop potential file {}",
-                     elements[map[i]],arg[2]);
+                     elements[map[i]], arg[2]);
       }
     }
   }
-  MPI_Bcast(map,atom->ntypes+1,MPI_INT,0,world);
+  MPI_Bcast(map,np1,MPI_INT,0,world);
 }
 
 /* ----------------------------------------------------------------------
@@ -401,18 +414,24 @@ void PairBOP::init_style()
   if (force->newton_pair == 0)
     error->all(FLERR,"Pair style BOP requires newton pair on");
 
+  if (utils::strmatch(force->pair_style,"^hybrid"))
+    error->all(FLERR,"Pair style BOP is not compatible with hybrid pair styles");
+
+  if ((neighbor->style == Neighbor::MULTI) || (neighbor->style == Neighbor::MULTI_OLD))
+    error->all(FLERR,"Pair style BOP is not compatible with multi-cutoff neighbor lists");
+
+  if (comm->mode != Comm::SINGLE)
+    error->all(FLERR,"Pair style BOP is not compatible with multi-cutoff communication");
+
   // check that user sets comm->cutghostuser to 3x the max BOP cutoff
 
-  if (comm->cutghostuser < 3.0*cutmax)
-    error->all(FLERR,"Pair style bop requires a comm ghost cutoff "
+  if (comm->cutghostuser-0.001 < 3.0*cutmax)
+    error->all(FLERR,"Pair style bop requires setting a communication cutoff "
                "of at least {:.4}",3.0*cutmax);
 
   // need a full neighbor list and neighbors of ghosts
 
-  int irequest = neighbor->request(this,instance_me);
-  neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->full = 1;
-  neighbor->requests[irequest]->ghost = 1;
+  neighbor->add_request(this, NeighConst::REQ_FULL | NeighConst::REQ_GHOST);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1128,10 +1147,8 @@ double PairBOP::SigmaBo(int itmp, int jtmp)
         f[bt_i][n] -= ftmp[n];
         f[bt_j][n] += ftmp[n];
       }
-      if (evflag) {
-        ev_tally_xyz(bt_i,bt_j,nlocal,newton_pair,0.0,0.0,
-                     ftmp[0],ftmp[1],ftmp[2],xtmp[0],xtmp[1],xtmp[2]);
-      }
+      if (evflag) ev_tally_xyz(bt_i,bt_j,nlocal,newton_pair,0.0,0.0,
+                               -ftmp[0],-ftmp[1],-ftmp[2],xtmp[0],xtmp[1],xtmp[2]);
     } else {
       for (int n = 0; n < 3; n++) {
         bt_sg[loop].dSigB[n] = dsigB*part2*bt_sg[loop].dSigB1[n] -
@@ -1143,10 +1160,8 @@ double PairBOP::SigmaBo(int itmp, int jtmp)
         f[bt_i][n] -= ftmp[n];
         f[bt_j][n] += ftmp[n];
       }
-      if (evflag) {
-        ev_tally_xyz(bt_i,bt_j,nlocal,newton_pair,0.0,0.0,
-                     ftmp[0],ftmp[1],ftmp[2],xtmp[0],xtmp[1],xtmp[2]);
-      }
+      if (evflag) ev_tally_xyz(bt_i,bt_j,nlocal,newton_pair,0.0,0.0,
+                               -ftmp[0],-ftmp[1],-ftmp[2],xtmp[0],xtmp[1],xtmp[2]);
     }
   }
   return(sigB);
@@ -1827,10 +1842,8 @@ double PairBOP::PiBo(int itmp, int jtmp)
       f[bt_i][n] -= ftmp[n];
       f[bt_j][n] += ftmp[n];
     }
-    if (evflag) {
-      ev_tally_xyz(bt_i,bt_j,nlocal,newton_pair,0.0,0.0,ftmp[0],ftmp[1],
-                   ftmp[2],xtmp[0],xtmp[1],xtmp[2]);
-    }
+    if (evflag) ev_tally_xyz(bt_i,bt_j,nlocal,newton_pair,0.0,0.0,
+                             -ftmp[0],-ftmp[1],-ftmp[2],xtmp[0],xtmp[1],xtmp[2]);
   }
   return(piB);
 }
@@ -1851,9 +1864,10 @@ void PairBOP::read_table(char *filename)
   PotentialFileReader *reader = nullptr;
 
   if (bop_elements) {
-    for (int i = 0; i < bop_types; i++) delete [] bop_elements[i];
-    delete [] bop_elements;
+    for (int i = 0; i < bop_types; i++) delete[] bop_elements[i];
+    delete[] bop_elements;
   }
+  delete[] bop_masses;
 
   if (comm->me == 0) {
     try {
@@ -1864,10 +1878,11 @@ void PairBOP::read_table(char *filename)
                                      "elements",bop_types));
 
       bop_elements = new char*[bop_types];
+      bop_masses = new double[bop_types];
       for (int i=0; i < bop_types; ++i) {
         ValueTokenizer values = reader->next_values(3);
-        values.next_int();      //  element number in PTE (ignored)
-        values.next_double();   //  element mass (ignored)
+        values.next_int();                    //  element number (ignored)
+        bop_masses[i] = values.next_double(); //  element mass
         bop_elements[i] = utils::strdup(values.next_string());
       }
     } catch (TokenizerException &e) {
@@ -1880,8 +1895,12 @@ void PairBOP::read_table(char *filename)
   allocate();
   memory->create(rcut,npairs,"BOP:rcut");
 
-  //  copy element labels to all MPI ranks for use with write_tables()
-  if (comm->me != 0) bop_elements = new char*[bop_types];
+  // copy element labels and masses to all MPI ranks for use with
+  // write_tables() and to set the per-type masses
+  if (comm->me != 0) {
+    bop_elements = new char*[bop_types];
+    bop_masses = new double[bop_types];
+  }
   for (int i = 0; i < bop_types; ++i) {
     int n=0;
     if (comm->me == 0) n = strlen(bop_elements[i])+1;
@@ -1889,6 +1908,7 @@ void PairBOP::read_table(char *filename)
     if (comm->me != 0) bop_elements[i] = new char[n];
     MPI_Bcast(bop_elements[i],n,MPI_CHAR,0,world);
   }
+  MPI_Bcast(bop_masses, bop_types, MPI_DOUBLE, 0, world);
 
   if (comm->me == 0) {
     try {
@@ -2017,7 +2037,7 @@ void PairBOP::read_table(char *filename)
       }
     }
   }
-  delete [] singletable;
+  delete[] singletable;
 
   singletable = new double[nr];
   for (int i = 0; i < npairs; i++) {
@@ -2045,7 +2065,7 @@ void PairBOP::read_table(char *filename)
     p.betaP = new TabularFunction();
     (p.betaP)->set_values(nr, 0.0, rcut[i], singletable);
   }
-  delete [] singletable;
+  delete[] singletable;
 
   singletable = new double[nBOt];
   for (int i = 0; i < npairs; i++) {
@@ -2055,7 +2075,7 @@ void PairBOP::read_table(char *filename)
     p.bo = new TabularFunction();
     (p.bo)->set_values(nBOt, 0.0, 1.0, singletable);
   }
-  delete [] singletable;
+  delete[] singletable;
 
   nbuf = 0;
   for (int i = 0; i < bop_types; i++) {
@@ -2109,7 +2129,7 @@ void PairBOP::read_table(char *filename)
         (p.cphi)->set_values(nr, 0.0, rcut[i], singletable);
       }
     }
-    delete [] singletable;
+    delete[] singletable;
   }
 
   memory->destroy(rcut);

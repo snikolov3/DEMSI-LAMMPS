@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -118,20 +119,20 @@ void PairVashishtaKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   int max_neighs = d_neighbors.extent(1);
 
-  if ((d_neighbors_short_2body.extent(1) != max_neighs) ||
-     (d_neighbors_short_2body.extent(0) != ignum)) {
+  if (((int)d_neighbors_short_2body.extent(1) != max_neighs) ||
+     ((int)d_neighbors_short_2body.extent(0) != ignum)) {
     d_neighbors_short_2body = Kokkos::View<int**,DeviceType>("Vashishta::neighbors_short_2body",ignum,max_neighs);
   }
-  if (d_numneigh_short_2body.extent(0)!=ignum) {
+  if ((int)d_numneigh_short_2body.extent(0)!=ignum) {
     d_numneigh_short_2body = Kokkos::View<int*,DeviceType>("Vashishta::numneighs_short_2body",ignum);
   }
 
-  if ((d_neighbors_short_3body.extent(1) != max_neighs) ||
-     (d_neighbors_short_3body.extent(0) != ignum)) {
+  if (((int)d_neighbors_short_3body.extent(1) != max_neighs) ||
+     ((int)d_neighbors_short_3body.extent(0) != ignum)) {
     d_neighbors_short_3body = Kokkos::View<int**,DeviceType>("Vashishta::neighbors_short_3body",ignum,max_neighs);
   }
 
-  if (d_numneigh_short_3body.extent(0)!=ignum) {
+  if ((int)d_numneigh_short_3body.extent(0)!=ignum) {
     d_numneigh_short_3body = Kokkos::View<int*,DeviceType>("Vashishta::numneighs_short_3body",ignum);
   }
 
@@ -374,7 +375,6 @@ void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeFullA<NE
 
   const int i = d_ilist[ii];
 
-  const tagint itag = tag[i];
   const int itype = d_map[type[i]];
   const X_FLOAT xtmp = x(i,0);
   const X_FLOAT ytmp = x(i,1);
@@ -391,7 +391,6 @@ void PairVashishtaKokkos<DeviceType>::operator()(TagPairVashishtaComputeFullA<NE
   for (int jj = 0; jj < jnum; jj++) {
     int j = d_neighbors_short_2body(i,jj);
     j &= NEIGHMASK;
-    const tagint jtag = tag[j];
 
     const int jtype = d_map[type[j]];
 
@@ -581,29 +580,15 @@ void PairVashishtaKokkos<DeviceType>::init_style()
 {
   PairVashishta::init_style();
 
-  // irequest = neigh request made by parent class
+  // adjust neighbor list request for KOKKOS
 
   neighflag = lmp->kokkos->neighflag;
-  int irequest = neighbor->nrequest - 1;
-
-  neighbor->requests[irequest]->
-    kokkos_host = std::is_same<DeviceType,LMPHostType>::value &&
-    !std::is_same<DeviceType,LMPDeviceType>::value;
-  neighbor->requests[irequest]->
-    kokkos_device = std::is_same<DeviceType,LMPDeviceType>::value;
-
-  // always request a full neighbor list
-
-  if (neighflag == FULL || neighflag == HALF || neighflag == HALFTHREAD) {
-    neighbor->requests[irequest]->full = 1;
-    neighbor->requests[irequest]->half = 0;
-    if (neighflag == FULL)
-      neighbor->requests[irequest]->ghost = 1;
-    else
-      neighbor->requests[irequest]->ghost = 0;
-  } else {
-    error->all(FLERR,"Cannot use chosen neighbor list style with pair vashishta/kk");
-  }
+  auto request = neighbor->find_request(this);
+  request->set_kokkos_host(std::is_same<DeviceType,LMPHostType>::value &&
+                           !std::is_same<DeviceType,LMPDeviceType>::value);
+  request->set_kokkos_device(std::is_same<DeviceType,LMPDeviceType>::value);
+  request->enable_full();
+  if (neighflag == FULL) request->enable_ghost();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -913,7 +898,7 @@ void PairVashishtaKokkos<DeviceType>::ev_tally3(EV_FLOAT &ev, const int &i, cons
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
-void PairVashishtaKokkos<DeviceType>::ev_tally3_atom(EV_FLOAT &ev, const int &i,
+void PairVashishtaKokkos<DeviceType>::ev_tally3_atom(EV_FLOAT & /*ev*/, const int &i,
           const F_FLOAT &evdwl, const F_FLOAT &ecoul,
                      F_FLOAT *fj, F_FLOAT *fk, F_FLOAT *drji, F_FLOAT *drki) const
 {
@@ -944,7 +929,7 @@ void PairVashishtaKokkos<DeviceType>::ev_tally3_atom(EV_FLOAT &ev, const int &i,
 
 namespace LAMMPS_NS {
 template class PairVashishtaKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class PairVashishtaKokkos<LMPHostType>;
 #endif
 }
