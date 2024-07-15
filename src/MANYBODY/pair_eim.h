@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -12,9 +12,9 @@
 ------------------------------------------------------------------------- */
 
 #ifdef PAIR_CLASS
-
-PairStyle(eim,PairEIM)
-
+// clang-format off
+PairStyle(eim,PairEIM);
+// clang-format on
 #else
 
 #ifndef LMP_PAIR_EIM_H
@@ -30,36 +30,35 @@ namespace LAMMPS_NS {
 class PairEIM : public Pair {
  public:
   PairEIM(class LAMMPS *);
-  virtual ~PairEIM();
-  virtual void compute(int, int);
-  void settings(int, char **);
-  void coeff(int, char **);
-  void init_style();
-  double init_one(int, int);
+  ~PairEIM() override;
+  void compute(int, int) override;
+  void settings(int, char **) override;
+  void coeff(int, char **) override;
+  void init_style() override;
+  double init_one(int, int) override;
 
-  int pack_forward_comm(int, int *, double *, int, int *);
-  void unpack_forward_comm(int, int, double *);
-  int pack_reverse_comm(int, int, double *);
-  void unpack_reverse_comm(int, int *, double *);
-  double memory_usage();
+  int pack_forward_comm(int, int *, double *, int, int *) override;
+  void unpack_forward_comm(int, int, double *) override;
+  int pack_reverse_comm(int, int, double *) override;
+  void unpack_reverse_comm(int, int *, double *) override;
+  double memory_usage() override;
 
   struct Setfl {
-    double division,rbig,rsmall;
+    double division, rbig, rsmall;
     int nr;
-    int *ielement,*tp;
-    double *mass,*negativity,*ra,*ri,*Ec,*q0;
-    double *rcutphiA,*rcutphiR,*Eb,*r0,*alpha,*beta,
-           *rcutq,*Asigma,*rq,*rcutsigma,*Ac,*zeta,
-           *rs;
-    double dr,cut;
-    double ***Fij,***Gij,***phiij;
+    int *ielement, *tp;
+    double *mass, *negativity, *ra, *ri, *Ec, *q0;
+    double *rcutphiA, *rcutphiR, *Eb, *r0, *alpha, *beta, *rcutq, *Asigma, *rq, *rcutsigma, *Ac,
+        *zeta, *rs;
+    double dr, cut;
+    double ***Fij, ***Gij, ***phiij;
     double **cuts;
   };
 
  protected:
-  double **cutforcesq,cutmax;
+  double **cutforcesq, cutmax;
   int nmax;
-  double *rho,*fp;
+  double *rho, *fp;
   int rhofp;
 
   Setfl *setfl;
@@ -67,15 +66,15 @@ class PairEIM : public Pair {
   // potentials as array data
 
   int nr;
-  int nFij,nGij,nphiij;
-  double **Fij,**Gij,**phiij;
-  int **type2Fij,**type2Gij,**type2phiij;
+  int nFij, nGij, nphiij;
+  double **Fij, **Gij, **phiij;
+  int **type2Fij, **type2Gij, **type2phiij;
 
   // potentials in spline form used for force computation
 
-  double dr,rdr;
-  double *negativity,*q0;
-  double ***Fij_spline,***Gij_spline,***phiij_spline;
+  double dr, rdr;
+  double *negativity, *q0;
+  double ***Fij_spline, ***Gij_spline, ***phiij_spline;
 
   void allocate();
   void array2spline();
@@ -99,19 +98,17 @@ class EIMPotentialFileReader : protected Pointers {
 
   void parse(FILE *fp);
   char *next_line(FILE *fp);
-  std::pair<std::string, std::string> get_pair(const std::string &a,
-                                               const std::string &b);
+  std::pair<std::string, std::string> get_pair(const std::string &a, const std::string &b);
 
-public:
-  EIMPotentialFileReader(class LAMMPS* lmp, const std::string &filename,
-                         const int auto_convert=0);
+ public:
+  EIMPotentialFileReader(class LAMMPS *lmp, const std::string &filename,
+                         const int auto_convert = 0);
 
   void get_global(PairEIM::Setfl *setfl);
   void get_element(PairEIM::Setfl *setfl, int i, const std::string &name);
-  void get_pair(PairEIM::Setfl *setfl, int ij,
-                const std::string &elemA, const std::string &elemB);
+  void get_pair(PairEIM::Setfl *setfl, int ij, const std::string &elemA, const std::string &elemB);
 
-private:
+ private:
   // potential parameters
   double division;
   double rbig;
@@ -145,41 +142,10 @@ private:
   };
 
   std::map<std::string, ElementData> elements;
-  std::map<std::pair<std::string,std::string>, PairData> pairs;
+  std::map<std::pair<std::string, std::string>, PairData> pairs;
 };
 
-}
+}    // namespace LAMMPS_NS
 
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Illegal ... command
-
-Self-explanatory.  Check the input script syntax and compare to the
-documentation for the command.  You can use -echo screen as a
-command-line option when running LAMMPS to see the offending line.
-
-E: Incorrect args for pair coefficients
-
-Self-explanatory.  Check the input script or data file.
-
-E: Cannot open EIM potential file %s
-
-The specified EIM potential file cannot be opened.  Check that the
-path and name are correct.
-
-E: Could not grab global entry from EIM potential file
-
-Self-explanatory.
-
-E: Could not grab element entry from EIM potential file
-
-Self-explanatory
-
-E: Could not grab pair entry from EIM potential file
-
-Self-explanatory.
-
-*/

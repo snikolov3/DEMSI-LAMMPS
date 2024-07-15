@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -65,8 +66,8 @@ double ComputeERotateRigid::compute_scalar()
 
   if (strncmp(modify->fix[irfix]->style,"rigid",5) == 0) {
     if (strstr(modify->fix[irfix]->style,"/small")) {
-      scalar = ((FixRigidSmall *) modify->fix[irfix])->extract_erotational();
-    } else scalar = ((FixRigid *) modify->fix[irfix])->extract_erotational();
+      scalar = (dynamic_cast<FixRigidSmall *>(modify->fix[irfix]))->extract_erotational();
+    } else scalar = (dynamic_cast<FixRigid *>(modify->fix[irfix]))->extract_erotational();
   }
   scalar *= force->mvv2e;
   return scalar;

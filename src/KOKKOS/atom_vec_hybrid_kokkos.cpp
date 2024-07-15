@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -252,51 +253,51 @@ void AtomVecHybridKokkos::force_clear(int n, size_t nbytes)
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecHybridKokkos::pack_comm_kokkos(const int &n, const DAT::tdual_int_2d &k_sendlist,
-                     const int & iswap,
-                     const DAT::tdual_xfloat_2d &buf,
-                     const int &pbc_flag, const int pbc[])
+int AtomVecHybridKokkos::pack_comm_kokkos(const int &/*n*/, const DAT::tdual_int_2d &/*k_sendlist*/,
+                                          const int & /*iswap*/,
+                                          const DAT::tdual_xfloat_2d &/*buf*/,
+                                          const int &/*pbc_flag*/, const int pbc[])
 {
   error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
   return 0;
 }
-void AtomVecHybridKokkos::unpack_comm_kokkos(const int &n, const int &nfirst,
-                        const DAT::tdual_xfloat_2d &buf)
+void AtomVecHybridKokkos::unpack_comm_kokkos(const int &/*n*/, const int &/*nfirst*/,
+                                             const DAT::tdual_xfloat_2d &/*buf*/)
 {
   error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
 }
-int AtomVecHybridKokkos::pack_comm_self(const int &n, const DAT::tdual_int_2d &list,
-                   const int & iswap, const int nfirst,
-                   const int &pbc_flag, const int pbc[])
-{
-  error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
-  return 0;
-}
-int AtomVecHybridKokkos::pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist,
-                       DAT::tdual_xfloat_2d buf,int iswap,
-                       int pbc_flag, int *pbc, ExecutionSpace space)
+int AtomVecHybridKokkos::pack_comm_self(const int &/*n*/, const DAT::tdual_int_2d &/*list*/,
+                                        const int & /*iswap*/, const int /*nfirst*/,
+                                        const int &/*pbc_flag*/, const int pbc[])
 {
   error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
   return 0;
 }
-void AtomVecHybridKokkos::unpack_border_kokkos(const int &n, const int &nfirst,
-                          const DAT::tdual_xfloat_2d &buf,
-                          ExecutionSpace space)
-{
-  error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
-}
-int AtomVecHybridKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &buf,
-                         DAT::tdual_int_1d k_sendlist,
-                         DAT::tdual_int_1d k_copylist,
-                         ExecutionSpace space, int dim,
-                         X_FLOAT lo, X_FLOAT hi)
+int AtomVecHybridKokkos::pack_border_kokkos(int /*n*/, DAT::tdual_int_2d /*k_sendlist*/,
+                                            DAT::tdual_xfloat_2d /*buf*/,int /*iswap*/,
+                                            int /*pbc_flag*/, int * /*pbc*/, ExecutionSpace /*space*/)
 {
   error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
   return 0;
 }
-int AtomVecHybridKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv,
-                           int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,
-                           ExecutionSpace space)
+void AtomVecHybridKokkos::unpack_border_kokkos(const int &/*n*/, const int &/*nfirst*/,
+                                               const DAT::tdual_xfloat_2d &/*buf*/,
+                                               ExecutionSpace /*space*/)
+{
+  error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
+}
+int AtomVecHybridKokkos::pack_exchange_kokkos(const int &/*nsend*/,DAT::tdual_xfloat_2d &/*buf*/,
+                                              DAT::tdual_int_1d /*k_sendlist*/,
+                                              DAT::tdual_int_1d /*k_copylist*/,
+                                              ExecutionSpace /*space*/, int /*dim*/,
+                                              X_FLOAT /*lo*/, X_FLOAT /*hi*/)
+{
+  error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
+  return 0;
+}
+int AtomVecHybridKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d & /*k_buf*/, int /*nrecv*/,
+                                                int /*nlocal*/, int /*dim*/, X_FLOAT /*lo*/,
+                                                X_FLOAT /*hi*/, ExecutionSpace /*space*/)
 {
   error->all(FLERR,"AtomVecHybridKokkos doesn't yet support threaded comm");
   return 0;
@@ -969,7 +970,8 @@ void AtomVecHybridKokkos::create_atom(int itype, double *coord)
    grow() occurs here so arrays for all sub-styles are grown
 ------------------------------------------------------------------------- */
 
-void AtomVecHybridKokkos::data_atom(double *coord, imageint imagetmp, char **values)
+void AtomVecHybridKokkos::data_atom(double *coord, imageint imagetmp,
+                                    const std::vector<std::string> &values, std::string &extract)
 {
   atomKK->sync(Host,X_MASK|TAG_MASK|TYPE_MASK|IMAGE_MASK|MASK_MASK|V_MASK|OMEGA_MASK/*|ANGMOM_MASK*/);
 
@@ -978,6 +980,7 @@ void AtomVecHybridKokkos::data_atom(double *coord, imageint imagetmp, char **val
 
   h_tag[nlocal] = utils::tnumeric(FLERR,values[0],true,lmp);
   h_type[nlocal] = utils::inumeric(FLERR,values[1],true,lmp);
+  extract = values[1];
   if (h_type[nlocal] <= 0 || h_type[nlocal] > atom->ntypes)
     error->one(FLERR,"Invalid atom h_type in Atoms section of data file");
 
@@ -1008,7 +1011,7 @@ void AtomVecHybridKokkos::data_atom(double *coord, imageint imagetmp, char **val
 
   int m = 5;
   for (int k = 0; k < nstyles; k++)
-    m += styles[k]->data_atom_hybrid(nlocal,&values[m]);
+    m += styles[k]->data_atom_hybrid(nlocal,values,m);
 
   atom->nlocal++;
 }
@@ -1017,21 +1020,21 @@ void AtomVecHybridKokkos::data_atom(double *coord, imageint imagetmp, char **val
    unpack one line from Velocities section of data file
 ------------------------------------------------------------------------- */
 
-void AtomVecHybridKokkos::data_vel(int m, char **values)
+void AtomVecHybridKokkos::data_vel(int m, const std::vector<std::string> &values)
 {
   atomKK->sync(Host,V_MASK);
 
-  h_v(m,0) = utils::numeric(FLERR,values[0],true,lmp);
-  h_v(m,1) = utils::numeric(FLERR,values[1],true,lmp);
-  h_v(m,2) = utils::numeric(FLERR,values[2],true,lmp);
+  int ivalue = 1;
+  h_v(m,0) = utils::numeric(FLERR,values[ivalue++],true,lmp);
+  h_v(m,1) = utils::numeric(FLERR,values[ivalue++],true,lmp);
+  h_v(m,2) = utils::numeric(FLERR,values[ivalue++],true,lmp);
 
   atomKK->modified(Host,V_MASK);
 
   // each sub-style parses sub-style specific values
 
-  int n = 3;
   for (int k = 0; k < nstyles; k++)
-    n += styles[k]->data_vel_hybrid(m,&values[n]);
+    ivalue += styles[k]->data_vel_hybrid(m,values,ivalue);
 }
 
 /* ----------------------------------------------------------------------
@@ -1071,17 +1074,14 @@ void AtomVecHybridKokkos::write_data(FILE *fp, int n, double **buf)
   int k,m;
 
   for (int i = 0; i < n; i++) {
-    fprintf(fp,TAGINT_FORMAT " %d %-1.16e %-1.16e %-1.16e",
-            (tagint) ubuf(buf[i][0]).i,(int) ubuf(buf[i][1]).i,
-            buf[i][2],buf[i][3],buf[i][4]);
+    fmt::print(fp,"{} {} {:.16e} {:.16e} {:.16e}", ubuf(buf[i][0]).i, ubuf(buf[i][1]).i,
+               buf[i][2], buf[i][3], buf[i][4]);
 
     m = 5;
     for (k = 0; k < nstyles; k++)
       m += styles[k]->write_data_hybrid(fp,&buf[i][m]);
 
-    fprintf(fp," %d %d %d\n",
-            (int) ubuf(buf[i][m]).i,(int) ubuf(buf[i][m+1]).i,
-            (int) ubuf(buf[i][m+2]).i);
+    fmt::print(fp," {} {} {}\n", ubuf(buf[i][m]).i, ubuf(buf[i][m+1]).i, ubuf(buf[i][m+2]).i);
   }
 }
 
@@ -1117,8 +1117,7 @@ void AtomVecHybridKokkos::write_vel(FILE *fp, int n, double **buf)
   int k,m;
 
   for (int i = 0; i < n; i++) {
-    fprintf(fp,TAGINT_FORMAT " %g %g %g",
-            (tagint) ubuf(buf[i][0]).i,buf[i][1],buf[i][2],buf[i][3]);
+    fmt::print(fp,"{} {} {} {}", (tagint) ubuf(buf[i][0]).i,buf[i][1],buf[i][2],buf[i][3]);
 
     m = 4;
     for (k = 0; k < nstyles; k++)
@@ -1134,7 +1133,7 @@ void AtomVecHybridKokkos::write_vel(FILE *fp, int n, double **buf)
    return -1 if name is unknown to any sub-styles
 ------------------------------------------------------------------------- */
 
-int AtomVecHybridKokkos::property_atom(char *name)
+int AtomVecHybridKokkos::property_atom(const std::string &name)
 {
   for (int k = 0; k < nstyles; k++) {
     int index = styles[k]->property_atom(name);
@@ -1148,8 +1147,7 @@ int AtomVecHybridKokkos::property_atom(char *name)
    index maps to data specific to this atom style
 ------------------------------------------------------------------------- */
 
-void AtomVecHybridKokkos::pack_property_atom(int multiindex, double *buf,
-                                       int nvalues, int groupbit)
+void AtomVecHybridKokkos::pack_property_atom(int multiindex, double *buf, int nvalues, int groupbit)
 {
   int k = multiindex % nstyles;
   int index = multiindex/nstyles;

@@ -56,10 +56,11 @@ Commands
    kspace_modify
    kspace_style
    label
+   labelmap
    lattice
    log
    mass
-   message
+   mdi
    min_modify
    min_spin
    min_style
@@ -95,9 +96,6 @@ Commands
    restart
    run
    run_style
-   server
-   server_mc
-   server_md
    set
    shell
    special_bonds

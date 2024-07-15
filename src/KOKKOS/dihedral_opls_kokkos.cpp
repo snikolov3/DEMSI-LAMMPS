@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -127,7 +128,7 @@ void DihedralOPLSKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   k_warning_flag.template modify<DeviceType>();
   k_warning_flag.template sync<LMPHostType>();
   if (h_warning_flag())
-    error->warning(FLERR,"Dihedral problem",0);
+    error->warning(FLERR,"Dihedral problem");
 
   if (eflag_global) energy += ev.evdwl;
   if (vflag_global) {
@@ -242,7 +243,7 @@ void DihedralOPLSKokkos<DeviceType>::operator()(TagDihedralOPLSCompute<NEWTON_BO
   // error check
 
   if ((c > 1.0 + TOLERANCE || c < (-1.0 - TOLERANCE)) && !d_warning_flag())
-    Kokkos::atomic_fetch_add(&d_warning_flag(),1);
+    d_warning_flag() = 1;
 
   if (c > 1.0) c = 1.0;
   if (c < -1.0) c = -1.0;
@@ -536,7 +537,7 @@ void DihedralOPLSKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, const 
 
 namespace LAMMPS_NS {
 template class DihedralOPLSKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class DihedralOPLSKokkos<LMPHostType>;
 #endif
 }

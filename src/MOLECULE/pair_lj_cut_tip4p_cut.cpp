@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -489,23 +490,29 @@ void PairLJCutTIP4PCut::init_style()
   if (atom->tag_enable == 0)
     error->all(FLERR,"Pair style lj/cut/tip4p/cut requires atom IDs");
   if (!force->newton_pair)
-    error->all(FLERR,
-               "Pair style lj/cut/tip4p/cut requires newton pair on");
+    error->all(FLERR,"Pair style lj/cut/tip4p/cut requires newton pair on");
   if (!atom->q_flag)
-    error->all(FLERR,
-               "Pair style lj/cut/tip4p/cut requires atom attribute q");
+    error->all(FLERR,"Pair style lj/cut/tip4p/cut requires atom attribute q");
   if (force->bond == nullptr)
     error->all(FLERR,"Must use a bond style with TIP4P potential");
   if (force->angle == nullptr)
     error->all(FLERR,"Must use an angle style with TIP4P potential");
 
-  neighbor->request(this,instance_me);
+  neighbor->add_request(this);
 
   // set alpha parameter
 
-  double theta = force->angle->equilibrium_angle(typeA);
-  double blen = force->bond->equilibrium_distance(typeB);
+  const double theta = force->angle->equilibrium_angle(typeA);
+  const double blen = force->bond->equilibrium_distance(typeB);
   alpha = qdist / (cos(0.5*theta) * blen);
+
+  const double mincut = cut_coul + qdist + blen + neighbor->skin;
+  if (comm->get_comm_cutoff() < mincut) {
+    if (comm->me == 0)
+      error->warning(FLERR, "Increasing communication cutoff to {:.8} for TIP4P pair style",
+                     mincut);
+    comm->cutghostuser = mincut;
+  }
 }
 
 /* ----------------------------------------------------------------------

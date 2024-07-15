@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -14,9 +15,11 @@
 #include "compute_dipole_chunk.h"
 
 #include "atom.h"
+#include "comm.h"
 #include "compute_chunk_atom.h"
 #include "domain.h"
 #include "error.h"
+#include "force.h"
 #include "math_special.h"
 #include "memory.h"
 #include "modify.h"
@@ -59,7 +62,7 @@ ComputeDipoleChunk::ComputeDipoleChunk(LAMMPS *lmp, int narg, char **arg) :
     else error->all(FLERR,"Illegal compute dipole/chunk command");
   }
 
-  init();
+  ComputeDipoleChunk::init();
 
   // chunk-based data
 
@@ -91,9 +94,13 @@ void ComputeDipoleChunk::init()
   if (icompute < 0)
     error->all(FLERR,"Chunk/atom compute does not exist for "
                "compute dipole/chunk");
-  cchunk = (ComputeChunkAtom *) modify->compute[icompute];
+  cchunk = dynamic_cast<ComputeChunkAtom *>(modify->compute[icompute]);
   if (strcmp(cchunk->style,"chunk/atom") != 0)
     error->all(FLERR,"Compute dipole/chunk does not use chunk/atom compute");
+
+  if ((force->pair_match("/tip4p/",0) != nullptr) && (comm->me == 0))
+    error->warning(FLERR,"Computed dipole moments may be incorrect when "
+                   "using a tip4p pair style");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -225,7 +232,7 @@ void ComputeDipoleChunk::lock_disable()
 {
   int icompute = modify->find_compute(idchunk);
   if (icompute >= 0) {
-    cchunk = (ComputeChunkAtom *) modify->compute[icompute];
+    cchunk = dynamic_cast<ComputeChunkAtom *>(modify->compute[icompute]);
     cchunk->lockcount--;
   }
 }

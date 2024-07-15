@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -18,9 +18,9 @@
 #ifdef LAMMPS_ZSTD
 
 #ifdef DUMP_CLASS
-
-DumpStyle(custom/zstd,DumpCustomZstd)
-
+// clang-format off
+DumpStyle(custom/zstd,DumpCustomZstd);
+// clang-format on
 #else
 
 #ifndef LMP_DUMP_CUSTOM_ZSTD_H
@@ -28,40 +28,26 @@ DumpStyle(custom/zstd,DumpCustomZstd)
 
 #include "dump_custom.h"
 #include "zstd_file_writer.h"
-#include <stdio.h>
 
 namespace LAMMPS_NS {
 
 class DumpCustomZstd : public DumpCustom {
  public:
   DumpCustomZstd(class LAMMPS *, int, char **);
-  virtual ~DumpCustomZstd();
 
  protected:
   ZstdFileWriter writer;
 
-  virtual void openfile();
-  virtual void write_header(bigint);
-  virtual void write_data(int, double *);
-  virtual void write();
+  void openfile() override;
+  void write_header(bigint) override;
+  void write_data(int, double *) override;
+  void write() override;
 
-  virtual int modify_param(int, char **);
+  int modify_param(int, char **) override;
 };
 
-}
+}    // namespace LAMMPS_NS
 
 #endif
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Dump custom/zstd only writes compressed files
-
-The dump custom/zstd output file name must have a .zst suffix.
-
-E: Cannot open dump file
-
-Self-explanatory.
-
-*/

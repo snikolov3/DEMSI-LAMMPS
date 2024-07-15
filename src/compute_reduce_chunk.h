@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -12,9 +12,9 @@
 ------------------------------------------------------------------------- */
 
 #ifdef COMPUTE_CLASS
-
-ComputeStyle(reduce/chunk,ComputeReduceChunk)
-
+// clang-format off
+ComputeStyle(reduce/chunk,ComputeReduceChunk);
+// clang-format on
 #else
 
 #ifndef LMP_COMPUTE_REDUCE_CHUNK_H
@@ -27,30 +27,39 @@ namespace LAMMPS_NS {
 class ComputeReduceChunk : public Compute {
  public:
   ComputeReduceChunk(class LAMMPS *, int, char **);
-  ~ComputeReduceChunk();
-  void init();
-  void compute_vector();
-  void compute_array();
+  ~ComputeReduceChunk() override;
+  void init() override;
+  void compute_vector() override;
+  void compute_array() override;
 
-  void lock_enable();
-  void lock_disable();
-  int lock_length();
-  void lock(class Fix *, bigint, bigint);
-  void unlock(class Fix *);
+  void lock_enable() override;
+  void lock_disable() override;
+  int lock_length() override;
+  void lock(class Fix *, bigint, bigint) override;
+  void unlock(class Fix *) override;
 
-  double memory_usage();
+  double memory_usage() override;
 
  private:
-  int mode,nvalues;
-  int *which,*argindex,*value2index;
-  char *idchunk;
-  char **ids;
+  struct value_t {
+    int which;
+    int argindex;
+    std::string id;
+    union {
+      class Compute *c;
+      class Fix *f;
+      int v;
+    } val;
+  };
+  std::vector<value_t> values;
 
-  int nchunk;
-  int maxchunk,maxatom;
+  char *idchunk;
+
+  int mode, nchunk;
+  int maxchunk, maxatom;
   double initvalue;
-  double *vlocal,*vglobal;
-  double **alocal,**aglobal;
+  double *vlocal, *vglobal;
+  double **alocal, **aglobal;
   double *varatom;
 
   class ComputeChunkAtom *cchunk;
@@ -60,18 +69,6 @@ class ComputeReduceChunk : public Compute {
   void compute_one(int, double *, int);
   void combine(double &, double);
 };
-
-}
-
+}    // namespace LAMMPS_NS
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Illegal ... command
-
-Self-explanatory.  Check the input script syntax and compare to the
-documentation for the command.  You can use -echo screen as a
-command-line option when running LAMMPS to see the offending line.
-
-*/

@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -98,7 +99,7 @@ FixEOStableRXKokkos<DeviceType>::~FixEOStableRXKokkos()
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixEOStableRXKokkos<DeviceType>::setup(int vflag)
+void FixEOStableRXKokkos<DeviceType>::setup(int /*vflag*/)
 {
   if (update_table)
     create_kokkos_tables();
@@ -124,7 +125,7 @@ void FixEOStableRXKokkos<DeviceType>::setup(int vflag)
 
   // Communicate the updated momenta and velocities to all nodes
   atomKK->sync(Host,UCHEM_MASK | UCG_MASK | UCGNEW_MASK);
-  comm->forward_comm_fix(this);
+  comm->forward_comm(this);
   atomKK->modified(Host,UCHEM_MASK | UCG_MASK | UCGNEW_MASK);
 
   atomKK->sync(execution_space,MASK_MASK | UCOND_MASK | UMECH_MASK | UCHEM_MASK | DPDTHETA_MASK | DVECTOR_MASK);
@@ -264,7 +265,7 @@ void FixEOStableRXKokkos<DeviceType>::end_of_step()
 
   // Communicate the ghost uCGnew
   atomKK->sync(Host,UCG_MASK | UCGNEW_MASK);
-  comm->reverse_comm_fix(this);
+  comm->reverse_comm(this);
   atomKK->modified(Host,UCG_MASK | UCGNEW_MASK);
 
   atomKK->sync(execution_space,MASK_MASK | UCHEM_MASK | UCG_MASK | UCGNEW_MASK);
@@ -273,7 +274,7 @@ void FixEOStableRXKokkos<DeviceType>::end_of_step()
 
   // Communicate the updated momenta and velocities to all nodes
   atomKK->sync(Host,UCHEM_MASK | UCG_MASK | UCGNEW_MASK);
-  comm->forward_comm_fix(this);
+  comm->forward_comm(this);
   atomKK->modified(Host,UCHEM_MASK | UCG_MASK | UCGNEW_MASK);
 
   atomKK->sync(execution_space,MASK_MASK | UCOND_MASK | UMECH_MASK | UCHEM_MASK | DPDTHETA_MASK | DVECTOR_MASK);
@@ -411,7 +412,7 @@ void FixEOStableRXKokkos<DeviceType>::temperature_lookup(int id, double ui, doub
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-int FixEOStableRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int pbc_flag, int *pbc)
+int FixEOStableRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
 {
   int ii,jj,m;
   HAT::t_efloat_1d h_uChem = atomKK->k_uChem.h_view;
@@ -560,7 +561,7 @@ void FixEOStableRXKokkos<DeviceType>::create_kokkos_tables()
 
 namespace LAMMPS_NS {
 template class FixEOStableRXKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class FixEOStableRXKokkos<LMPHostType>;
 #endif
 }

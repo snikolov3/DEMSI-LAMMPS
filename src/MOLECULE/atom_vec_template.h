@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -12,9 +12,9 @@
 ------------------------------------------------------------------------- */
 
 #ifdef ATOM_CLASS
-
-AtomStyle(template,AtomVecTemplate)
-
+// clang-format off
+AtomStyle(template,AtomVecTemplate);
+// clang-format on
 #else
 
 #ifndef LMP_ATOM_VEC_TEMPLATE_H
@@ -28,46 +28,18 @@ class AtomVecTemplate : public AtomVec {
  public:
   AtomVecTemplate(class LAMMPS *);
 
-  void grow_pointers();
-  void process_args(int, char **);
-  void create_atom_post(int);
-  void pack_data_pre(int);
-  void pack_data_post(int);
-  void data_atom_post(int);
+  void grow_pointers() override;
+  void process_args(int, char **) override;
+  void create_atom_post(int) override;
+  void pack_data_pre(int) override;
+  void pack_data_post(int) override;
+  void data_atom_post(int) override;
 
  private:
-  int *molindex,*molatom;
+  int *molindex, *molatom;
 };
 
-}
+}    // namespace LAMMPS_NS
 
 #endif
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Illegal ... command
-
-Self-explanatory.  Check the input script syntax and compare to the
-documentation for the command.  You can use -echo screen as a
-command-line option when running LAMMPS to see the offending line.
-
-E: Molecule template ID for atom_style template does not exist
-
-Self-explanatory.
-
-E: Atom style template molecule must have atom types
-
-The defined molecule(s) does not specify atom types.
-
-E: Invalid template index in Atoms section of data file
-
-The template indices must be between 1 to N, where N is the number of
-molecules in the template.
-
-E: Invalid template atom in Atoms section of data file
-
-The atom indices must be between 1 to N, where N is the number of
-atoms in the template molecule the atom belongs to.
-
-*/

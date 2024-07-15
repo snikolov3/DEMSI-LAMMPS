@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -46,14 +47,16 @@ void Replicate::command(int narg, char **arg)
   int me = comm->me;
   int nprocs = comm->nprocs;
 
-  if (me == 0 && screen) fprintf(screen,"Replicating atoms ...\n");
-
   // nrep = total # of replications
 
   int nx = utils::inumeric(FLERR,arg[0],false,lmp);
   int ny = utils::inumeric(FLERR,arg[1],false,lmp);
   int nz = utils::inumeric(FLERR,arg[2],false,lmp);
   int nrep = nx*ny*nz;
+
+  if (me == 0)
+    utils::logmesg(lmp, "Replication is creating a {}x{}x{} = {} times larger system...\n",
+                   nx, ny, nz, nrep);
 
   int bbox_flag = 0;
   if (narg == 4)
@@ -78,7 +81,7 @@ void Replicate::command(int narg, char **arg)
   // record wall time for atom replication
 
   MPI_Barrier(world);
-  double time1 = MPI_Wtime();
+  double time1 = platform::walltime();
 
   // maxtag = largest atom tag across all existing atoms
 
@@ -361,12 +364,14 @@ void Replicate::command(int narg, char **arg)
     int size_buf_all = 0;
     MPI_Allreduce(&n, &size_buf_all, 1, MPI_INT, MPI_SUM, world);
 
-    if (me == 0 && screen) {
-      fmt::print(screen,"  bounding box image = ({} {} {}) to ({} {} {})\n",
-              _imagelo[0],_imagelo[1],_imagelo[2],
-              _imagehi[0],_imagehi[1],_imagehi[2]);
-      fmt::print(screen,"  bounding box extra memory = {:.2f} MB\n",
-              (double)size_buf_all*sizeof(double)/1024/1024);
+    if (me == 0) {
+      auto mesg = fmt::format("  bounding box image = ({} {} {}) "
+                              "to ({} {} {})\n",
+                              _imagelo[0],_imagelo[1],_imagelo[2],
+                              _imagehi[0],_imagehi[1],_imagehi[2]);
+      mesg += fmt::format("  bounding box extra memory = {:.2f} MB\n",
+                          (double)size_buf_all*sizeof(double)/1024/1024);
+      utils::logmesg(lmp,mesg);
     }
 
     // rnk offsets
@@ -796,5 +801,5 @@ void Replicate::command(int narg, char **arg)
   MPI_Barrier(world);
 
   if (me == 0)
-    utils::logmesg(lmp,"  replicate CPU = {:.3f} seconds\n",MPI_Wtime()-time1);
+    utils::logmesg(lmp,"  replicate CPU = {:.3f} seconds\n",platform::walltime()-time1);
 }

@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -60,14 +61,14 @@ NBinKokkos<DeviceType>::NBinKokkos(LAMMPS *lmp) : NBinStandard(lmp) {
 template<class DeviceType>
 void NBinKokkos<DeviceType>::bin_atoms_setup(int nall)
 {
-  if (mbins > k_bins.d_view.extent(0)) {
+  if (mbins > (int)k_bins.d_view.extent(0)) {
     k_bins = DAT::tdual_int_2d("Neighbor::d_bins",mbins,atoms_per_bin);
     bins = k_bins.view<DeviceType>();
 
     k_bincount = DAT::tdual_int_1d("Neighbor::d_bincount",mbins);
     bincount = k_bincount.view<DeviceType>();
   }
-  if (nall > k_atom2bin.d_view.extent(0)) {
+  if (nall > (int)k_atom2bin.d_view.extent(0)) {
     k_atom2bin = DAT::tdual_int_1d("Neighbor::d_atom2bin",nall);
     atom2bin = k_atom2bin.view<DeviceType>();
   }
@@ -140,7 +141,7 @@ void NBinKokkos<DeviceType>::binatomsItem(const int &i) const
 
 namespace LAMMPS_NS {
 template class NBinKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class NBinKokkos<LMPHostType>;
 #endif
 }

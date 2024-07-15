@@ -35,11 +35,11 @@ Coulombics.  It has the following general features:
 
 To compile and use this package in CUDA mode, you currently need
 to have an NVIDIA GPU and install the corresponding NVIDIA CUDA
-toolkit software on your system (this is primarily tested on Linux
-and completely unsupported on Windows):
+toolkit software on your system (this is only tested on Linux
+and unsupported on Windows):
 
 * Check if you have an NVIDIA GPU: cat /proc/driver/nvidia/gpus/\*/information
-* Go to http://www.nvidia.com/object/cuda_get.html
+* Go to https://developer.nvidia.com/cuda-downloads
 * Install a driver and toolkit appropriate for your system (SDK is not necessary)
 * Run lammps/lib/gpu/nvc_get_devices (after building the GPU library, see below) to
   list supported devices and properties
@@ -71,15 +71,16 @@ by AMD.
 
 **Building LAMMPS with the GPU package:**
 
-See the :ref:`Build extras <gpu>` doc page for
+See the :ref:`Build extras <gpu>` page for
 instructions.
 
 **Run with the GPU package from the command line:**
 
-The mpirun or mpiexec command sets the total number of MPI tasks used
-by LAMMPS (one or multiple per compute node) and the number of MPI
-tasks used per node.  E.g. the mpirun command in MPICH does this via
-its -np and -ppn switches.  Ditto for OpenMPI via -np and -npernode.
+The ``mpirun`` or ``mpiexec`` command sets the total number of MPI tasks
+used by LAMMPS (one or multiple per compute node) and the number of MPI
+tasks used per node.  E.g. the ``mpirun`` command in MPICH does this via
+its ``-np`` and ``-ppn`` switches.  Ditto for OpenMPI via ``-np`` and
+``-npernode``.
 
 When using the GPU package, you cannot assign more than one GPU to a
 single MPI task.  However multiple MPI tasks can share the same GPU,
@@ -118,7 +119,7 @@ automatic selection of the number of GPUs to use.
 Using the "-pk" switch explicitly allows for setting of the number of
 GPUs/node to use and additional options.  Its syntax is the same as
 the "package gpu" command.  See the :doc:`package <package>`
-command doc page for details, including the default values used for
+command page for details, including the default values used for
 all its options if it is not specified.
 
 Note that the default for the :doc:`package gpu <package>` command is to
@@ -129,8 +130,8 @@ GPU package pair styles.
 
 **Or run with the GPU package by editing an input script:**
 
-The discussion above for the mpirun/mpiexec command, MPI tasks/node,
-and use of multiple MPI tasks/GPU is the same.
+The discussion above for the ``mpirun`` or ``mpiexec`` command, MPI
+tasks/node, and use of multiple MPI tasks/GPU is the same.
 
 Use the :doc:`suffix gpu <suffix>` command, or you can explicitly add an
 "gpu" suffix to individual styles in your input script, e.g.
@@ -150,10 +151,10 @@ hardware, which pair style is used, the number of atoms/GPU, and the
 precision used on the GPU (double, single, mixed). Using the GPU package
 in OpenCL mode on CPUs (which uses vectorization and multithreading) is
 usually resulting in inferior performance compared to using LAMMPS' native
-threading and vectorization support in the USER-OMP and USER-INTEL packages.
+threading and vectorization support in the OPENMP and INTEL packages.
 
-See the `Benchmark page <https://lammps.sandia.gov/bench.html>`_ of the
-LAMMPS web site for performance of the GPU package on various
+See the `Benchmark page <https://www.lammps.org/bench.html>`_ of the
+LAMMPS website for performance of the GPU package on various
 hardware, including the Titan HPC platform at ORNL.
 
 You should also experiment with how many MPI tasks per GPU to use to
@@ -182,7 +183,7 @@ deterministic results.
   calculations can be dynamically balanced across the CPU cores and
   GPUs.  GPU-specific settings can be made which can be optimized
   for different hardware.  See the :doc:`package <package>` command
-  doc page for details.
+  page for details.
 * As described by the :doc:`package gpu <package>` command, GPU
   accelerated pair styles can perform computations asynchronously with
   CPU computations. The "Pair" time reported by LAMMPS will be the

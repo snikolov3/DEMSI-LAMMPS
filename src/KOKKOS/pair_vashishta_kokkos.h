@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -12,13 +12,14 @@
 ------------------------------------------------------------------------- */
 
 #ifdef PAIR_CLASS
-
-PairStyle(vashishta/kk,PairVashishtaKokkos<LMPDeviceType>)
-PairStyle(vashishta/kk/device,PairVashishtaKokkos<LMPDeviceType>)
-PairStyle(vashishta/kk/host,PairVashishtaKokkos<LMPHostType>)
-
+// clang-format off
+PairStyle(vashishta/kk,PairVashishtaKokkos<LMPDeviceType>);
+PairStyle(vashishta/kk/device,PairVashishtaKokkos<LMPDeviceType>);
+PairStyle(vashishta/kk/host,PairVashishtaKokkos<LMPHostType>);
+// clang-format on
 #else
 
+// clang-format off
 #ifndef LMP_PAIR_VASHISHTA_KOKKOS_H
 #define LMP_PAIR_VASHISHTA_KOKKOS_H
 
@@ -48,10 +49,10 @@ class PairVashishtaKokkos : public PairVashishta {
   typedef EV_FLOAT value_type;
 
   PairVashishtaKokkos(class LAMMPS *);
-  virtual ~PairVashishtaKokkos();
-  virtual void compute(int, int);
-  virtual void coeff(int, char **);
-  virtual void init_style();
+  ~PairVashishtaKokkos() override;
+  void compute(int, int) override;
+  void coeff(int, char **) override;
+  void init_style() override;
 
   template<int NEIGHFLAG, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -111,7 +112,7 @@ class PairVashishtaKokkos : public PairVashishta {
 
   t_param_1d d_params;
 
-  virtual void setup_params();
+  void setup_params() override;
 
   KOKKOS_INLINE_FUNCTION
   void twobody(const Param&, const F_FLOAT&, F_FLOAT&, const int&, F_FLOAT&) const;
@@ -159,10 +160,3 @@ class PairVashishtaKokkos : public PairVashishta {
 #endif
 #endif
 
-/* ERROR/WARNING messages:
-
-E: Cannot use chosen neighbor list style with pair vashishta/kk
-
-Self-explanatory.
-
-*/

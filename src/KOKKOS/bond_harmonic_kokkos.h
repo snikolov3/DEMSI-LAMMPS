@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -12,13 +12,14 @@
 ------------------------------------------------------------------------- */
 
 #ifdef BOND_CLASS
-
-BondStyle(harmonic/kk,BondHarmonicKokkos<LMPDeviceType>)
-BondStyle(harmonic/kk/device,BondHarmonicKokkos<LMPDeviceType>)
-BondStyle(harmonic/kk/host,BondHarmonicKokkos<LMPHostType>)
-
+// clang-format off
+BondStyle(harmonic/kk,BondHarmonicKokkos<LMPDeviceType>);
+BondStyle(harmonic/kk/device,BondHarmonicKokkos<LMPDeviceType>);
+BondStyle(harmonic/kk/host,BondHarmonicKokkos<LMPHostType>);
+// clang-format on
 #else
 
+// clang-format off
 #ifndef LMP_BOND_HARMONIC_KOKKOS_H
 #define LMP_BOND_HARMONIC_KOKKOS_H
 
@@ -38,10 +39,10 @@ class BondHarmonicKokkos : public BondHarmonic {
   typedef EV_FLOAT value_type;
 
   BondHarmonicKokkos(class LAMMPS *);
-  virtual ~BondHarmonicKokkos();
-  void compute(int, int);
-  void coeff(int, char **);
-  void read_restart(FILE *);
+  ~BondHarmonicKokkos() override;
+  void compute(int, int) override;
+  void coeff(int, char **) override;
+  void read_restart(FILE *) override;
 
   template<int NEWTON_BOND, int EVFLAG>
   KOKKOS_INLINE_FUNCTION
@@ -78,7 +79,7 @@ class BondHarmonicKokkos : public BondHarmonic {
   typename AT::t_ffloat_1d d_k;
   typename AT::t_ffloat_1d d_r0;
 
-  void allocate();
+  void allocate() override;
 };
 
 }
@@ -86,6 +87,3 @@ class BondHarmonicKokkos : public BondHarmonic {
 #endif
 #endif
 
-/* ERROR/WARNING messages:
-
-*/

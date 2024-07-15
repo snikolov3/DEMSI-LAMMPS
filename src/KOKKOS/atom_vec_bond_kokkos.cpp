@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -844,6 +845,9 @@ int AtomVecBondKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int nr
                                               int nlocal,int dim,X_FLOAT lo,X_FLOAT hi,
                                               ExecutionSpace space) {
   const size_t elements = 16+atomKK->maxspecial+atomKK->bond_per_atom+atomKK->bond_per_atom;
+
+  while (nlocal + nrecv/elements >= nmax) grow(0);
+
   if (space == Host) {
     k_count.h_view(0) = nlocal;
     AtomVecBondKokkos_UnpackExchangeFunctor<LMPHostType>
@@ -1055,7 +1059,7 @@ void AtomVecBondKokkos::create_atom(int itype, double *coord)
 ------------------------------------------------------------------------- */
 
 void AtomVecBondKokkos::data_atom(double *coord, imageint imagetmp,
-                                  char **values)
+                                  const std::vector<std::string> &values, std::string &extract)
 {
   int nlocal = atomKK->nlocal;
   if (nlocal == nmax) grow(0);
@@ -1064,6 +1068,7 @@ void AtomVecBondKokkos::data_atom(double *coord, imageint imagetmp,
   h_tag(nlocal) = utils::inumeric(FLERR,values[0],true,lmp);
   h_molecule(nlocal) = utils::inumeric(FLERR,values[1],true,lmp);
   h_type(nlocal) = utils::inumeric(FLERR,values[2],true,lmp);
+  extract = values[2];
   if (h_type(nlocal) <= 0 || h_type(nlocal) > atom->ntypes)
     error->one(FLERR,"Invalid atom type in Atoms section of data file");
 
@@ -1087,9 +1092,10 @@ void AtomVecBondKokkos::data_atom(double *coord, imageint imagetmp,
    initialize other atom quantities for this sub-style
 ------------------------------------------------------------------------- */
 
-int AtomVecBondKokkos::data_atom_hybrid(int nlocal, char **values)
+int AtomVecBondKokkos::data_atom_hybrid(int nlocal, const std::vector<std::string> &values,
+                                        int offset)
 {
-  h_molecule(nlocal) = utils::inumeric(FLERR,values[0],true,lmp);
+  h_molecule(nlocal) = utils::inumeric(FLERR,values[offset],true,lmp);
   h_num_bond(nlocal) = 0;
   return 1;
 }

@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -21,7 +21,7 @@ namespace LAMMPS_NS {
 class RanMars : protected Pointers {
  public:
   RanMars(class LAMMPS *, int);
-  ~RanMars();
+  ~RanMars() override;
   double uniform();
   double gaussian();
   double gaussian(double mu, double sigma);
@@ -35,19 +35,10 @@ class RanMars : protected Pointers {
   int save;
   double second;
   double *u;
-  int i97,j97;
-  double c,cd,cm;
+  int i97, j97;
+  double c, cd, cm;
 };
 
-}
+}    // namespace LAMMPS_NS
 
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Invalid seed for Marsaglia random # generator
-
-The initial seed for this random number generator must be a positive
-integer less than or equal to 900 million.
-
-*/

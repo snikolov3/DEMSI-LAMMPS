@@ -18,18 +18,17 @@ Syntax
 
        *grid* arg = gstyle params ...
          gstyle = *onelevel* or *twolevel* or *numa* or *custom*
-           onelevel params = none
-           twolevel params = Nc Cx Cy Cz
+           *onelevel* params = none
+           *twolevel* params = Nc Cx Cy Cz
              Nc = number of cores per node
              Cx,Cy,Cz = # of cores in each dimension of 3d sub-grid assigned to each node
-           numa params = none
-           custom params = infile
+           *numa* params = none
+           *custom* params = infile
              infile = file containing grid layout
        *map* arg = *cart* or *cart/reorder* or *xyz* or *xzy* or *yxz* or *yzx* or *zxy* or *zyx*
           cart = use MPI_Cart() methods to map processors to 3d grid with reorder = 0
           cart/reorder = use MPI_Cart() methods to map processors to 3d grid with reorder = 1
           xyz,xzy,yxz,yzx,zxy,zyx = map processors to 3d grid in IJK ordering
-       *numa* arg = none
        *part* args = Psend Precv cstyle
          Psend = partition # (1 to Np) which will send its processor layout
          Precv = partition # (1 to Np) which will recv the processor layout
@@ -85,7 +84,7 @@ communication costs due to the high surface area of each processor's
 sub-domain.
 
 Also note that if multiple partitions are being used then P is the
-number of processors in this partition; see the :doc:`-partition command-line switch <Run_options>` doc page for details.  Also note
+number of processors in this partition; see the :doc:`-partition command-line switch <Run_options>` page for details.  Also note
 that you can prefix the processors command with the
 :doc:`partition <partition>` command to easily specify different
 Px,Py,Pz values for different partitions.
@@ -140,7 +139,7 @@ For example if *Nc* is 4, then 2x2x1 or 2x1x2 or 1x2x2 sub-sections of
 the 3d grid will correspond to the cores of each node.  This affects
 both the factorization and mapping steps.
 
-The *Cx*\ , *Cy*\ , *Cz* settings are similar to the *Px*\ , *Py*\ , *Pz*
+The *Cx*, *Cy*, *Cz* settings are similar to the *Px*, *Py*, *Pz*
 settings, only their product should equal *Nc*\ .  Any of the 3
 parameters can be specified with an asterisk "\*", which means LAMMPS
 will choose the number of cores in that dimension of the node's
@@ -222,7 +221,7 @@ The *cart/reorder* style does the same thing as the *cart* style
 except it sets the reorder flag to 1, so that MPI can reorder
 processors if it desires.
 
-The *xyz*\ , *xzy*\ , *yxz*\ , *yzx*\ , *zxy*\ , and *zyx* styles are all
+The *xyz*, *xzy*, *yxz*, *yzx*, *zxy*, and *zyx* styles are all
 similar.  If the style is IJK, then it maps the P processors to the
 grid so that the processor ID in the I direction varies fastest, the
 processor ID in the J direction varies next fastest, and the processor
@@ -275,7 +274,7 @@ regular 3d grid and will use the sender's Px,Py,Pz values as a
 constraint.  The nature of the constraint is determined by the
 *cstyle* argument.
 
-For a *cstyle* of *multiple*\ , each dimension of the sender's processor
+For a *cstyle* of *multiple*, each dimension of the sender's processor
 grid is required to be an integer multiple of the corresponding
 dimension in the receiver's processor grid.  This is a requirement of
 the :doc:`run_style verlet/split <run_style>` command.

@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -12,13 +12,14 @@
 ------------------------------------------------------------------------- */
 
 #ifdef FIX_CLASS
-
-FixStyle(setforce/kk,FixSetForceKokkos<LMPDeviceType>)
-FixStyle(setforce/kk/device,FixSetForceKokkos<LMPDeviceType>)
-FixStyle(setforce/kk/host,FixSetForceKokkos<LMPHostType>)
-
+// clang-format off
+FixStyle(setforce/kk,FixSetForceKokkos<LMPDeviceType>);
+FixStyle(setforce/kk/device,FixSetForceKokkos<LMPDeviceType>);
+FixStyle(setforce/kk/host,FixSetForceKokkos<LMPHostType>);
+// clang-format on
 #else
 
+// clang-format off
 #ifndef LMP_FIX_SET_FORCE_KOKKOS_H
 #define LMP_FIX_SET_FORCE_KOKKOS_H
 
@@ -62,9 +63,9 @@ class FixSetForceKokkos : public FixSetForce {
   typedef ArrayTypes<DeviceType> AT;
 
   FixSetForceKokkos(class LAMMPS *, int, char **);
-  ~FixSetForceKokkos();
-  void init();
-  void post_force(int);
+  ~FixSetForceKokkos() override;
+  void init() override;
+  void post_force(int) override;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixSetForceConstant, const int&, double_3&) const;
@@ -80,8 +81,6 @@ class FixSetForceKokkos : public FixSetForce {
   typename AT::t_x_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread mask;
-
-  class Region* region;
 };
 
 }
@@ -89,10 +88,3 @@ class FixSetForceKokkos : public FixSetForce {
 #endif
 #endif
 
-/* ERROR/WARNING messages:
-
-E: Cannot (yet) use respa with Kokkos
-
-Self-explanatory.
-
-*/

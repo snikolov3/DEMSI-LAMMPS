@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -152,9 +153,9 @@ void PairDSMC::compute(int /*eflag*/, int /*vflag*/)
           convert_double_to_equivalent_int(num_of_collisions_double);
 
         if (num_of_collisions > number_of_A)
-          error->warning(FLERR,"Pair dsmc: num_of_collisions > number_of_A",0);
+          error->warning(FLERR,"Pair dsmc: num_of_collisions > number_of_A");
         if (num_of_collisions > number_of_B)
-          error->warning(FLERR,"Pair dsmc: num_of_collisions > number_of_B",0);
+          error->warning(FLERR,"Pair dsmc: num_of_collisions > number_of_B");
 
         // perform collisions on pairs of particles in icell
 

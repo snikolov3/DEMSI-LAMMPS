@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -20,17 +20,15 @@
 
 #include "potential_file_reader.h"
 
-namespace LAMMPS_NS
-{
-  class TableFileReader : public PotentialFileReader {
-  public:
-    TableFileReader(class LAMMPS *lmp, const std::string &filename,
-                    const std::string &type, const int auto_convert = 0);
-    virtual ~TableFileReader();
+namespace LAMMPS_NS {
+class TableFileReader : public PotentialFileReader {
+ public:
+  TableFileReader(class LAMMPS *lmp, const std::string &filename, const std::string &type,
+                  const int auto_convert = 0);
 
-    char *find_section_start(const std::string &keyword);
-  };
+  char *find_section_start(const std::string &keyword);
+};
 
-} // namespace LAMMPS_NS
+}    // namespace LAMMPS_NS
 
 #endif

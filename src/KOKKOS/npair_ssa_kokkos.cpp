@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -462,7 +463,7 @@ fprintf(stdout, "tota%03d total %3d could use %6d inums, expected %6d inums. inu
     // loop over bins with local atoms, storing half of the neighbors
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,ssa_phaseCt),
      LAMMPS_LAMBDA (const int workPhase) {
-      data.build_locals_onePhase(firstTry, comm->me, workPhase);
+      data.build_locals_onePhase(firstTry, workPhase);
     });
     k_ssa_itemLoc.modify<DeviceType>();
     k_ssa_itemLen.modify<DeviceType>();
@@ -525,7 +526,8 @@ fprintf(stdout, "Fina%03d %6d inum %6d gnum, total used %6d, allocated %6d\n"
 
 
 template<class DeviceType>
-void NPairSSAKokkosExecute<DeviceType>::build_locals_onePhase(const bool firstTry, int me, int workPhase) const
+KOKKOS_INLINE_FUNCTION
+void NPairSSAKokkosExecute<DeviceType>::build_locals_onePhase(const bool firstTry, int workPhase) const
 {
   const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil = d_stencil;
   int which = 0;
@@ -611,13 +613,13 @@ void NPairSSAKokkosExecute<DeviceType>::build_locals_onePhase(const bool firstTr
           neigh_list.d_ilist(inum++) = i;
           if (n > neigh_list.maxneighs) {
             resize() = 1;
-            if (n > new_maxneighs()) Kokkos::atomic_fetch_max(&new_maxneighs(),n);
+            if (n > new_maxneighs()) Kokkos::atomic_max(&new_maxneighs(),n);
           }
         }
       }
     }
-    int len = inum - inum_start;
 #ifdef DEBUG_SSA_BUILD_LOCALS
+    int len = inum - inum_start;
     if (len != d_ssa_itemLen(workPhase, workItem + skippedItems)) {
 fprintf(stdout, "Leng%03d workphase (%2d,%3d,%3d): len  = %4d, but ssa_itemLen = %4d%s\n"
   ,me
@@ -661,6 +663,7 @@ fprintf(stdout, "Phas%03d phase %3d used %6d inums, workItems = %3d, skipped = %
 
 
 template<class DeviceType>
+KOKKOS_INLINE_FUNCTION
 void NPairSSAKokkosExecute<DeviceType>::build_ghosts_onePhase(int workPhase) const
 {
   const typename ArrayTypes<DeviceType>::t_int_1d_const_um stencil = d_stencil;
@@ -738,7 +741,7 @@ void NPairSSAKokkosExecute<DeviceType>::build_ghosts_onePhase(int workPhase) con
           neigh_list.d_ilist(gNdx++) = i;
           if (n > neigh_list.maxneighs) {
             resize() = 1;
-            if (n > new_maxneighs()) Kokkos::atomic_fetch_max(&new_maxneighs(),n);
+            if (n > new_maxneighs()) Kokkos::atomic_max(&new_maxneighs(),n);
           }
         }
       }
@@ -753,7 +756,7 @@ void NPairSSAKokkosExecute<DeviceType>::build_ghosts_onePhase(int workPhase) con
 
 namespace LAMMPS_NS {
 template class NPairSSAKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class NPairSSAKokkos<LMPHostType>;
 #endif
 }

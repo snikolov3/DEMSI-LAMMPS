@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -21,6 +22,7 @@
 #include "dihedral.h"
 #include "domain.h"
 #include "error.h"
+#include "fix.h"
 #include "force.h"
 #include "improper.h"
 #include "kspace.h"
@@ -48,10 +50,14 @@ void Verlet::init()
 {
   Integrate::init();
 
-  // warn if no fixes
+  // warn if no fixes doing time integration
 
-  if (modify->nfix == 0 && comm->me == 0)
-    error->warning(FLERR,"No fixes defined, atoms won't move");
+  bool do_time_integrate = false;
+  for (const auto &fix : modify->get_fix_list())
+    if (fix->time_integrate) do_time_integrate = true;
+
+  if (!do_time_integrate && (comm->me == 0))
+    error->warning(FLERR,"No fixes with time integration, atoms won't move");
 
   // virial_style:
   // VIRIAL_PAIR if computed explicitly in pair via sum over pair interactions
@@ -67,8 +73,7 @@ void Verlet::init()
 
   // detect if fix omp is present for clearing force arrays
 
-  int ifix = modify->find_fix("package_omp");
-  if (ifix >= 0) external_force_clear = 1;
+  if (modify->get_fix_by_id("package_omp")) external_force_clear = 1;
 
   // set flags for arrays to clear in force_clear()
 
@@ -88,7 +93,7 @@ void Verlet::init()
 void Verlet::setup(int flag)
 {
   if (comm->me == 0 && screen) {
-    fprintf(screen,"Setting up Verlet run ...\n");
+    fputs("Setting up Verlet run ...\n",screen);
     if (flag) {
       fmt::print(screen,"  Unit style    : {}\n"
                         "  Current step  : {}\n"
@@ -232,7 +237,7 @@ void Verlet::run(int n)
   int n_post_neighbor = modify->n_post_neighbor;
   int n_pre_force = modify->n_pre_force;
   int n_pre_reverse = modify->n_pre_reverse;
-  int n_post_force = modify->n_post_force;
+  int n_post_force_any = modify->n_post_force_any;
   int n_end_of_step = modify->n_end_of_step;
 
   if (atom->sortfreq > 0) sortflag = 1;
@@ -339,7 +344,7 @@ void Verlet::run(int n)
 
     // force modifications, final time integration, diagnostics
 
-    if (n_post_force) modify->post_force(vflag);
+    if (n_post_force_any) modify->post_force(vflag);
     modify->final_integrate();
     if (n_end_of_step) modify->end_of_step();
     timer->stamp(Timer::MODIFY);

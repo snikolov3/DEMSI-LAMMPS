@@ -40,11 +40,10 @@ We use it to show how to identify the origin of a segmentation fault.
 
 After recompiling LAMMPS and running the input you should get something like this:
 
-.. code-block:
+.. code-block::
 
    $ ./lmp -in in.melt
    LAMMPS (19 Mar 2020)
-   OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (src/comm.cpp:94)
      using 1 OpenMP thread(s) per MPI task
    Lattice spacing in x,y,z = 1.6796 1.6796 1.6796
    Created orthogonal box = (0 0 0) to (16.796 16.796 16.796)
@@ -76,7 +75,7 @@ Using the GDB debugger to get a stack trace
 There are two options to use the GDB debugger for identifying the origin
 of the segmentation fault or similar crash. The GDB debugger has many
 more features and options, as can be seen for example its `online
-documentation <http://sourceware.org/gdb/current/onlinedocs/gdb/>`_.
+documentation <https://sourceware.org/gdb/current/onlinedocs/gdb/>`_.
 
 Run LAMMPS from within the debugger
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

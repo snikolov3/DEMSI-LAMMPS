@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -23,30 +23,25 @@
 namespace LAMMPS_NS {
 
 class FileWriter {
-public:
-    FileWriter() = default;
-    virtual ~FileWriter() = default;
-    virtual void open(const std::string &path, bool append = false) = 0;
-    virtual void close() = 0;
-    virtual void flush() = 0;
-    virtual size_t write(const void * buffer, size_t length) = 0;
-    virtual bool isopen() const = 0;
+ public:
+  FileWriter() = default;
+  virtual ~FileWriter() = default;
+  virtual void open(const std::string &path, bool append = false) = 0;
+  virtual void close() = 0;
+  virtual void flush() = 0;
+  virtual size_t write(const void *buffer, size_t length) = 0;
+  virtual bool isopen() const = 0;
 };
 
 class FileWriterException : public std::exception {
   std::string message;
-public:
-  FileWriterException(const std::string &msg) : message(msg) {
-  }
 
-  ~FileWriterException() throw() {
-  }
+ public:
+  FileWriterException(const std::string &msg) : message(msg) {}
 
-  virtual const char * what() const throw() {
-      return message.c_str();
-  }
+  const char *what() const noexcept override { return message.c_str(); }
 };
 
-}
+}    // namespace LAMMPS_NS
 
 #endif

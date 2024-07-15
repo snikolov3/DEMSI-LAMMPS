@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -65,46 +65,15 @@ namespace LAMMPS_NS {
 
 class KimInteractions : protected Pointers {
  public:
-  KimInteractions(class LAMMPS *lmp) : Pointers(lmp) {};
+  KimInteractions(class LAMMPS *lmp) : Pointers(lmp){};
   void command(int, char **);
+
  private:
   void do_setup(int, char **);
   int species_to_atomic_no(const std::string &species) const;
   void KIM_SET_TYPE_PARAMETERS(const std::string &input_line) const;
 };
 
-}
+}    // namespace LAMMPS_NS
 
 #endif
-
-/* ERROR/WARNING messages:
-
-E: Illegal kim_interactions command
-
-Incorrect number or kind of arguments to kim_interactions.
-
-E: Must use 'kim_interactions' command after simulation box is defined
-
-Self-explanatory.
-
-E: Must use 'kim_init' command before 'kim_interactions'
-
-Self-explanatory.
-
-E: Species XXX is not supported by this KIM Simulator Model
-
-The kim_interactions command was referencing a species that is not
-present in the requested KIM Simulator Model.
-
-E: Incompatible units for KIM Simulator Model
-
-The selected unit style is not compatible with the requested KIM
-Simulator Model.
-
-E: KIM Simulator Model has no Model definition
-
-There is no model definition (key: model-defn) in the KIM Simulator
-Model.  Please contact the OpenKIM database maintainers to verify
-and potentially correct this.
-
-*/

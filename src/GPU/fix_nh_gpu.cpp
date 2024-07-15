@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -27,7 +28,6 @@
 #include "neighbor.h"
 #include "update.h"
 
-#include <cstring>
 #include <cmath>
 
 using namespace LAMMPS_NS;
@@ -47,15 +47,9 @@ typedef struct { double x,y,z; } dbl3_t;
 FixNHGPU::FixNHGPU(LAMMPS *lmp, int narg, char **arg) :
   FixNH(lmp, narg, arg)
 {
-  _dtfm = 0;
+  _dtfm = nullptr;
   _nlocal3 = 0;
   _nlocal_max = 0;
-}
-
-/* ---------------------------------------------------------------------- */
-
-FixNHGPU::~FixNHGPU()
-{
 }
 
 /* ---------------------------------------------------------------------- */

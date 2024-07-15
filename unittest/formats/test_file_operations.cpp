@@ -1,7 +1,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS Development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -29,7 +29,6 @@
 
 using namespace LAMMPS_NS;
 
-using testing::MatchesRegex;
 using testing::StrEq;
 
 using utils::read_lines_from_file;
@@ -56,13 +55,15 @@ protected:
         out.open("file_with_long_lines_test.txt", std::ios_base::out | std::ios_base::binary);
         ASSERT_TRUE(out.good());
         out << "zero ##########################################################"
-            "##################################################################"
-            "##################################################################"
-            "############################################################\n";
+               "##################################################################"
+               "##################################################################"
+               "############################################################\n";
         out << "one line\ntwo_lines\n\n";
-        for (int i = 0; i < 100; ++i) out << "one two ";
+        for (int i = 0; i < 100; ++i)
+            out << "one two ";
         out << "\nthree\nfour five #";
-        for (int i = 0; i < 1000; ++i) out << '#';
+        for (int i = 0; i < 1000; ++i)
+            out << '#';
         out.close();
     }
 
@@ -74,7 +75,8 @@ protected:
     }
 };
 
-#define MAX_BUF_SIZE 128
+static constexpr int MAX_BUF_SIZE = 128;
+
 TEST_F(FileOperationsTest, safe_fgets)
 {
     char buf[MAX_BUF_SIZE];
@@ -110,7 +112,6 @@ TEST_F(FileOperationsTest, safe_fgets)
     fclose(fp);
 }
 
-#define MAX_BUF_SIZE 128
 TEST_F(FileOperationsTest, fgets_trunc)
 {
     char buf[MAX_BUF_SIZE];
@@ -119,60 +120,61 @@ TEST_F(FileOperationsTest, fgets_trunc)
     FILE *fp = fopen("safe_file_read_test.txt", "rb");
     ASSERT_NE(fp, nullptr);
 
+    // read line shorter than buffer
     memset(buf, 0, MAX_BUF_SIZE);
     ptr = utils::fgets_trunc(buf, MAX_BUF_SIZE, fp);
     ASSERT_THAT(buf, StrEq("one line\n"));
-    ASSERT_NE(ptr,nullptr);
+    ASSERT_NE(ptr, nullptr);
 
+    // read line of exactly the buffer length
     memset(buf, 0, MAX_BUF_SIZE);
-    ptr = utils::fgets_trunc(buf, MAX_BUF_SIZE, fp);
+    ptr = utils::fgets_trunc(buf, sizeof("two_lines\n"), fp);
     ASSERT_THAT(buf, StrEq("two_lines\n"));
-    ASSERT_NE(ptr,nullptr);
+    ASSERT_NE(ptr, nullptr);
 
     memset(buf, 0, MAX_BUF_SIZE);
     ptr = utils::fgets_trunc(buf, MAX_BUF_SIZE, fp);
     ASSERT_THAT(buf, StrEq("\n"));
-    ASSERT_NE(ptr,nullptr);
+    ASSERT_NE(ptr, nullptr);
 
     memset(buf, 0, MAX_BUF_SIZE);
     ptr = utils::fgets_trunc(buf, 4, fp);
     ASSERT_THAT(buf, StrEq("no\n"));
-    ASSERT_NE(ptr,nullptr);
+    ASSERT_NE(ptr, nullptr);
 
     ptr = utils::fgets_trunc(buf, MAX_BUF_SIZE, fp);
-    ASSERT_EQ(ptr,nullptr);
+    ASSERT_EQ(ptr, nullptr);
     fclose(fp);
 
     fp = fopen("file_with_long_lines_test.txt", "r");
-    ASSERT_NE(fp,nullptr);
+    ASSERT_NE(fp, nullptr);
 
     memset(buf, 0, MAX_BUF_SIZE);
     ptr = utils::fgets_trunc(buf, MAX_BUF_SIZE, fp);
-    ASSERT_NE(ptr,nullptr);
+    ASSERT_NE(ptr, nullptr);
     ASSERT_THAT(buf, StrEq("zero ##########################################################"
                            "###############################################################\n"));
 
     ptr = utils::fgets_trunc(buf, MAX_BUF_SIZE, fp);
     ASSERT_THAT(buf, StrEq("one line\n"));
-    ASSERT_NE(ptr,nullptr);
+    ASSERT_NE(ptr, nullptr);
 
     ptr = utils::fgets_trunc(buf, MAX_BUF_SIZE, fp);
     ASSERT_THAT(buf, StrEq("two_lines\n"));
-    ASSERT_NE(ptr,nullptr);
+    ASSERT_NE(ptr, nullptr);
 
     ptr = utils::fgets_trunc(buf, MAX_BUF_SIZE, fp);
     ASSERT_THAT(buf, StrEq("\n"));
-    ASSERT_NE(ptr,nullptr);
+    ASSERT_NE(ptr, nullptr);
 
     ptr = utils::fgets_trunc(buf, MAX_BUF_SIZE, fp);
-    ASSERT_NE(ptr,nullptr);
+    ASSERT_NE(ptr, nullptr);
     ASSERT_THAT(buf, StrEq("one two one two one two one two one two one two one two one two "
                            "one two one two one two one two one two one two one two one tw\n"));
 
     fclose(fp);
 }
 
-#define MAX_BUF_SIZE 128
 TEST_F(FileOperationsTest, safe_fread)
 {
     char buf[MAX_BUF_SIZE];
@@ -208,11 +210,11 @@ TEST_F(FileOperationsTest, read_lines_from_file)
     MPI_Comm world = MPI_COMM_WORLD;
     int me, rv;
     memset(buf, 0, MAX_BUF_SIZE);
+    MPI_Comm_rank(world, &me);
 
     rv = utils::read_lines_from_file(nullptr, 1, MAX_BUF_SIZE, buf, me, world);
     ASSERT_EQ(rv, 1);
 
-    MPI_Comm_rank(world, &me);
     if (me == 0) {
         fp = fopen("safe_file_read_test.txt", "r");
         ASSERT_NE(fp, nullptr);
@@ -243,16 +245,17 @@ TEST_F(FileOperationsTest, logmesg)
     command("log test_logmesg.log");
     utils::logmesg(lmp, "two\n");
     utils::logmesg(lmp, "three={}\n", 3);
-    utils::logmesg(lmp, "four {}\n");
+    utils::logmesg(lmp, "four {} {}\n", 4);
     utils::logmesg(lmp, "five\n", 5);
+    utils::logmesg(lmp, "six {}\n");
     command("log none");
     std::string out = END_CAPTURE_OUTPUT();
     memset(buf, 0, 64);
     FILE *fp = fopen("test_logmesg.log", "r");
     fread(buf, 1, 64, fp);
     fclose(fp);
-    ASSERT_THAT(out, StrEq("one\ntwo\nthree=3\nargument not found\nfive\n"));
-    ASSERT_THAT(buf, StrEq("two\nthree=3\nargument not found\nfive\n"));
+    ASSERT_THAT(out, StrEq("one\ntwo\nthree=3\nargument not found\nfive\nsix {}\n"));
+    ASSERT_THAT(buf, StrEq("two\nthree=3\nargument not found\nfive\nsix {}\n"));
     remove("test_logmesg.log");
 }
 
@@ -281,13 +284,11 @@ TEST_F(FileOperationsTest, error_message_warn)
 
 TEST_F(FileOperationsTest, error_all_one)
 {
-    char buf[64];
     BEGIN_HIDE_OUTPUT();
     command("echo none");
     command("log none");
     END_HIDE_OUTPUT();
-    TEST_FAILURE(".*ERROR: exit \\(testme.cpp:10\\).*",
-                 lmp->error->all("testme.cpp", 10, "exit"););
+    TEST_FAILURE(".*ERROR: exit \\(testme.cpp:10\\).*", lmp->error->all("testme.cpp", 10, "exit"););
     TEST_FAILURE(".*ERROR: exit too \\(testme.cpp:10\\).*",
                  lmp->error->all("testme.cpp", 10, "exit {}", "too"););
     TEST_FAILURE(".*ERROR: argument not found \\(testme.cpp:10\\).*",
@@ -322,7 +323,7 @@ TEST_F(FileOperationsTest, write_restart)
     command("write_restart multi-%.restart");
     command("write_restart multi2-%.restart fileper 2");
     command("write_restart multi3-%.restart nfile 1");
-    if (info->has_package("MPIIO")) command("write_restart test.restart.mpiio");
+    if (Info::has_package("MPIIO")) command("write_restart test.restart.mpiio");
     END_HIDE_OUTPUT();
 
     ASSERT_FILE_EXISTS("noinit.restart");
@@ -334,9 +335,11 @@ TEST_F(FileOperationsTest, write_restart)
     ASSERT_FILE_EXISTS("multi2-0.restart");
     ASSERT_FILE_EXISTS("multi3-base.restart");
     ASSERT_FILE_EXISTS("multi3-0.restart");
-    if (info->has_package("MPIIO")) ASSERT_FILE_EXISTS("test.restart.mpiio");
+    if (Info::has_package("MPIIO")) {
+        ASSERT_FILE_EXISTS("test.restart.mpiio");
+    }
 
-    if (!info->has_package("MPIIO")) {
+    if (!Info::has_package("MPIIO")) {
         TEST_FAILURE(".*ERROR: Writing to MPI-IO filename when MPIIO package is not inst.*",
                      command("write_restart test.restart.mpiio"););
     } else {
@@ -345,7 +348,7 @@ TEST_F(FileOperationsTest, write_restart)
     }
 
     TEST_FAILURE(".*ERROR: Illegal write_restart command.*", command("write_restart"););
-    TEST_FAILURE(".*ERROR: Illegal write_restart command.*",
+    TEST_FAILURE(".*ERROR: Unknown write_restart keyword: xxxx.*",
                  command("write_restart test.restart xxxx"););
     TEST_FAILURE(".*ERROR on proc 0: Cannot open restart file some_crazy_dir/test.restart:"
                  " No such file or directory.*",
@@ -393,7 +396,7 @@ TEST_F(FileOperationsTest, write_restart)
     delete_file("multi3-base.restart");
     delete_file("multi3-0.restart");
     delete_file("triclinic.restart");
-    if (info->has_package("MPIIO")) delete_file("test.restart.mpiio");
+    if (Info::has_package("MPIIO")) delete_file("test.restart.mpiio");
 }
 
 TEST_F(FileOperationsTest, write_data)
@@ -436,9 +439,17 @@ TEST_F(FileOperationsTest, write_data)
     ASSERT_FILE_EXISTS("charge.data");
     ASSERT_EQ(count_lines("charge.data"), 30);
 
-    TEST_FAILURE(".*ERROR: Illegal write_data command.*", command("write_data"););
-    TEST_FAILURE(".*ERROR: Illegal write_data command.*", command("write_data test.data xxxx"););
-    TEST_FAILURE(".*ERROR: Illegal write_data command.*", command("write_data test.data pair xx"););
+    TEST_FAILURE(".*ERROR: Illegal write_data command: missing argument.*", command("write_data"););
+    TEST_FAILURE(".*ERROR: Unknown write_data keyword: xxxx.*",
+                 command("write_data test.data xxxx"););
+    TEST_FAILURE(".*ERROR: Illegal write_data pair command: missing argument.*",
+                 command("write_data test.data pair"););
+    TEST_FAILURE(".*ERROR: Unknown write_data pair option: xx.*",
+                 command("write_data test.data pair xx"););
+    TEST_FAILURE(".*ERROR: Illegal write_data types command: missing argument.*",
+                 command("write_data test.data types"););
+    TEST_FAILURE(".*ERROR: Unknown write_data types option: xx.*",
+                 command("write_data test.data types xx"););
     TEST_FAILURE(".*ERROR on proc 0: Cannot open data file some_crazy_dir/test.data:"
                  " No such file or directory.*",
                  command("write_data some_crazy_dir/test.data"););
@@ -490,9 +501,8 @@ int main(int argc, char **argv)
     MPI_Init(&argc, &argv);
     ::testing::InitGoogleMock(&argc, argv);
 
-    if (Info::get_mpi_vendor() == "Open MPI" && !LAMMPS_NS::Info::has_exceptions())
-        std::cout << "Warning: using OpenMPI without exceptions. "
-                     "Death tests will be skipped\n";
+    if (platform::mpi_vendor() == "Open MPI" && !Info::has_exceptions())
+        std::cout << "Warning: using OpenMPI without exceptions. Death tests will be skipped\n";
 
     // handle arguments passed via environment variable
     if (const char *var = getenv("TEST_ARGS")) {

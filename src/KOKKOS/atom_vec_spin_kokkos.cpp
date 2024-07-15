@@ -1,8 +1,9 @@
+// clang-format off
 /* ----------------------------------------------------------------------
 
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -862,6 +863,8 @@ struct AtomVecSpinKokkos_UnpackExchangeFunctor {
 int AtomVecSpinKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int nrecv,
                                                 int nlocal,int dim,X_FLOAT lo,X_FLOAT hi,
                                                 ExecutionSpace space) {
+  while (nlocal + nrecv/15 >= nmax) grow(0);
+
   if(space == Host) {
     k_count.h_view(0) = nlocal;
     AtomVecSpinKokkos_UnpackExchangeFunctor<LMPHostType> f(atomKK,k_buf,k_count,dim,lo,hi);
@@ -1055,13 +1058,14 @@ void AtomVecSpinKokkos::create_atom(int itype, double *coord)
 ------------------------------------------------------------------------- */
 
 void AtomVecSpinKokkos::data_atom(double *coord, imageint imagetmp,
-                                    char **values)
+                                  const std::vector<std::string> &values, std::string &extract)
 {
   int nlocal = atom->nlocal;
   if (nlocal == nmax) grow(0);
 
   h_tag[nlocal] = utils::inumeric(FLERR,values[0],true,lmp);
   h_type[nlocal] = utils::inumeric(FLERR,values[1],true,lmp);
+  extract = values[1];
   if (type[nlocal] <= 0 || type[nlocal] > atom->ntypes)
     error->one(FLERR,"Invalid atom type in Atoms section of data file");
 
@@ -1097,12 +1101,13 @@ void AtomVecSpinKokkos::data_atom(double *coord, imageint imagetmp,
    initialize other atom quantities for this sub-style
 ------------------------------------------------------------------------- */
 
-int AtomVecSpinKokkos::data_atom_hybrid(int nlocal, char **values)
+int AtomVecSpinKokkos::data_atom_hybrid(int nlocal, const std::vector<std::string> &values,
+                                        int offset)
 {
-  h_sp(nlocal,3) = utils::numeric(FLERR,values[0],true,lmp);
-  h_sp(nlocal,0) = utils::numeric(FLERR,values[1],true,lmp);
-  h_sp(nlocal,1) = utils::numeric(FLERR,values[2],true,lmp);
-  h_sp(nlocal,2) = utils::numeric(FLERR,values[3],true,lmp);
+  h_sp(nlocal,3) = utils::numeric(FLERR,values[offset],true,lmp);
+  h_sp(nlocal,0) = utils::numeric(FLERR,values[offset+1],true,lmp);
+  h_sp(nlocal,1) = utils::numeric(FLERR,values[offset+2],true,lmp);
+  h_sp(nlocal,2) = utils::numeric(FLERR,values[offset+3],true,lmp);
   double inorm = 1.0/sqrt(sp[nlocal][0]*sp[nlocal][0] +
                           sp[nlocal][1]*sp[nlocal][1] +
                           sp[nlocal][2]*sp[nlocal][2]);

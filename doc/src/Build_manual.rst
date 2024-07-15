@@ -22,53 +22,41 @@ files. Here is a list with descriptions:
    .gitignore       # list of files and folders to be ignored by git
    doxygen-warn.log # logfile with warnings from running doxygen
    github-development-workflow.md   # notes on the LAMMPS development workflow
-   include-file-conventions.md      # notes on LAMMPS' include file conventions
 
 If you downloaded LAMMPS as a tarball from `the LAMMPS website <lws_>`_,
 the html folder and the PDF files should be included.
 
 If you downloaded LAMMPS from the public git repository, then the HTML
-and PDF files are not included.  Instead you need to create them, in one
-of two ways:
+and PDF files are not included.  You can build the HTML or PDF files yourself,
+by typing ``make html``  or ``make pdf`` in the ``doc`` folder.  This requires
+various tools and files.  Some of them have to be installed (see below).  For
+the rest the build process will attempt to download and install them into
+a python virtual environment and local folders.
 
-a. You can "fetch" the current HTML and PDF files from the LAMMPS web
-   site.  Just type ``make fetch``.  This should download a ``html_www``
-   directory and a ``Manual_www.pdf`` file.  Note that if new LAMMPS features
-   have been added more recently than the date of your LAMMPS version, the
-   fetched documentation will include those changes (but your source code
-   will not, unless you update your local repository).
-
-b. You can build the HTML or PDF files yourself, by typing ``make html``
-   or ``make pdf`` in the ``doc`` folder.  This requires various tools
-   and files.  Some of them have to be installed (see below).  For the
-   rest the build process will attempt to download and install them into
-   a python virtual environment and local folders.
-
-A current version of the manual (latest patch release, aka unstable
-branch) is is available online at:
-`https://lammps.sandia.gov/doc/Manual.html
-<https://lammps.sandia.gov/doc/Manual.html>`_ A version of the manual
-corresponding to the ongoing development (aka master branch) is
-available online at: `https://docs.lammps.org/
-<https://docs.lammps.org/>`_
+A current version of the manual (latest patch release, that is the state
+of the *release* branch) is is available online at:
+`https://docs.lammps.org/ <https://docs.lammps.org/>`_.
+A version of the manual corresponding to the ongoing development (that is
+the state of the *develop* branch) is available online at:
+`https://docs.lammps.org/latest/ <https://docs.lammps.org/latest/>`_
+A version of the manual corresponding to the latest stable LAMMPS release
+(that is the state of the *stable* branch) is available online at:
+`https://docs.lammps.org/stable/ <https://docs.lammps.org/stable/>`_
 
 Build using GNU make
 --------------------
 
 The LAMMPS manual is written in `reStructuredText <rst_>`_ format which
 can be translated to different output format using the `Sphinx
-<sphinx_>`_ document generator tool.  It also incorporates programmer
-documentation extracted from the LAMMPS C++ sources through the `Doxygen
-<https://doxygen.nl>`_ program.  Currently the translation to HTML, PDF
-(via LaTeX), ePUB (for many e-book readers) and MOBI (for Amazon Kindle
-readers) are supported.  For that to work a Python 3 interpreter, the
-``doxygen`` tools and internet access to download additional files and
-tools are required.  This download is usually only required once or
-after the documentation folder is returned to a pristine state with
-``make clean-all``.
-
-.. _rst: https://docutils.readthedocs.io/en/sphinx-docs/user/rst/quickstart.html
-.. _sphinx: https://www.sphinx-doc.org
+<https://sphinx-doc.org>`_ document generator tool.  It also
+incorporates programmer documentation extracted from the LAMMPS C++
+sources through the `Doxygen <https://doxygen.nl>`_ program.  Currently
+the translation to HTML, PDF (via LaTeX), ePUB (for many e-book readers)
+and MOBI (for Amazon Kindle readers) are supported.  For that to work a
+Python 3 interpreter, the ``doxygen`` tools and internet access to
+download additional files and tools are required.  This download is
+usually only required once or after the documentation folder is returned
+to a pristine state with ``make clean-all``.
 
 For the documentation build a python virtual environment is set up in
 the folder ``doc/docenv`` and various python packages are installed into
@@ -86,11 +74,12 @@ folder.  The following ``make`` commands are available:
 .. code-block:: bash
 
    make html          # generate HTML in html dir using Sphinx
-   make pdf           # generate PDF  as Manual.pdf using Sphinx and pdflatex
-   make fetch         # fetch HTML pages and PDF files from LAMMPS web site
-                      #  and unpack into the html_www folder and Manual_www.pdf
+   make pdf           # generate PDF  as Manual.pdf using Sphinx and PDFLaTeX
    make epub          # generate LAMMPS.epub in ePUB format using Sphinx
    make mobi          # generate LAMMPS.mobi in MOBI format using ebook-convert
+
+   make fasthtml      # generate approximate HTML in fasthtml dir using Sphinx
+                      # some Sphinx extensions do not work correctly with this
 
    make clean         # remove intermediate RST files created by HTML build
    make clean-all     # remove entire build folder and any cached data
@@ -187,7 +176,7 @@ math expressions transparently into embedded images.
 For converting the generated ePUB file to a MOBI format file (for e-book
 readers, like Kindle, that cannot read ePUB), you also need to have the
 ``ebook-convert`` tool from the "calibre" software
-installed. `http://calibre-ebook.com/ <http://calibre-ebook.com/>`_
+installed. `https://calibre-ebook.com/ <https://calibre-ebook.com/>`_
 Typing ``make mobi`` will first create the ePUB file and then convert
 it.  On the Kindle readers in particular, you also have support for PDF
 files, so you could download and view the PDF version as an alternative.
@@ -202,8 +191,13 @@ folder need to be updated or new files added. These files are written in
 `reStructuredText <rst_>`_ markup for translation with the Sphinx tool.
 
 Before contributing any documentation, please check that both the HTML
-and the PDF format documentation can translate without errors. Please also
-check the output to the console for any warnings or problems.  There will
+and the PDF format documentation can translate without errors.  During
+testing the html translation, you may use the ``make fasthtml`` command
+which does an approximate translation (i.e. not all Sphinx features and
+extensions will work), but runs very fast because it will only translate
+files that have been changed since the last ``make fasthtml`` command.
+
+Please also check the output to the console for any warnings or problems.  There will
 be multiple tests run automatically:
 
 - A test for correctness of all anchor labels and their references
@@ -215,16 +209,27 @@ be multiple tests run automatically:
 
   .. parsed-literal::
 
-     Found 33 standard and 41 user packages
-     Standard package NEWPACKAGE missing in Packages_standard.rst
-     Standard package NEWPACKAGE missing in Packages_details.rst
+     Found 88 packages
+     Package NEWPACKAGE missing in Packages_list.rst
+     Package NEWPACKAGE missing in Packages_details.rst
 
 - A test that only standard, printable ASCII text characters are used.
   This runs the command ``env LC_ALL=C grep -n '[^ -~]' src/*.rst`` and
   thus prints all offending lines with filename and line number
-  prepended to the screen.  Special characters like the Angstrom
-  :math:`\mathrm{\mathring{A}}` should be typeset with embedded math
-  (like this ``:math:`\mathrm{\mathring{A}}```\ ).
+  prepended to the screen.  Special characters like Greek letters
+  (:math:`\alpha~~\sigma~~\epsilon`), super- or subscripts
+  (:math:`x^2~~\mathrm{U}_{LJ}`), mathematical expressions
+  (:math:`\frac{1}{2}\mathrm{N}~~x\to\infty`), or the Angstrom symbol
+  (:math:`\AA`) should be typeset with embedded LaTeX (like this
+  ``:math:`\alpha \sigma \epsilon```, ``:math:`x^2 \mathrm{E}_{LJ}```,
+  ``:math:`\frac{1}{2}\mathrm{N} x\to\infty```, or ``:math:`\AA```\ ).
+
+- Embedded LaTeX is rendered in HTML output with `MathJax
+  <https://www.mathjax.org/>`_ and in PDF output by passing the embedded
+  text to LaTeX.  Some care has to be taken, though, since there are
+  limitations which macros and features can be used in either mode, so
+  it is recommended to always check whether any new or changed
+  documentation does translate and render correctly with either output.
 
 - A test whether all styles are documented and listed in their
   respective overview pages.  A typical output with warnings looks like this:
@@ -255,6 +260,5 @@ manual with ``make spelling``.  This requires `a library called enchant
 positives* (e.g. keywords, names, abbreviations) those can be added to
 the file ``lammps/doc/utils/sphinx-config/false_positives.txt``.
 
-.. _rst: https://docutils.readthedocs.io/en/sphinx-docs/user/rst/quickstart.html
-
-.. _lws: https://lammps.sandia.gov
+.. _lws: https://www.lammps.org
+.. _rst: https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html

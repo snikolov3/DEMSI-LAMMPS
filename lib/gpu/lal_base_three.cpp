@@ -20,7 +20,7 @@ namespace LAMMPS_AL {
 extern Device<PRECISION,ACC_PRECISION> global_device;
 
 template <class numtyp, class acctyp>
-BaseThreeT::BaseThree() : _compiled(false), _max_bytes(0), _onetype(-1) {
+BaseThreeT::BaseThree() : _compiled(false), _onetype(-1), _max_bytes(0) {
   device=&global_device;
   ans=new Answer<numtyp,acctyp>();
   nbor=new Neighbor();
@@ -471,8 +471,7 @@ void BaseThreeT::compile_kernels(UCL_Device &dev, const void *pair_str,
     mx_subgroup_sz = std::min(mx_subgroup_sz, k_three_center_noev.max_subgroup_size(_block_size));
     mx_subgroup_sz = std::min(mx_subgroup_sz, k_three_end_noev.max_subgroup_size(_block_size));
     #endif
-    if (_threads_per_atom > mx_subgroup_sz)
-      _threads_per_atom = mx_subgroup_sz;
+    if (_threads_per_atom > (int)mx_subgroup_sz) _threads_per_atom = mx_subgroup_sz;
     device->set_simd_size(mx_subgroup_sz);
   }
   #endif

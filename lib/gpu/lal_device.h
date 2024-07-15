@@ -163,17 +163,15 @@ class Device {
     { ans_queue.push(ans); }
 
   /// Add "answers" (force,energies,etc.) into LAMMPS structures
-  inline double fix_gpu(double **f, double **tor, double *eatom,
-                        double **vatom, double *virial, double &ecoul,
-                        int &error_flag) {
+  inline double fix_gpu(double **f, double **tor, double *eatom, double **vatom,
+                        double *virial, double &ecoul, int &error_flag) {
     error_flag=0;
     atom.data_unavail();
     if (ans_queue.empty()==false) {
       stop_host_timer();
       double evdw=0.0;
       while (ans_queue.empty()==false) {
-        evdw+=ans_queue.front()->get_answers(f,tor,eatom,vatom,virial,ecoul,
-                                             error_flag);
+        evdw += ans_queue.front()->get_answers(f,tor,eatom,vatom,virial,ecoul,error_flag);
         ans_queue.pop();
       }
       return evdw;
@@ -219,6 +217,12 @@ class Device {
   inline int gpu_rank() const { return _gpu_rank; }
   /// MPI Barrier for gpu
   inline void gpu_barrier() { MPI_Barrier(_comm_gpu); }
+  /// Serialize GPU initialization and JIT for unsafe platforms
+  inline void serialize_init() {
+    #ifdef LAL_SERIALIZE_INIT
+    gpu_barrier();
+    #endif
+  }
   /// Return the 'mode' for acceleration: GPU_FORCE, GPU_NEIGH or GPU_HYB_NEIGH
   inline int gpu_mode() const { return _gpu_mode; }
   /// Index of first device used by a node
@@ -312,6 +316,7 @@ class Device {
   }
 
   inline std::string compile_string() { return _ocl_compile_string; }
+  std::string compile_string_nofast();
   inline std::string ocl_config_name() { return _ocl_config_name; }
 
   template <class t>
@@ -349,7 +354,7 @@ class Device {
   int _data_in_estimate, _data_out_estimate;
 
   std::string _ocl_config_name, _ocl_config_string, _ocl_compile_string;
-  int set_ocl_params(std::string, std::string);
+  int set_ocl_params(std::string, const std::string &);
 };
 
 }

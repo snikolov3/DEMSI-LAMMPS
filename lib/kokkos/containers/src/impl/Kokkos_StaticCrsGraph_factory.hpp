@@ -47,6 +47,8 @@
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+#include <Kokkos_Core.hpp>
+#include <Kokkos_StaticCrsGraph.hpp>
 
 namespace Kokkos {
 
@@ -54,11 +56,10 @@ template <class DataType, class Arg1Type, class Arg2Type, class Arg3Type,
           typename SizeType>
 inline typename StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
                                SizeType>::HostMirror
-create_mirror_view(
-    const StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type, SizeType>&
-        view,
-    typename std::enable_if<ViewTraits<DataType, Arg1Type, Arg2Type,
-                                       Arg3Type>::is_hostspace>::type* = 0) {
+create_mirror_view(const StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
+                                        SizeType>& view,
+                   std::enable_if_t<ViewTraits<DataType, Arg1Type, Arg2Type,
+                                               Arg3Type>::is_hostspace>* = 0) {
   return view;
 }
 
@@ -97,11 +98,10 @@ template <class DataType, class Arg1Type, class Arg2Type, class Arg3Type,
           typename SizeType>
 inline typename StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
                                SizeType>::HostMirror
-create_mirror_view(
-    const StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type, SizeType>&
-        view,
-    typename std::enable_if<!ViewTraits<DataType, Arg1Type, Arg2Type,
-                                        Arg3Type>::is_hostspace>::type* = 0) {
+create_mirror_view(const StaticCrsGraph<DataType, Arg1Type, Arg2Type, Arg3Type,
+                                        SizeType>& view,
+                   std::enable_if_t<!ViewTraits<DataType, Arg1Type, Arg2Type,
+                                                Arg3Type>::is_hostspace>* = 0) {
   return create_mirror(view);
 }
 }  // namespace Kokkos
@@ -114,15 +114,11 @@ namespace Kokkos {
 template <class StaticCrsGraphType, class InputSizeType>
 inline typename StaticCrsGraphType::staticcrsgraph_type create_staticcrsgraph(
     const std::string& label, const std::vector<InputSizeType>& input) {
-  using output_type = StaticCrsGraphType;
-  // using input_type = std::vector<InputSizeType>; // unused
-
+  using output_type  = StaticCrsGraphType;
   using entries_type = typename output_type::entries_type;
-
-  using work_type = View<typename output_type::size_type[],
-                         typename output_type::array_layout,
-                         typename output_type::execution_space,
-                         typename output_type::memory_traits>;
+  using work_type    = View<
+      typename output_type::size_type[], typename output_type::array_layout,
+      typename output_type::device_type, typename output_type::memory_traits>;
 
   output_type output;
 
@@ -161,10 +157,9 @@ inline typename StaticCrsGraphType::staticcrsgraph_type create_staticcrsgraph(
 
   static_assert(entries_type::rank == 1, "Graph entries view must be rank one");
 
-  using work_type = View<typename output_type::size_type[],
-                         typename output_type::array_layout,
-                         typename output_type::execution_space,
-                         typename output_type::memory_traits>;
+  using work_type = View<
+      typename output_type::size_type[], typename output_type::array_layout,
+      typename output_type::device_type, typename output_type::memory_traits>;
 
   output_type output;
 

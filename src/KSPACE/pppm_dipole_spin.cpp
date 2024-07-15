@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -100,14 +101,13 @@ void PPPMDipoleSpin::init()
 
   if (domain->dimension == 2) error->all(FLERR,
                                          "Cannot use PPPMDipoleSpin with 2d simulation");
-  if (comm->style != 0)
-    error->universe_all(FLERR,"PPPMDipoleSpin can only currently be used with "
-                        "comm_style brick");
+  if (comm->style != Comm::BRICK)
+    error->universe_all(FLERR,"PPPMDipoleSpin can only currently be used with comm_style brick");
 
   if (!atom->sp) error->all(FLERR,"Kspace style requires atom attribute sp");
 
-  if (atom->sp && differentiation_flag == 1) error->all(FLERR,"Cannot (yet) use"
-     " kspace_modify diff ad with spins");
+  if (atom->sp && differentiation_flag == 1)
+    error->all(FLERR,"Cannot (yet) use kspace_modify diff ad with spins");
 
   if (spinflag && strcmp(update->unit_style,"metal") != 0)
     error->all(FLERR,"'metal' units have to be used with spins");
@@ -121,8 +121,7 @@ void PPPMDipoleSpin::init()
   }
 
   if (order < 2 || order > MAXORDER)
-    error->all(FLERR,"PPPMDipoleSpin order cannot be < 2 or > {}",
-                                 MAXORDER);
+    error->all(FLERR,"PPPMDipoleSpin order cannot be < 2 or > {}",MAXORDER);
 
   // compute two charge force
 
@@ -137,7 +136,7 @@ void PPPMDipoleSpin::init()
   pair_check();
 
   int itmp = 0;
-  double *p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
+  auto p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
   // check the correct extract here
   if (p_cutoff == nullptr)
     error->all(FLERR,"KSpace style is incompatible with Pair style");
@@ -200,8 +199,7 @@ void PPPMDipoleSpin::init()
 
   if (order < minorder) error->all(FLERR,"PPPMDipoleSpin order < minimum allowed order");
   if (!overlap_allowed && !gctmp->ghost_adjacent())
-    error->all(FLERR,"PPPMDipoleSpin grid stencil extends "
-               "beyond nearest neighbor processor");
+    error->all(FLERR,"PPPMDipoleSpin grid stencil extends beyond nearest neighbor processor");
   if (gctmp) delete gctmp;
 
   // adjust g_ewald
@@ -298,8 +296,8 @@ void PPPMDipoleSpin::compute(int eflag, int vflag)
   //   to fully sum contribution in their 3d bricks
   // remap from 3d decomposition to FFT decomposition
 
-  gc_dipole->reverse_comm_kspace(this,3,sizeof(FFT_SCALAR),REVERSE_MU,
-                                 gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  gc_dipole->reverse_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
+                          REVERSE_MU,gc_buf1,gc_buf2,MPI_FFT_SCALAR);
   brick2fft_dipole();
 
   // compute potential gradient on my FFT grid and
@@ -312,14 +310,14 @@ void PPPMDipoleSpin::compute(int eflag, int vflag)
   // all procs communicate E-field values
   // to fill ghost cells surrounding their 3d bricks
 
-  gc_dipole->forward_comm_kspace(this,9,sizeof(FFT_SCALAR),FORWARD_MU,
-                                 gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  gc_dipole->forward_comm(GridComm::KSPACE,this,9,sizeof(FFT_SCALAR),
+                          FORWARD_MU,gc_buf1,gc_buf2,MPI_FFT_SCALAR);
 
   // extra per-atom energy/virial communication
 
   if (evflag_atom)
-    gc->forward_comm_kspace(this,18,sizeof(FFT_SCALAR),FORWARD_MU_PERATOM,
-                            gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    gc->forward_comm(GridComm::KSPACE,this,18,sizeof(FFT_SCALAR),
+                     FORWARD_MU_PERATOM,gc_buf1,gc_buf2,MPI_FFT_SCALAR);
 
   // calculate the force on my particles
 

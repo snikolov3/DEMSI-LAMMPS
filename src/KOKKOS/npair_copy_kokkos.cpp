@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -62,6 +63,7 @@ void NPairCopyKokkos<DeviceType>::copy_to_kokkos(NeighList *list)
   list_kk->d_ilist = listcopy_kk->d_ilist;
   list_kk->d_numneigh = listcopy_kk->d_numneigh;
   list_kk->d_neighbors = listcopy_kk->d_neighbors;
+  list_kk->maxneighs = listcopy_kk->maxneighs;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -120,7 +122,7 @@ void NPairCopyKokkos<DeviceType>::copy_to_cpu(NeighList *list)
 
 namespace LAMMPS_NS {
 template class NPairCopyKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class NPairCopyKokkos<LMPHostType>;
 #endif
 }

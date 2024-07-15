@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -13,12 +14,13 @@
 
 #include "compute_pair.h"
 
-#include <cstring>
-#include <cctype>
-#include "update.h"
+#include "error.h"
 #include "force.h"
 #include "pair.h"
-#include "error.h"
+#include "update.h"
+
+#include <cctype>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
@@ -88,9 +90,9 @@ ComputePair::ComputePair(LAMMPS *lmp, int narg, char **arg) :
 
 ComputePair::~ComputePair()
 {
-  delete [] pstyle;
-  delete [] one;
-  delete [] vector;
+  delete[] pstyle;
+  delete[] one;
+  delete[] vector;
 }
 
 /* ---------------------------------------------------------------------- */

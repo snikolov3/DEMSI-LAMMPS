@@ -1,6 +1,7 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -99,7 +100,7 @@ void PairSpinExchangeBiquadratic::coeff(int narg, char **arg)
 
   if (strcmp(arg[2],"biquadratic") != 0)
     error->all(FLERR,"Incorrect args for pair coefficients");
-  if ((narg != 10) && (narg != 12))
+  if ((narg != 11) && (narg != 13))
     error->all(FLERR,"Incorrect args for pair coefficients");
 
   int ilo,ihi,jlo,jhi;
@@ -108,7 +109,7 @@ void PairSpinExchangeBiquadratic::coeff(int narg, char **arg)
 
   // get exchange arguments from input command
 
-  int iarg = 10;
+  int iarg = 11;
   const double rc = utils::numeric(FLERR,arg[3],false,lmp);
   const double j1 = utils::numeric(FLERR,arg[4],false,lmp);
   const double j2 = utils::numeric(FLERR,arg[5],false,lmp);
@@ -116,16 +117,13 @@ void PairSpinExchangeBiquadratic::coeff(int narg, char **arg)
   const double k1 = utils::numeric(FLERR,arg[7],false,lmp);
   const double k2 = utils::numeric(FLERR,arg[8],false,lmp);
   const double k3 = utils::numeric(FLERR,arg[9],false,lmp);
+  lsf_flag = utils::numeric(FLERR,arg[10],false,lmp);
 
   // read energy offset flag if specified
 
   while (iarg < narg) {
-    if (strcmp(arg[10],"offset") == 0) {
-      if (strcmp(arg[11],"yes") == 0) {
-        e_offset = 1;
-      } else if  (strcmp(arg[11],"no") == 0) {
-        e_offset = 0;
-      } else error->all(FLERR,"Incorrect args for pair coefficients");
+    if (strcmp(arg[iarg],"offset") == 0) {
+      e_offset = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else error->all(FLERR,"Incorrect args for pair coefficients");
   }
@@ -187,16 +185,16 @@ void *PairSpinExchangeBiquadratic::extract(const char *str, int &dim)
 void PairSpinExchangeBiquadratic::compute(int eflag, int vflag)
 {
   int i,j,ii,jj,inum,jnum,itype,jtype;
-  double evdwl, ecoul;
+  double evdwl, ecoul, eLandau;
   double xi[3], eij[3];
   double delx,dely,delz;
-  double spi[3], spj[3];
+  double spi[4], spj[4];
   double fi[3], fmi[3];
   double local_cut2;
   double rsq, inorm;
   int *ilist,*jlist,*numneigh,**firstneigh;
 
-  evdwl = ecoul = 0.0;
+  evdwl = ecoul = eLandau = 0.0;
   ev_init(eflag,vflag);
 
   double **x = atom->x;
@@ -234,6 +232,7 @@ void PairSpinExchangeBiquadratic::compute(int eflag, int vflag)
     spi[0] = sp[i][0];
     spi[1] = sp[i][1];
     spi[2] = sp[i][2];
+    spi[3] = sp[i][3];
     emag[i] = 0.0;
 
     // loop on neighbors
@@ -246,8 +245,10 @@ void PairSpinExchangeBiquadratic::compute(int eflag, int vflag)
       spj[0] = sp[j][0];
       spj[1] = sp[j][1];
       spj[2] = sp[j][2];
+      spj[3] = sp[j][3];
 
       evdwl = 0.0;
+      eLandau = 0.0;
       fi[0] = fi[1] = fi[2] = 0.0;
       fmi[0] = fmi[1] = fmi[2] = 0.0;
 
@@ -267,10 +268,16 @@ void PairSpinExchangeBiquadratic::compute(int eflag, int vflag)
       if (rsq <= local_cut2) {
         compute_exchange(i,j,rsq,fmi,spi,spj);
 
+        if (lsf_flag == 1){
+           compute_landau_exchange(i,j,rsq,fmi,spi,spj);
+           eLandau += compute_landau_energy(i,j,rsq,fmi,spi,spj);
+        } else eLandau = 0.0;
+
         if (lattice_flag)
           compute_exchange_mech(i,j,rsq,eij,fi,spi,spj);
 
         if (eflag) {
+          evdwl -= eLandau;
           evdwl -= compute_energy(i,j,rsq,spi,spj);
           emag[i] += evdwl;
         } else evdwl = 0.0;
@@ -308,7 +315,7 @@ void PairSpinExchangeBiquadratic::compute_single_pair(int ii, double fmi[3])
   double local_cut2;
   double xi[3];
   double delx,dely,delz;
-  double spi[3],spj[3];
+  double spi[4],spj[4];
 
   int j,jnum,itype,jtype,ntypes;
   int k,locflag;
@@ -352,6 +359,7 @@ void PairSpinExchangeBiquadratic::compute_single_pair(int ii, double fmi[3])
     spi[0] = sp[ii][0];
     spi[1] = sp[ii][1];
     spi[2] = sp[ii][2];
+    spi[3] = sp[ii][3];
 
     jlist = firstneigh[ii];
     jnum = numneigh[ii];
@@ -366,6 +374,7 @@ void PairSpinExchangeBiquadratic::compute_single_pair(int ii, double fmi[3])
       spj[0] = sp[j][0];
       spj[1] = sp[j][1];
       spj[2] = sp[j][2];
+      spj[3] = sp[j][3];
 
       delx = xi[0] - x[j][0];
       dely = xi[1] - x[j][1];
@@ -374,6 +383,9 @@ void PairSpinExchangeBiquadratic::compute_single_pair(int ii, double fmi[3])
 
       if (rsq <= local_cut2) {
         compute_exchange(ii,j,rsq,fmi,spi,spj);
+
+        if (lsf_flag == 1)
+           compute_landau_exchange(ii,j,rsq,fmi,spi,spj);
       }
     }
   }
@@ -384,11 +396,12 @@ void PairSpinExchangeBiquadratic::compute_single_pair(int ii, double fmi[3])
 ------------------------------------------------------------------------- */
 
 void PairSpinExchangeBiquadratic::compute_exchange(int i, int j, double rsq,
-    double fmi[3], double spi[3], double spj[3])
+    double fmi[3], double spi[4], double spj[4])
 {
   int *type = atom->type;
   int itype,jtype;
   double Jex,Kex,r2j,r2k,sdots;
+  double lande_factor = 2.0;
   itype = type[i];
   jtype = type[j];
 
@@ -402,12 +415,23 @@ void PairSpinExchangeBiquadratic::compute_exchange(int i, int j, double rsq,
   Kex = 4.0*K1_mag[itype][jtype]*r2k;
   Kex *= (1.0-K2[itype][jtype]*r2k);
   Kex *= exp(-r2k);
+  
+//  double spi_mag = spi[3]/lande_factor;
+  double spj_mag = spj[3]/lande_factor;
+  double spj_sq = spj_mag*spj_mag;
+  double spi_mag = spi[3]/lande_factor;
+  double spi_spj_prod = spi_mag*spj_mag;
+  double maxMag = 2.2/lande_factor;
+  double maxMagSq = maxMag*maxMag;
 
   sdots = (spi[0]*spj[0]+spi[1]*spj[1]+spi[2]*spj[2]);
 
-  fmi[0] += (Jex*spj[0] + 2.0*Kex*spj[0]*sdots);
-  fmi[1] += (Jex*spj[1] + 2.0*Kex*spj[1]*sdots);
-  fmi[2] += (Jex*spj[2] + 2.0*Kex*spj[2]*sdots);
+//  fmi[0] += (spj_sq/maxMagSq)*(Jex*spj[0] + 2.0*Kex*spj[0]*sdots);
+//  fmi[1] += (spj_sq/maxMagSq)*(Jex*spj[1] + 2.0*Kex*spj[1]*sdots);
+//  fmi[2] += (spj_sq/maxMagSq)*(Jex*spj[2] + 2.0*Kex*spj[2]*sdots);
+  fmi[0] += (spi_spj_prod/maxMagSq)*(Jex*spj[0] + 2.0*Kex*spj[0]*sdots);
+  fmi[1] += (spi_spj_prod/maxMagSq)*(Jex*spj[1] + 2.0*Kex*spj[1]*sdots); 
+  fmi[2] += (spi_spj_prod/maxMagSq)*(Jex*spj[2] + 2.0*Kex*spj[2]*sdots);
 }
 
 /* ----------------------------------------------------------------------
@@ -415,13 +439,19 @@ void PairSpinExchangeBiquadratic::compute_exchange(int i, int j, double rsq,
 ------------------------------------------------------------------------- */
 
 void PairSpinExchangeBiquadratic::compute_exchange_mech(int i, int j,
-    double rsq, double eij[3], double fi[3],  double spi[3], double spj[3])
+    double rsq, double eij[3], double fi[3],  double spi[4], double spj[4])
 {
   int *type = atom->type;
   int itype,jtype;
   double Jex,Jex_mech,Kex,Kex_mech,sdots;
   double rja,rka,rjr,rkr,iJ3,iK3;
   double fx, fy, fz;
+  double lande_factor = 2.0;
+  double maxMag = 2.2/lande_factor;
+  double maxMagSq = maxMag*maxMag;
+  double spi_mag = spi[3]/lande_factor;
+  double spj_mag = spj[3]/lande_factor;
+  double spi_spj_prod = spi_mag*spj_mag;
   itype = type[i];
   jtype = type[j];
 
@@ -441,19 +471,23 @@ void PairSpinExchangeBiquadratic::compute_exchange_mech(int i, int j,
   Kex_mech = 1.0-rka-K2[itype][jtype]*rka*(2.0-rka);
   Kex_mech *= 8.0*Kex*rkr*exp(-rka);
 
+//  sdots = spi_spj_prod*(spi[0]*spj[0]+spi[1]*spj[1]+spi[2]*spj[2]);
   sdots = (spi[0]*spj[0]+spi[1]*spj[1]+spi[2]*spj[2]);
 
   // apply or not energy and force offset
 
   fx = fy = fz = 0.0;
   if (e_offset == 1) { // set offset
-    fx = (Jex_mech*(sdots-1.0) + Kex_mech*(sdots*sdots-1.0))*eij[0];
-    fy = (Jex_mech*(sdots-1.0) + Kex_mech*(sdots*sdots-1.0))*eij[1];
-    fz = (Jex_mech*(sdots-1.0) + Kex_mech*(sdots*sdots-1.0))*eij[2];
+    fx = (spi_spj_prod/maxMagSq)*(Jex_mech*(sdots-1.0) + Kex_mech*(sdots*sdots-1.0))*eij[0];
+    fy = (spi_spj_prod/maxMagSq)*(Jex_mech*(sdots-1.0) + Kex_mech*(sdots*sdots-1.0))*eij[1];
+    fz = (spi_spj_prod/maxMagSq)*(Jex_mech*(sdots-1.0) + Kex_mech*(sdots*sdots-1.0))*eij[2];
+//    fx = (Jex_mech*(sdots-maxMagSq) + Kex_mech*(sdots*sdots-maxMagSq))*eij[0];
+//    fy = (Jex_mech*(sdots-maxMagSq) + Kex_mech*(sdots*sdots-maxMagSq))*eij[1];
+//    fz = (Jex_mech*(sdots-maxMagSq) + Kex_mech*(sdots*sdots-maxMagSq))*eij[2];
   } else if (e_offset == 0) { // no offset ("normal" calculation)
-    fx =  (Jex_mech*sdots + Kex_mech*sdots*sdots)*eij[0];
-    fy =  (Jex_mech*sdots + Kex_mech*sdots*sdots)*eij[1];
-    fz =  (Jex_mech*sdots + Kex_mech*sdots*sdots)*eij[2];
+    fx =  (spi_spj_prod/maxMagSq)*(Jex_mech*sdots + Kex_mech*sdots*sdots)*eij[0];
+    fy =  (spi_spj_prod/maxMagSq)*(Jex_mech*sdots + Kex_mech*sdots*sdots)*eij[1];
+    fz =  (spi_spj_prod/maxMagSq)*(Jex_mech*sdots + Kex_mech*sdots*sdots)*eij[2];
   } else error->all(FLERR,"Illegal option in pair exchange/biquadratic command");
 
   fi[0] -= 0.5*fx;
@@ -469,13 +503,20 @@ void PairSpinExchangeBiquadratic::compute_exchange_mech(int i, int j,
 ------------------------------------------------------------------------- */
 
 double PairSpinExchangeBiquadratic::compute_energy(int i, int j, double rsq,
-    double spi[3], double spj[3])
+    double spi[4], double spj[4])
 {
   int *type = atom->type;
   int itype,jtype;
   double Jex,Kex,sdots;
   double r2j,r2k;
   double energy = 0.0;
+  double lande_factor = 2.0;
+  double maxMag = 2.2/lande_factor;
+  double maxMagSq = maxMag*maxMag;
+  double spi_mag = spi[3]/lande_factor;
+  double spj_mag = spj[3]/lande_factor;
+  double spi_spj_prod = spi_mag*spj_mag;
+
   itype = type[i];
   jtype = type[j];
 
@@ -490,14 +531,17 @@ double PairSpinExchangeBiquadratic::compute_energy(int i, int j, double rsq,
   Kex *= (1.0-K2[itype][jtype]*r2k);
   Kex *= exp(-r2k);
 
+//  sdots = spi_spj_prod*(spi[0]*spj[0]+spi[1]*spj[1]+spi[2]*spj[2]);
   sdots = (spi[0]*spj[0]+spi[1]*spj[1]+spi[2]*spj[2]);
+  
 
   // apply or not energy and force offset
 
   if (e_offset == 1) { // set offset
-    energy = 0.5*(Jex*(sdots-1.0) + Kex*(sdots*sdots-1.0));
+//    energy = 0.5*(Jex*(sdots-1.0) + Kex*(sdots*sdots-1.0));
+    energy = 0.5*(spi_spj_prod/maxMagSq)*(Jex*(sdots-1.0) + Kex*(sdots*sdots-1.0));
   } else if (e_offset == 0) { // no offset ("normal" calculation)
-    energy = 0.5*(Jex*sdots + Kex*sdots*sdots);
+    energy = 0.5*(spi_spj_prod/maxMagSq)*(Jex*sdots + Kex*sdots*sdots);
   } else error->all(FLERR,"Illegal option in pair exchange/biquadratic command");
 
   return energy;
@@ -627,4 +671,66 @@ void PairSpinExchangeBiquadratic::read_restart_settings(FILE *fp)
   MPI_Bcast(&e_offset,1,MPI_INT,0,world);
   MPI_Bcast(&offset_flag,1,MPI_INT,0,world);
   MPI_Bcast(&mix_flag,1,MPI_INT,0,world);
+}
+
+/* ----------------------------------------------------------------------
+ *   compute longitudinal spin fluctuation impact on energy
+ * ------------------------------------------------------------------------- */
+
+double PairSpinExchangeBiquadratic::compute_landau_energy(int i, int j, double rsq,
+    double fmi[3], double spi[4], double spj[4])
+{
+  double A_coeff, B_coeff, C_coeff;
+  double acoeff, bcoeff, ccoeff;
+  double lande_factor = 2.0;
+  double landau_energy = 0;
+  const double mub = 5.78901e-5;
+  double sppi = spi[3];
+  double sppj = spj[3];
+
+  acoeff = (-0.02729*pow(sppi,3) + 0.07887*pow(sppi,2) - 0.07567*sppi + 0.01804) / (pow(sppi,2) - 3.457*sppi + 3.284);
+  bcoeff = 0.006374*exp(-1*pow(((sppi-2.576) / 0.6864),2)) + 0.008469*exp(-1*pow(((sppi-0.7717)/2.323), 2));
+  ccoeff = -0.000059;
+  A_coeff = acoeff*pow(lande_factor*mub,2);
+  B_coeff = bcoeff*pow(lande_factor*mub,4);
+  C_coeff = ccoeff*pow(lande_factor*mub,6);
+
+  landau_energy = A_coeff*pow(sppi/lande_factor, 2.0) + \
+                  B_coeff*pow(sppi/lande_factor, 4.0) + \
+                  C_coeff*pow(sppi/lande_factor, 6.0);
+
+  return landau_energy;
+}
+
+/* ----------------------------------------------------------------------
+ *  *   compute longitudinal spin fluctuation impact on spin angular velocity
+ *   * ------------------------------------------------------------------------- */
+
+void PairSpinExchangeBiquadratic::compute_landau_exchange(int i, int j, double rsq,
+    double fmi[3], double spi[4], double spj[4])
+{
+  double A_coeff, B_coeff, C_coeff;
+  double acoeff, bcoeff, ccoeff;
+  double lande_factor = 2.0;
+  double landau_energy = 0;
+  const double mub = 5.78901e-5;
+  double sppi = spi[3];
+  double sppj = spj[3];
+
+  acoeff = (-0.02729*pow(sppi,3) + 0.07887*pow(sppi,2) - 0.07567*sppi + 0.01804) / (pow(sppi,2) - 3.457*sppi + 3.284);
+  bcoeff = 0.006374*exp(-1*pow(((sppi-2.576) / 0.6864),2)) + 0.008469*exp(-1*pow(((sppi-0.7717)/2.323), 2));
+  ccoeff = -0.000059;
+  A_coeff = acoeff*pow(lande_factor*mub,2);
+  B_coeff = bcoeff*pow(lande_factor*mub,4);
+  C_coeff = ccoeff*pow(lande_factor*mub,6);
+
+  fmi[0] += (2*A_coeff*(spi[0]*sppi/lande_factor) + \
+             4*B_coeff*pow((spi[0]*sppi/lande_factor),3.0) + \
+             6*C_coeff*pow((spi[0]*sppi/lande_factor),5.0))/hbar;
+  fmi[1] += (2*A_coeff*(spi[1]*sppi/lande_factor) + \
+             4*B_coeff*pow((spi[1]*sppi/lande_factor),3.0) + \
+             6*C_coeff*pow((spi[1]*sppi/lande_factor),5.0))/hbar;
+  fmi[2] += (2*A_coeff*(spi[2]*sppi/lande_factor) + \
+             4*B_coeff*pow((spi[2]*sppi/lande_factor),3.0) + \
+             6*C_coeff*pow((spi[2]*sppi/lande_factor),5.0))/hbar;
 }

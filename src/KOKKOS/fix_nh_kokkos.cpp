@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -63,15 +64,6 @@ FixNHKokkos<DeviceType>::FixNHKokkos(LAMMPS *lmp, int narg, char **arg) : FixNH(
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-FixNHKokkos<DeviceType>::~FixNHKokkos()
-{
-
-
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
 void FixNHKokkos<DeviceType>::init()
 {
   FixNH::init();
@@ -85,8 +77,13 @@ void FixNHKokkos<DeviceType>::init()
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixNHKokkos<DeviceType>::setup(int vflag)
+void FixNHKokkos<DeviceType>::setup(int /*vflag*/)
 {
+  // tdof needed by compute_temp_target()
+
+  t_current = temperature->compute_scalar();
+  tdof = temperature->dof;
+
   // t_target is needed by NPH and NPT in compute_scalar()
   // If no thermostat or using fix nphug,
   // t_target must be defined by other means.
@@ -176,7 +173,7 @@ void FixNHKokkos<DeviceType>::setup(int vflag)
 ------------------------------------------------------------------------- */
 
 template<class DeviceType>
-void FixNHKokkos<DeviceType>::initial_integrate(int vflag)
+void FixNHKokkos<DeviceType>::initial_integrate(int /*vflag*/)
 {
   // update eta_press_dot
 
@@ -732,8 +729,7 @@ void FixNHKokkos<DeviceType>::pre_exchange()
 
 namespace LAMMPS_NS {
 template class FixNHKokkos<LMPDeviceType>;
-#ifdef KOKKOS_ENABLE_CUDA
+#ifdef LMP_KOKKOS_GPU
 template class FixNHKokkos<LMPHostType>;
 #endif
 }
-

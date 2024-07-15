@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -87,8 +88,8 @@ PPPMDipole::~PPPMDipole()
 {
   if (copymode) return;
 
-  deallocate();
-  if (peratom_allocate_flag) deallocate_peratom();
+  PPPMDipole::deallocate();
+  if (peratom_allocate_flag) PPPMDipole::deallocate_peratom();
 }
 
 /* ----------------------------------------------------------------------
@@ -115,14 +116,13 @@ void PPPMDipole::init()
   if (domain->dimension == 2)
     error->all(FLERR,"Cannot use PPPMDipole with 2d simulation");
 
-  if (comm->style != 0)
-    error->universe_all(FLERR,"PPPMDipole can only currently be used with "
-                        "comm_style brick");
+  if (comm->style != Comm::BRICK)
+    error->universe_all(FLERR,"PPPMDipole can only currently be used with comm_style brick");
 
   if (!atom->mu) error->all(FLERR,"Kspace style requires atom attribute mu");
 
-  if (atom->mu && differentiation_flag == 1) error->all(FLERR,"Cannot (yet) use kspace_modify diff"
-       " ad with dipoles");
+  if (atom->mu && differentiation_flag == 1)
+    error->all(FLERR,"Cannot (yet) use kspace_modify diff ad with dipoles");
 
   if (dipoleflag && strcmp(update->unit_style,"electron") == 0)
     error->all(FLERR,"Cannot (yet) use 'electron' units with dipoles");
@@ -136,8 +136,7 @@ void PPPMDipole::init()
   }
 
   if (order < 2 || order > MAXORDER)
-    error->all(FLERR,"PPPMDipole order cannot be < 2 or > {}",
-                                 MAXORDER);
+    error->all(FLERR,"PPPMDipole order cannot be < 2 or > {}", MAXORDER);
 
   // compute two charge force
 
@@ -152,7 +151,7 @@ void PPPMDipole::init()
   pair_check();
 
   int itmp = 0;
-  double *p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
+  auto p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
   if (p_cutoff == nullptr)
     error->all(FLERR,"KSpace style is incompatible with Pair style");
   cutoff = *p_cutoff;
@@ -215,8 +214,7 @@ void PPPMDipole::init()
 
   if (order < minorder) error->all(FLERR,"PPPMDipole order < minimum allowed order");
   if (!overlap_allowed && !gctmp->ghost_adjacent())
-    error->all(FLERR,"PPPMDipole grid stencil extends "
-               "beyond nearest neighbor processor");
+    error->all(FLERR,"PPPMDipole grid stencil extends beyond nearest neighbor processor");
   if (gctmp) delete gctmp;
 
   // adjust g_ewald
@@ -374,8 +372,7 @@ void PPPMDipole::setup_grid()
   allocate();
 
   if (!overlap_allowed && !gc_dipole->ghost_adjacent())
-    error->all(FLERR,"PPPMDipole grid stencil extends "
-               "beyond nearest neighbor processor");
+    error->all(FLERR,"PPPMDipole grid stencil extends beyond nearest neighbor processor");
 
   // pre-compute Green's function denomiator expansion
   // pre-compute 1d charge distribution coefficients
@@ -442,8 +439,8 @@ void PPPMDipole::compute(int eflag, int vflag)
   //   to fully sum contribution in their 3d bricks
   // remap from 3d decomposition to FFT decomposition
 
-  gc_dipole->reverse_comm_kspace(this,3,sizeof(FFT_SCALAR),REVERSE_MU,
-                                 gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  gc_dipole->reverse_comm(GridComm::KSPACE,this,3,sizeof(FFT_SCALAR),
+                          REVERSE_MU,gc_buf1,gc_buf2,MPI_FFT_SCALAR);
   brick2fft_dipole();
 
   // compute potential gradient on my FFT grid and
@@ -456,14 +453,14 @@ void PPPMDipole::compute(int eflag, int vflag)
   // all procs communicate E-field values
   // to fill ghost cells surrounding their 3d bricks
 
-  gc_dipole->forward_comm_kspace(this,9,sizeof(FFT_SCALAR),FORWARD_MU,
-                                 gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+  gc_dipole->forward_comm(GridComm::KSPACE,this,9,sizeof(FFT_SCALAR),
+                          FORWARD_MU,gc_buf1,gc_buf2,MPI_FFT_SCALAR);
 
   // extra per-atom energy/virial communication
 
   if (evflag_atom)
-    gc_dipole->forward_comm_kspace(this,18,sizeof(FFT_SCALAR),FORWARD_MU_PERATOM,
-                                   gc_buf1,gc_buf2,MPI_FFT_SCALAR);
+    gc_dipole->forward_comm(GridComm::KSPACE,this,18,sizeof(FFT_SCALAR),
+                            FORWARD_MU_PERATOM,gc_buf1,gc_buf2,MPI_FFT_SCALAR);
 
   // calculate the force on my particles
 
@@ -782,7 +779,7 @@ void PPPMDipole::set_grid_global()
 
     h = h_x = h_y = h_z = 4.0/g_ewald;
     int count = 0;
-    while (1) {
+    while (true) {
 
       // set grid dimension
 
@@ -2189,7 +2186,7 @@ void PPPMDipole::fieldforce_peratom_dipole()
 
 void PPPMDipole::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
+  auto buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
 
@@ -2262,7 +2259,7 @@ void PPPMDipole::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 
 void PPPMDipole::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
+  auto buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
 
@@ -2335,7 +2332,7 @@ void PPPMDipole::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 
 void PPPMDipole::pack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
+  auto buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
   if (flag == REVERSE_MU) {
@@ -2356,7 +2353,7 @@ void PPPMDipole::pack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 
 void PPPMDipole::unpack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
+  auto buf = (FFT_SCALAR *) vbuf;
 
   int n = 0;
   if (flag == REVERSE_MU) {
@@ -2442,7 +2439,7 @@ int PPPMDipole::timing_1d(int n, double &time1d)
   for (int i = 0; i < 2*nfft_both; i++) work1[i] = ZEROF;
 
   MPI_Barrier(world);
-  time1 = MPI_Wtime();
+  time1 = platform::walltime();
 
   for (int i = 0; i < n; i++) {
     fft1->timing1d(work1,nfft_both,FFT3d::FORWARD);
@@ -2460,7 +2457,7 @@ int PPPMDipole::timing_1d(int n, double &time1d)
   }
 
   MPI_Barrier(world);
-  time2 = MPI_Wtime();
+  time2 = platform::walltime();
   time1d = time2 - time1;
 
   return 12;
@@ -2477,7 +2474,7 @@ int PPPMDipole::timing_3d(int n, double &time3d)
   for (int i = 0; i < 2*nfft_both; i++) work1[i] = ZEROF;
 
   MPI_Barrier(world);
-  time1 = MPI_Wtime();
+  time1 = platform::walltime();
 
   for (int i = 0; i < n; i++) {
     fft1->compute(work1,work1,FFT3d::FFT3d::FORWARD);
@@ -2495,7 +2492,7 @@ int PPPMDipole::timing_3d(int n, double &time3d)
   }
 
   MPI_Barrier(world);
-  time2 = MPI_Wtime();
+  time2 = platform::walltime();
   time3d = time2 - time1;
 
   return 12;

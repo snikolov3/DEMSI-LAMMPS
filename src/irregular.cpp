@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -997,18 +998,11 @@ void Irregular::destroy_data()
 
 void Irregular::init_exchange()
 {
-  int nfix = modify->nfix;
-  Fix **fix = modify->fix;
-
-  int onefix;
   int maxexchange_fix = 0;
-  for (int i = 0; i < nfix; i++) {
-    onefix = fix[i]->maxexchange;
-    maxexchange_fix = MAX(maxexchange_fix,onefix);
-  }
+  for (auto &ifix : modify->get_fix_list())
+    maxexchange_fix = MAX(maxexchange_fix, ifix->maxexchange);
 
-  int maxexchange = atom->avec->maxexchange + maxexchange_fix;
-  bufextra = maxexchange + BUFEXTRA;
+  bufextra = atom->avec->maxexchange + maxexchange_fix + BUFEXTRA;
 }
 
 /* ----------------------------------------------------------------------

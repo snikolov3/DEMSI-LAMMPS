@@ -10,8 +10,8 @@ Syntax
 
    comm_modify keyword value ...
 
-* zero or more keyword/value pairs may be appended
-* keyword = *mode* or *cutoff* or *cutoff/multi* or *multi/reduce* or *group* or *vel*
+* one or more keyword/value pairs may be appended
+* keyword = *mode* or *cutoff* or *cutoff/multi* or *group* or *reduce/multi* or *vel*
 
   .. parsed-literal::
 
@@ -34,7 +34,7 @@ Examples
 
    comm_modify mode multi reduce/multi
    comm_modify mode multi group solvent
-   comm_modift mode multi cutoff/multi 1 10.0 cutoff/multi 2*4 15.0
+   comm_modify mode multi cutoff/multi 1 10.0 cutoff/multi 2*4 15.0
    comm_modify vel yes
    comm_modify mode single cutoff 5.0 vel yes
    comm_modify cutoff/multi * 0.0
@@ -75,12 +75,12 @@ communicated. in *multi/old*, a similar technique is used but atoms
 are grouped by atom type. See the :doc:`neighbor multi <neighbor>`  and
 :doc:`neighbor multi/old <neighbor>` commands for
 neighbor list construction options that may also be beneficial for
-simulations of this kind. The *multi* communiction mode is only compatable
-with the *multi* neighbor style. The *multi/old* communication mode is compatble
+simulations of this kind. The *multi* communication mode is only compatible
+with the *multi* neighbor style. The *multi/old* communication mode is comparable
 with both the *multi* and *multi/old* neighbor styles.
 
 The *cutoff* keyword allows you to extend the ghost cutoff distance
-for communication mode *single*\ , which is the distance from the borders
+for communication mode *single*, which is the distance from the borders
 of a processor's sub-domain at which ghost atoms are acquired from other
 processors.  By default the ghost cutoff = neighbor cutoff = pairwise
 force cutoff + neighbor skin.  See the :doc:`neighbor <neighbor>` command
@@ -96,19 +96,19 @@ style present and no *comm_modify cutoff* command used. Otherwise a
 warning is printed, if this bond based estimate is larger than the
 communication cutoff used.
 
-The *cutoff/multi* option is equivalent to *cutoff*\ , but applies to
-communication mode *multi* instead. Since the communication
-cutoffs are determined per atom collections, a collection specifier is needed and
-cutoff for one or multiple collections can be extended. Also ranges of collections
-using the usual asterisk notation can be given.
-Collections are indexed from 1 to N where N is the total number of collections.
+The *cutoff/multi* option is equivalent to *cutoff*, but applies to
+communication mode *multi* instead. Since the communication cutoffs are
+determined per atom collections, a collection specifier is needed and
+cutoff for one or multiple collections can be extended. Also ranges of
+collections using the usual asterisk notation can be given.  Collections
+are indexed from 1 to N where N is the total number of collections.
 Note that the arguments for *cutoff/multi* are parsed right before each
-simulation to account for potential changes in the number of collections.
-Custom cutoffs are preserved between runs but if collections are redefined,
-one may want to respecify communication cutoffs.
-For granular pair styles,the default cutoff is set to the sum of the
-current maximum atomic radii for each collection.
-The *cutoff/multi/old* option is similar to *cutoff/multi* except it
+simulation to account for potential changes in the number of
+collections.  Custom cutoffs are preserved between runs but if
+collections are redefined, one may want to re-specify the communication
+cutoffs.  For granular pair styles,the default cutoff is set to the sum
+of the current maximum atomic radii for each collection.  The
+*cutoff/multi/old* option is similar to *cutoff/multi* except it
 operates on atom types as opposed to collections.
 
 The *reduce/multi* option applies to *multi* and sets the communication
@@ -132,9 +132,9 @@ different processors, or when the interaction straddles a periodic
 boundary.
 
 The appropriate ghost cutoff depends on the :doc:`newton bond <newton>`
-setting.  For newton bond *off*\ , the distance needs to be the furthest
+setting.  For newton bond *off*, the distance needs to be the furthest
 distance between any two atoms in the bond, angle, etc.  E.g. the
-distance between 1-4 atoms in a dihedral.  For newton bond *on*\ , the
+distance between 1-4 atoms in a dihedral.  For newton bond *on*, the
 distance between the central atom in the bond, angle, etc and any
 other atom is sufficient.  E.g. the distance between 2-4 atoms in a
 dihedral.
@@ -147,7 +147,7 @@ ghost cutoff should be set.
 In the last scenario, a :doc:`fix <fix>` or :doc:`compute <compute>` or
 :doc:`pairwise potential <pair_style>` needs to calculate with ghost
 atoms beyond the normal pairwise cutoff for some computation it
-performs (e.g. locate neighbors of ghost atoms in a multibody pair
+performs (e.g. locate neighbors of ghost atoms in a manybody pair
 potential).  Setting the ghost cutoff appropriately can insure it will
 find the needed atoms.
 
@@ -173,7 +173,7 @@ The *vel* keyword enables velocity information to be communicated with
 ghost particles.  Depending on the :doc:`atom_style <atom_style>`,
 velocity info includes the translational velocity, angular velocity,
 and angular momentum of a particle.  If the *vel* option is set to
-*yes*\ , then ghost atoms store these quantities; if *no* then they do
+*yes*, then ghost atoms store these quantities; if *no* then they do
 not.  The *yes* setting is needed by some pair styles which require
 the velocity state of both the I and J particles to compute a pairwise
 I,J interaction, as well as by some compute and fix commands.

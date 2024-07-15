@@ -1,7 +1,7 @@
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -33,17 +33,14 @@ void BondDeprecated::settings(int, char **)
   // hybrid substyles are created in BondHybrid::settings(), so when this is
   // called, our style was just added at the end of the list of substyles
 
-  if (utils::strmatch(my_style,"^hybrid")) {
-    BondHybrid *hybrid = (BondHybrid *)force->bond;
+  if (utils::strmatch(my_style, "^hybrid")) {
+    auto hybrid = dynamic_cast<BondHybrid *>(force->bond);
     my_style = hybrid->keywords[hybrid->nstyles];
   }
 
   if (my_style == "DEPRECATED") {
-    if (lmp->comm->me == 0)
-      utils::logmesg(lmp,"\nBond style 'DEPRECATED' is a dummy style\n\n");
+    if (lmp->comm->me == 0) utils::logmesg(lmp, "\nBond style 'DEPRECATED' is a dummy style\n\n");
     return;
   }
-  error->all(FLERR,"This bond style is no longer available");
+  error->all(FLERR, "This bond style is no longer available");
 }
-
-

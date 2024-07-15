@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -1015,12 +1016,13 @@ void AtomVecKokkos::unpack_reverse(int n, int *list, double *buf)
  *    unpack one line from Velocities section of data file
  *    ------------------------------------------------------------------------- */
 
-void AtomVecKokkos::data_vel(int m, char **values)
+void AtomVecKokkos::data_vel(int m, const std::vector<std::string> &values)
 {
   double **v = atom->v;
-  v[m][0] = utils::numeric(FLERR,values[0],true,lmp);
-  v[m][1] = utils::numeric(FLERR,values[1],true,lmp);
-  v[m][2] = utils::numeric(FLERR,values[2],true,lmp);
+  int ivalue = 1;
+  v[m][0] = utils::numeric(FLERR,values[ivalue++],true,lmp);
+  v[m][1] = utils::numeric(FLERR,values[ivalue++],true,lmp);
+  v[m][2] = utils::numeric(FLERR,values[ivalue++],true,lmp);
 
   atomKK->modified(Host,V_MASK);
 }

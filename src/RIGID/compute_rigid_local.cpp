@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -110,7 +111,7 @@ void ComputeRigidLocal::init()
   int ifix = modify->find_fix(idrigid);
   if (ifix < 0)
     error->all(FLERR,"FixRigidSmall ID for compute rigid/local does not exist");
-  fixrigid = (FixRigidSmall *) modify->fix[ifix];
+  fixrigid = dynamic_cast<FixRigidSmall *>(modify->fix[ifix]);
 
   int flag = 0;
   if (strstr(fixrigid->style,"rigid/") == nullptr) flag = 1;

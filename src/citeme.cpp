@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -15,7 +16,7 @@
 #include "comm.h"
 #include "universe.h"
 
-#include <functional>
+#include <functional>           // IWYU pragma: keep
 
 using namespace LAMMPS_NS;
 
@@ -100,7 +101,7 @@ void CiteMe::add(const std::string &reference)
     if (logfile_flag == VERBOSE) logbuffer += "\n";
   }
 
-  std::size_t found = reference.find_first_of("\n");
+  std::size_t found = reference.find_first_of('\n');
   std::string header = reference.substr(0,found+1);
   if (screen_flag == VERBOSE) scrbuffer += "- " + reference;
   if (screen_flag == TERSE) scrbuffer += "- " + header;
@@ -130,6 +131,5 @@ void CiteMe::flush()
       logbuffer.clear();
     }
   }
-  return;
 }
 

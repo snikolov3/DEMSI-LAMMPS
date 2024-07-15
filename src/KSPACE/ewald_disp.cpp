@@ -1,7 +1,8 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -173,8 +174,7 @@ void EwaldDisp::init()
         case 6:
           if (ewald_mix==Pair::GEOMETRIC) { k = 1; break; }
           else if (ewald_mix==Pair::ARITHMETIC) { k = 2; break; }
-          error->all(FLERR,
-                     "Unsupported mixing rule in kspace_style ewald/disp");
+          error->all(FLERR,"Unsupported mixing rule in kspace_style ewald/disp");
           break;
         default:
           error->all(FLERR,"Unsupported order in kspace_style ewald/disp");
@@ -213,11 +213,10 @@ void EwaldDisp::init()
     error->all(FLERR,"Cannot (yet) use 'electron' units with dipoles");
 
   if (qsqsum == 0.0 && bsbsum == 0.0 && M2 == 0.0)
-      error->all(FLERR,"Cannot use Ewald/disp solver "
-                 "on system with no charge, dipole, or LJ particles");
+      error->all(FLERR,"Cannot use Ewald/disp solver on system without "
+                 "charged, dipole, or LJ particles");
   if (fabs(qsum) > SMALL && comm->me == 0)
-    error->warning(FLERR,fmt::format("System is not charge neutral, "
-                                     "net charge = {:.8g}",qsum));
+    error->warning(FLERR,"System is not charge neutral, net charge = {:.8g}",qsum);
 
   if (!function[1] && !function[2]) dispersionflag = 0;
   if (!function[3]) dipoleflag = 0;
@@ -399,7 +398,7 @@ void EwaldDisp::reallocate()
           h[0] = unit[0]*ix;
           h[1] = unit[5]*ix+unit[1]*iy;
           h[2] = unit[4]*ix+unit[3]*iy+unit[2]*iz;
-          if ((*(flag++) = h[0]*h[0]+h[1]*h[1]+h[2]*h[2]<=gsqmx)) ++nkvec;
+          if ((*(flag++) = (h[0]*h[0]+h[1]*h[1]+h[2]*h[2]<=gsqmx))) ++nkvec;
         }
 
   if (nkvec>nkvec_max) {
@@ -544,7 +543,7 @@ void EwaldDisp::init_coeffs()
   int n = atom->ntypes;
 
   if (function[1]) {                                        // geometric 1/r^6
-    double **b = (double **) force->pair->extract("B",tmp);
+    auto b = (double **) force->pair->extract("B",tmp);
     delete [] B;
     B = new double[n+1];
     B[0] = 0.0;
@@ -552,8 +551,8 @@ void EwaldDisp::init_coeffs()
     for (int i=1; i<=n; ++i) B[i] = sqrt(fabs(b[i][i]));
   }
   if (function[2]) {                                        // arithmetic 1/r^6
-    double **epsilon = (double **) force->pair->extract("epsilon",tmp);
-    double **sigma = (double **) force->pair->extract("sigma",tmp);
+    auto epsilon = (double **) force->pair->extract("epsilon",tmp);
+    auto sigma = (double **) force->pair->extract("sigma",tmp);
     delete [] B;
     double eps_i, sigma_i, sigma_n, *bi = B = new double[7*n+7];
     double c[7] = {
@@ -773,7 +772,7 @@ void EwaldDisp::compute_ek()
   int lbytes = (2*nbox+1)*sizeof(cvector);
   hvector *h = nullptr;
   kvector *k, *nk = kvec+nkvec;
-  cvector *z = new cvector[2*nbox+1];
+  auto z = new cvector[2*nbox+1];
   cvector z1, *zx, *zy, *zz, *zn = z+2*nbox;
   complex *cek, zxyz, zxy = COMPLEX_NULL, cx = COMPLEX_NULL;
   double mui[3];
@@ -1427,7 +1426,7 @@ void EwaldDisp::compute_slabcorr()
 
   double *q = atom->q;
   double **x = atom->x;
-  double zprd = domain->zprd;
+  double zprd_slab = domain->zprd*slab_volfactor;
   int nlocal = atom->nlocal;
 
   double dipole = 0.0;
@@ -1466,7 +1465,7 @@ void EwaldDisp::compute_slabcorr()
   // compute corrections
 
   const double e_slabcorr = MY_2PI*(dipole_all*dipole_all -
-    qsum*dipole_r2 - qsum*qsum*zprd*zprd/12.0)/volume;
+    qsum*dipole_r2 - qsum*qsum*zprd_slab*zprd_slab/12.0)/volume;
   const double qscale = force->qqrd2e * scale;
 
   if (eflag_global) energy += qscale * e_slabcorr;
@@ -1477,7 +1476,7 @@ void EwaldDisp::compute_slabcorr()
     double efact = qscale * MY_2PI/volume;
     for (int i = 0; i < nlocal; i++)
       eatom[i] += efact * q[i]*(x[i][2]*dipole_all - 0.5*(dipole_r2 +
-        qsum*x[i][2]*x[i][2]) - qsum*zprd*zprd/12.0);
+        qsum*x[i][2]*x[i][2]) - qsum*zprd_slab*zprd_slab/12.0);
   }
 
   // add on force corrections

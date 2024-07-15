@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -20,23 +20,22 @@ namespace LAMMPS_NS {
 
 namespace PyUtils {
 
-class GIL {
-  PyGILState_STATE gstate;
-public:
-  GIL() : gstate(PyGILState_Ensure()) {
+  class GIL {
+    PyGILState_STATE gstate;
+
+   public:
+    GIL() : gstate(PyGILState_Ensure()) {}
+    ~GIL() { PyGILState_Release(gstate); }
+  };
+
+  static void Print_Errors()
+  {
+    PyErr_Print();
+    PyErr_Clear();
   }
-  ~GIL() {
-    PyGILState_Release(gstate);
-  }
-};
 
-static void Print_Errors() {
-  PyErr_Print();
-  PyErr_Clear();
-}
+}    // namespace PyUtils
 
-}
-
-}
+}    // namespace LAMMPS_NS
 
 #endif

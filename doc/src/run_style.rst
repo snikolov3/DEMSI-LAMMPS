@@ -67,7 +67,8 @@ Description
 Choose the style of time integrator used for molecular dynamics
 simulations performed by LAMMPS.
 
-The *verlet* style is a standard velocity-Verlet integrator.
+The *verlet* style is the velocity form of the
+Stoermer-Verlet time integration algorithm (velocity-Verlet)
 
 ----------
 
@@ -89,7 +90,7 @@ in its 3d FFTs.  In this scenario, splitting your P total processors
 into 2 subsets of processors, P1 in the first partition and P2 in the
 second partition, can enable your simulation to run faster.  This is
 because the long-range forces in PPPM can be calculated at the same
-time as pair-wise and bonded forces are being calculated, and the FFTs
+time as pairwise and bonded forces are being calculated, and the FFTs
 can actually speed up when running on fewer processors.
 
 To use this style, you must define 2 partitions where P1 is a multiple
@@ -100,7 +101,7 @@ Py2 by Pz2, then Px1 must be an integer multiple of Px2, and similarly
 for Py1 a multiple of Py2, and Pz1 a multiple of Pz2.
 
 Typically the best way to do this is to let the first partition choose
-its onn optimal layout, then require the second partition's layout to
+its own optimal layout, then require the second partition's layout to
 match the integer multiple constraint.  See the
 :doc:`processors <processors>` command with its *part* keyword for a way
 to control this, e.g.
@@ -125,12 +126,13 @@ screen.0 by default; see the :doc:`-plog and -pscreen command-line switches <Run
 for the second partition will not contain thermodynamic output beyond the
 first timestep of the run.
 
-See the :doc:`Speed packages <Speed_packages>` doc page for performance
-details of the speed-up offered by the *verlet/split* style.  One
-important performance consideration is the assignment of logical
-processors in the 2 partitions to the physical cores of a parallel
-machine.  The :doc:`processors <processors>` command has options to
-support this, and strategies are discussed in :doc:`Section 5 <Speed>` of the manual.
+See the :doc:`Accelerator packages <Speed_packages>` page for
+performance details of the speed-up offered by the *verlet/split*
+style.  One important performance consideration is the assignment of
+logical processors in the 2 partitions to the physical cores of a
+parallel machine.  The :doc:`processors <processors>` command has
+options to support this, and strategies are discussed in :doc:`Section
+5 <Speed>` of the manual.
 
 ----------
 
@@ -219,7 +221,7 @@ impropers, and dihedrals can be computed on this innermost 0.5 fs
 step.  The outermost timestep cannot be greater than 4.0 fs without
 risking energy drift.  Smooth switching of forces between the levels
 of the rRESPA hierarchy is also necessary to avoid drift, and a 1-2
-angstrom "healing distance" (the distance between the outer and inner
+Angstrom "healing distance" (the distance between the outer and inner
 cutoffs) works reasonably well.  We thus recommend the following
 settings for use of the *respa* style without SHAKE in biomolecular
 simulations:
@@ -275,7 +277,7 @@ Even a LJ system can benefit from rRESPA if the interactions are
 divided by the inner, middle and outer keywords.  A 2-fold or more
 speedup can be obtained while maintaining good energy conservation.
 In real units, for a pure LJ fluid at liquid density, with a sigma of
-3.0 angstroms, and epsilon of 0.1 Kcal/mol, the following settings
+3.0 Angstroms, and epsilon of 0.1 kcal/mol, the following settings
 seem to work well:
 
 .. code-block:: LAMMPS
@@ -295,10 +297,10 @@ except for round-off and precision issues.
 
 You can specify *respa/omp* explicitly in your input script, or you
 can use the :doc:`-suffix command-line switch <Run_options>` when you
-invoke LAMMPS, or you can use the :doc:`suffix <suffix>` command in your
-input script.
+invoke LAMMPS, or you can use the :doc:`suffix <suffix>` command in
+your input script.
 
-See the :doc:`Speed packages <Speed_packages>` doc page for more
+See the :doc:`Accelerator packages <Speed_packages>` page for more
 instructions on how to use the accelerated styles effectively.
 
 ----------
@@ -308,7 +310,8 @@ Restrictions
 
 The *verlet/split* style can only be used if LAMMPS was built with the
 REPLICA package. Correspondingly the *respa/omp* style is available
-only if the USER-OMP package was included. See the :doc:`Build package <Build_package>` doc page for more info.
+only if the OPENMP package was included. See the :doc:`Build package
+<Build_package>` page for more info.
 
 Whenever using rRESPA, the user should experiment with trade-offs in
 speed and accuracy for their system, and verify that they are

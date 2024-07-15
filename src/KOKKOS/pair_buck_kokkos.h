@@ -1,7 +1,7 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
-   Steve Plimpton, sjplimp@sandia.gov
+   https://www.lammps.org/, Sandia National Laboratories
+   LAMMPS development team: developers@lammps.org
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
@@ -12,13 +12,14 @@
 ------------------------------------------------------------------------- */
 
 #ifdef PAIR_CLASS
-
-PairStyle(buck/kk,PairBuckKokkos<LMPDeviceType>)
-PairStyle(buck/kk/device,PairBuckKokkos<LMPDeviceType>)
-PairStyle(buck/kk/host,PairBuckKokkos<LMPHostType>)
-
+// clang-format off
+PairStyle(buck/kk,PairBuckKokkos<LMPDeviceType>);
+PairStyle(buck/kk/device,PairBuckKokkos<LMPDeviceType>);
+PairStyle(buck/kk/host,PairBuckKokkos<LMPHostType>);
+// clang-format on
 #else
 
+// clang-format off
 #ifndef LMP_PAIR_BUCK_KOKKOS_H
 #define LMP_PAIR_BUCK_KOKKOS_H
 
@@ -36,12 +37,12 @@ class PairBuckKokkos : public PairBuck {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
   PairBuckKokkos(class LAMMPS *);
-  ~PairBuckKokkos();
+  ~PairBuckKokkos() override;
 
-  void compute(int, int);
+  void compute(int, int) override;
 
-  void init_style();
-  double init_one(int, int);
+  void init_style() override;
+  double init_one(int, int) override;
 
   struct params_buck{
     KOKKOS_INLINE_FUNCTION
@@ -52,8 +53,6 @@ class PairBuckKokkos : public PairBuck {
   };
 
  protected:
-  void cleanup_copy() {}
-
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
   F_FLOAT compute_fpair(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const;
@@ -64,10 +63,8 @@ class PairBuckKokkos : public PairBuck {
 
   template<bool STACKPARAMS, class Specialisation>
   KOKKOS_INLINE_FUNCTION
-  F_FLOAT compute_ecoul(const F_FLOAT& rsq, const int& i, const int&j, const int& itype, const int& jtype) const {
-    return 0;
-  }
-
+  F_FLOAT compute_ecoul(const F_FLOAT& /*rsq*/, const int& /*i*/, const int& /*j*/,
+                        const int& /*itype*/, const int& /*jtype*/) const { return 0; }
 
   Kokkos::DualView<params_buck**,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_buck**,Kokkos::LayoutRight,DeviceType>::t_dev_const_um params;
@@ -94,13 +91,13 @@ class PairBuckKokkos : public PairBuck {
   int neighflag;
   int nlocal,nall,eflag,vflag;
 
-  void allocate();
-  friend class PairComputeFunctor<PairBuckKokkos,FULL,true>;
-  friend class PairComputeFunctor<PairBuckKokkos,HALF,true>;
-  friend class PairComputeFunctor<PairBuckKokkos,HALFTHREAD,true>;
-  friend class PairComputeFunctor<PairBuckKokkos,FULL,false>;
-  friend class PairComputeFunctor<PairBuckKokkos,HALF,false>;
-  friend class PairComputeFunctor<PairBuckKokkos,HALFTHREAD,false>;
+  void allocate() override;
+  friend struct PairComputeFunctor<PairBuckKokkos,FULL,true>;
+  friend struct PairComputeFunctor<PairBuckKokkos,HALF,true>;
+  friend struct PairComputeFunctor<PairBuckKokkos,HALFTHREAD,true>;
+  friend struct PairComputeFunctor<PairBuckKokkos,FULL,false>;
+  friend struct PairComputeFunctor<PairBuckKokkos,HALF,false>;
+  friend struct PairComputeFunctor<PairBuckKokkos,HALFTHREAD,false>;
   friend EV_FLOAT pair_compute_neighlist<PairBuckKokkos,FULL,void>(PairBuckKokkos*,NeighListKokkos<DeviceType>*);
   friend EV_FLOAT pair_compute_neighlist<PairBuckKokkos,HALF,void>(PairBuckKokkos*,NeighListKokkos<DeviceType>*);
   friend EV_FLOAT pair_compute_neighlist<PairBuckKokkos,HALFTHREAD,void>(PairBuckKokkos*,NeighListKokkos<DeviceType>*);
@@ -113,14 +110,3 @@ class PairBuckKokkos : public PairBuck {
 #endif
 #endif
 
-/* ERROR/WARNING messages:
-
-E: Cannot use Kokkos pair style with rRESPA inner/middle
-
-Self-explanatory.
-
-E: Cannot use chosen neighbor list style with buck/kk
-
-That style is not supported by Kokkos.
-
-*/
